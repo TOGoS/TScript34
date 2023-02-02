@@ -1,0 +1,7 @@
+# Actually an op constructor, hence 'Op' instead of 'Ops'
+alias push-string http://ns.nuke24.net/TScript34/Op/PushString
+# Print to stdout, just like PostScripts 'print'
+alias print http://ns.nuke24.net/TScript34/Ops/Print
+
+push-string data:,Foo
+print
