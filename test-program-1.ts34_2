@@ -2,6 +2,14 @@
 alias push-string http://ns.nuke24.net/TScript34/Op/PushString
 # Print to stdout, just like PostScripts 'print'
 alias print http://ns.nuke24.net/TScript34/Ops/Print
+alias println http://ns.nuke24.net/TScript34/Ops/PrintLine
 
-push-string data:,Foo
+push-string data:,Print%20line!
+println
+
+push-string data:,Word.
+push-string data:,One%20
+push-string data:,Print%20
 print
+print
+println
