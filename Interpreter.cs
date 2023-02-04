@@ -4,9 +4,10 @@ using ArgumentException = System.ArgumentException;
 using Console = System.Console;
 using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
-using Object = System.Object;
-using Stack = System.Collections.Stack;
+using Int32 = System.Int32;
 using IStringList = System.Collections.Generic.IList<string>;
+using Object = System.Object;
+using Stack = System.Collections.Generic.List<object>;
 using StringList = System.Collections.Generic.List<string>;
 using StringSplitOptions = System.StringSplitOptions;
 using Uri = System.Uri;
@@ -18,6 +19,9 @@ namespace TOGoS.TScrpt34_2 {
 	interface OpConstructor {
 		Op Parse(IStringList args);
 	}
+
+	class Mark {}
+	
 	class AliasOp : Op {
 		string name;
 		string targetName;
@@ -41,9 +45,27 @@ namespace TOGoS.TScrpt34_2 {
 			return new AliasOp(args[0], args[1]);
 		}
 	}
-	class PushStringOp : Op {
-		string toPush;
-		public PushStringOp(string toPush) {
+	class CountToMarkOp : Op {
+		void Op.Do(Interpreter interp) {
+			interp.Push(interp.CountToMark());
+		}
+	}
+	class CreateArrayOp : Op {
+		void Op.Do(Interpreter interp) {
+			int length = (int)interp.Pop();
+			int stackOffset = interp.DataStack.Count - length;
+			if( stackOffset < 0 ) {
+				throw new Exception("Can't create array of "+length+" elements; only "+interp.DataStack.Count+" on stack!");
+			}
+			Stack arr = new Stack();
+			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
+			interp.DataStack.RemoveRange(stackOffset, length);
+			interp.Push(arr);
+		}
+	}
+	class PushOp : Op {
+		object toPush;
+		public PushOp(object toPush) {
 			this.toPush = toPush;
 		}
 		void Op.Do(Interpreter interp) {
@@ -63,7 +85,24 @@ namespace TOGoS.TScrpt34_2 {
 			if( args.Count != 1 ) {
 				throw new ArgumentException("'push-string' requires exactly one argument");
 			}
-			return new PushStringOp(resolve(args[0]));
+			return new PushOp(resolve(args[0]));
+		}
+	}
+	// TODO: Generic push value with datatype argument!
+	class PushInt32OpConstructor : OpConstructor {
+		int resolve(string uri) {
+			if( uri.StartsWith("data:,") ) {
+				return Int32.Parse(Uri.UnescapeDataString(uri.Substring(6)));
+			} else {
+				throw new ArgumentException("string argument not a data:,... URI: '"+uri+"'");
+			}
+		}
+		
+		Op OpConstructor.Parse(IStringList args) {
+			if( args.Count != 1 ) {
+				throw new ArgumentException("'push-string' requires exactly one argument");
+			}
+			return new PushOp(resolve(args[0]));
 		}
 	}
 	class PrintOp : Op {
@@ -77,25 +116,42 @@ namespace TOGoS.TScrpt34_2 {
 			System.Console.Write(postfix);
 		}
 	}
+
 	
 	class Interpreter {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 
 		public DefDict definitions = new DefDict();
-		protected Stack dataStack = new Stack();
+		public Stack DataStack = new Stack();
 
 		public Interpreter() {
 			definitions["alias"] = new AliasOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
+			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
+			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/CreateArray"] = new CreateArrayOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
+			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
 		}
 
 		public object Pop() {
-			return dataStack.Pop();
+			var index = DataStack.Count-1;
+			object value = DataStack[index];
+			DataStack.RemoveAt(index);
+			return value;
 		}
 		public void Push(object value) {
-			dataStack.Push(value);
+			DataStack.Add(value);
+		}
+		public int CountToMark() {
+			var count = 0;
+			for( var index = DataStack.Count - 1; index >= 0; --index, ++count ) {
+				if( DataStack[index] is Mark ) {
+					return count;
+				}
+			}
+			throw new Exception("No mark on stack!");			
 		}
 		
 		public void DoCommand(IStringList args) {

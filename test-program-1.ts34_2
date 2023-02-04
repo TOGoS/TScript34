@@ -1,8 +1,12 @@
 # Actually an op constructor, hence 'Op' instead of 'Ops'
 alias push-string http://ns.nuke24.net/TScript34/Op/PushString
+alias push-int32 http://ns.nuke24.net/TScript34/Op/PushInt32
 # Print to stdout, just like PostScripts 'print'
 alias print http://ns.nuke24.net/TScript34/Ops/Print
 alias println http://ns.nuke24.net/TScript34/Ops/PrintLine
+alias [ http://ns.nuke24.net/TScript34/Ops/PushMark
+alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
+alias array http://ns.nuke24.net/TScript34/Ops/CreateArray
 
 push-string data:,Print%20line!
 println
@@ -12,4 +16,12 @@ push-string data:,One%20
 push-string data:,Print%20
 print
 print
+println
+
+[
+push-int32 data:,123
+push-int32 data:,456
+counttomark
+array
+
 println
