@@ -53,16 +53,6 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(interp.CountToMark());
 		}
 	}
-
-	/** i.e. take all the strings in an array and concatenate them together */
-	class FlattenStringListOp : Op {
-		void Op.Do(Interpreter interp) {
-			IEnumerable<object> list = (IEnumerable<object>)interp.Pop();
-			StringBuilder sb = new StringBuilder();
-			foreach( var item in list ) sb.Append(item.ToString());
-			interp.Push(sb.ToString());
-		}
-	}
 	class CreateArrayOp : Op {
 		void Op.Do(Interpreter interp) {
 			int length = (int)interp.Pop();
@@ -76,6 +66,23 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(arr);
 		}
 	}
+	class DupOp : Op {
+		void Op.Do(Interpreter interp) {
+			if( interp.DataStack.Count < 1 ) throw new Exception("Can't dup; stack empty!");
+			interp.Push(interp.Peek());
+		}
+	}
+
+	/** i.e. take all the strings in an array and concatenate them together */
+	class FlattenStringListOp : Op {
+		void Op.Do(Interpreter interp) {
+			IEnumerable<object> list = (IEnumerable<object>)interp.Pop();
+			StringBuilder sb = new StringBuilder();
+			foreach( var item in list ) sb.Append(item.ToString());
+			interp.Push(sb.ToString());
+		}
+	}
+	
 	class PushOp : Op {
 		object toPush;
 		public PushOp(object toPush) {
@@ -143,12 +150,17 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CreateArray"] = new CreateArrayOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
 		}
 
+		public object Peek() {
+			if( DataStack.Count == 0 ) return null;
+			return DataStack[DataStack.Count - 1];
+		}
 		public object Pop() {
 			var index = DataStack.Count-1;
 			object value = DataStack[index];
