@@ -8,9 +8,12 @@ using Int32 = System.Int32;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
 using Stack = System.Collections.Generic.List<object>;
+using StringBuilder = System.Text.StringBuilder;
 using StringList = System.Collections.Generic.List<string>;
 using StringSplitOptions = System.StringSplitOptions;
 using Uri = System.Uri;
+
+using System.Collections.Generic;
 
 namespace TOGoS.TScrpt34_2 {
 	interface Op {
@@ -48,6 +51,16 @@ namespace TOGoS.TScrpt34_2 {
 	class CountToMarkOp : Op {
 		void Op.Do(Interpreter interp) {
 			interp.Push(interp.CountToMark());
+		}
+	}
+
+	/** i.e. take all the strings in an array and concatenate them together */
+	class FlattenStringListOp : Op {
+		void Op.Do(Interpreter interp) {
+			IEnumerable<object> list = (IEnumerable<object>)interp.Pop();
+			StringBuilder sb = new StringBuilder();
+			foreach( var item in list ) sb.Append(item.ToString());
+			interp.Push(sb.ToString());
 		}
 	}
 	class CreateArrayOp : Op {
@@ -130,6 +143,7 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CreateArray"] = new CreateArrayOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
