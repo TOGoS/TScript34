@@ -4,6 +4,7 @@ alias push-int32 http://ns.nuke24.net/TScript34/Op/PushInt32
 alias array http://ns.nuke24.net/TScript34/Ops/CreateArray
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
+alias fetch-uri http://ns.nuke24.net/TScript34/Ops/FetchUri
 # Print to stdout, just like PostScripts 'print'
 alias print http://ns.nuke24.net/TScript34/Ops/Print
 alias println http://ns.nuke24.net/TScript34/Ops/PrintLine
@@ -30,11 +31,19 @@ println
 push-string data:,Okay%20that%20was%20cool.
 println
 
+push-string data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
+# push-string data:,http://www.nuke24.net/
+
+dup
 push-string data:,Now%20let's%20download%20
 print
-push-string data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
-dup
 println
+
 push-string data:,Again,%20that's%20
 print
+
+dup
+println
+
+fetch-uri
 println

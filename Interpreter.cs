@@ -4,6 +4,7 @@ using ArgumentException = System.ArgumentException;
 using Console = System.Console;
 using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
+using HttpClient = System.Net.Http.HttpClient;
 using Int32 = System.Int32;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
@@ -24,6 +25,50 @@ namespace TOGoS.TScrpt34_2 {
 	}
 
 	class Mark {}
+
+	interface IUriResolver {
+		object Resolve(string uri);
+	}
+
+	class AUriResolver : IUriResolver {
+		object IUriResolver.Resolve(string uri) {
+			using (HttpClient client = new HttpClient()) {
+				// For now just strings
+				string s = client.GetStringAsync(uri).Result;
+				return s;
+			}
+		}
+	}
+
+	class UriResource {
+		public readonly string Uri;
+		IUriResolver resolver;
+		#nullable enable
+		object? cachedValue;
+		
+		public UriResource(string uri, IUriResolver resolver) {
+			this.Uri = uri;
+			this.resolver = resolver;
+		}
+
+		public object Get() {
+			if( this.cachedValue == null ) {
+				this.cachedValue = this.resolver.Resolve(this.Uri);
+			}
+			return this.cachedValue;
+		}
+		
+		public string ToUriString() {
+			return "<"+this.Uri+">";
+		}
+		public string ToContentString() {
+			return this.Get().ToString();
+		}
+		public override string ToString() {
+			return this.ToContentString();
+		}
+		#nullable disable
+	}
 	
 	class AliasOp : Op {
 		string name;
@@ -72,7 +117,12 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(interp.Peek());
 		}
 	}
-
+	class FetchUriOp : Op {
+		void Op.Do(Interpreter interp) {
+			string uri = (string)interp.Pop();
+			interp.Push(new UriResource(uri, interp.UriResolver));
+		}
+	}
 	/** i.e. take all the strings in an array and concatenate them together */
 	class FlattenStringListOp : Op {
 		void Op.Do(Interpreter interp) {
@@ -137,12 +187,12 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
-	
 	class Interpreter {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 
 		public DefDict definitions = new DefDict();
 		public Stack DataStack = new Stack();
+		public readonly AUriResolver UriResolver = new AUriResolver();
 
 		public Interpreter() {
 			definitions["alias"] = new AliasOpConstructor();
@@ -151,6 +201,7 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CreateArray"] = new CreateArrayOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
@@ -206,7 +257,11 @@ namespace TOGoS.TScrpt34_2 {
 			DoCommand(parts);
 		}
 		
+
+
 		public static void Main(string[] args) {
+			NoCheckCertificatePolicy.Init();
+
 			string line;
 			Interpreter interp = new Interpreter();
 			while( (line = Console.ReadLine()) != null ) {
