@@ -1,0 +1,45 @@
+#+TITLE: TScript34
+
+** Sub-projects
+
+- [[./P0001/][P0001]] :: Java...tokenizer, thing
+- [[./P0002][P0002]] :: C# even-more-simplified interpreter
+
+** Language
+
+I should probably specify it, huh?
+With test cases and stuff.
+
+Well, maybe for now it's enough to say that the language
+is intended to be compatible with PostScript.
+i.e. a program that is valid in either PostScript or in TScript34
+should mean the same thing and have the same result in either.
+That said, some PostScript programs might not be valid TScript34 programs,
+and vice-versa.
+
+** FAQ
+
+*** What the %!&*@ is this?
+
+A small PostScript-based language specification along with a few implementations.
+
+The goal is to have a very easy-to-implement cross-platform core
+that can bootstrap nicer languages (e.g. scheme, more fleshed-out PostScript, etc).
+
+*** Why PostScript and not Forth, Scheme, TCL ...
+
+Being a concatenative stack-based language means very little 'parsing'
+is needed; tokens are tokenized and fed directly to the interpreter.
+
+Feel free to implement higher-level languages using TScript34.
+Actually that's kind of its purpose.
+
+PostScript seems like a more elegant language than Forth, with '{ procedures }'
+as first-class objects, somewhat more conventional operation names,
+symmetrical string syntax '(foo)' instead of '" foo"', and fewer assumptions
+that it is running very close to the metal.
+
+*** Why not use WebAssembly?
+
+Uthgmsagrumbleidk maybe that would be a good idea?  But it would probably be slightly less 'minimal'
+than what I'm going for, here.
