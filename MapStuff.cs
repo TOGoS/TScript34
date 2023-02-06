@@ -45,6 +45,9 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 	class Decoder<Pos,Dat> {
 		public IList<PointInfo<Pos,Dat>> Decode(string json) {
 			var jser = new System.Web.Script.Serialization.JavaScriptSerializer();
+			// TODO: Something like this;
+			// https://learn.microsoft.com/en-us/dotnet/api/system.web.script.serialization.javascriptserializer.registerconverters?view=netframework-4.8.1
+			// jser.RegisterConverters(new JavaScriptConverter[] {});
 			return jser.Deserialize<List<PointInfo<Pos,Dat>>>(json);
 		}
 	}
