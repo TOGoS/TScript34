@@ -43,3 +43,7 @@ that it is running very close to the metal.
 
 Uthgmsagrumbleidk maybe that would be a good idea?  But it would probably be slightly less 'minimal'
 than what I'm going for, here.
+
+TODO: Read https://www.javaadvent.com/2022/12/webassembly-for-the-java-geek.html
+
+It is compelling.
