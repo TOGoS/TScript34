@@ -1,5 +1,5 @@
 Interpreter.exe: Interpreter.cs
-	csc /r:System.Net.Http.dll Interpreter.cs NoCheckCertificatePolicy.cs
+	csc /r:System.Net.Http.dll Interpreter.cs MapStuff.cs NoCheckCertificatePolicy.cs
 
 .PHONY: test
 test: Interpreter.exe
