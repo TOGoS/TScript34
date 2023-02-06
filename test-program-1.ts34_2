@@ -46,4 +46,6 @@ dup
 println
 
 fetch-uri
+http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodeVegLatLong
+
 println

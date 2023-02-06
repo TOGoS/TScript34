@@ -16,6 +16,8 @@ using Uri = System.Uri;
 
 using System.Collections.Generic;
 
+using TOGoS.TScrpt34_2.MapStuff;
+
 namespace TOGoS.TScrpt34_2 {
 	interface Op {
 		void Do(Interpreter interp);
@@ -182,10 +184,35 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		void Op.Do(Interpreter interp) {
 			var value = interp.Pop();
-			System.Console.Write(value);
+			if( value is IList<PointInfo<LatLongPosition,VegData>> ) {
+				System.Console.Write("[");
+				foreach( var item in (IList<PointInfo<LatLongPosition,VegData>>)value ) {
+					System.Console.Write(" ");
+					System.Console.Write(item);
+				}
+				System.Console.Write("]");
+			} else {
+				System.Console.Write(value);
+			}
 			System.Console.Write(postfix);
 		}
 	}
+
+	#region Map Ops
+	// These should not be in Interpreter.cs
+
+	/**
+	 * Pops JSON (or something that ToString()s to JSON
+	 * And returns a pointinfo list of lat/long to vegdata
+	*/
+	class DecodeVegLatLongOp : Op {
+		void Op.Do(Interpreter interp) {
+			string json = interp.Pop().ToString();
+			var pointList = new MapStuff.Decoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
+			interp.Push(pointList);
+		}
+	}
+	#endregion
 
 	class Interpreter {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
@@ -206,6 +233,8 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
+
+			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodeVegLatLong"] = new DecodeVegLatLongOp();
 		}
 
 		public object Peek() {

@@ -9,6 +9,9 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 			this.Position = position;
 			this.Data = data;
 		}
+		public override string ToString() {
+			return "PointInfo { "+Position+", "+Data+"}";
+		}
 	}
 	readonly struct LatLongPosition {
 		readonly double Latitude;
@@ -16,6 +19,9 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 		public LatLongPosition(double lat, double longit) {
 			this.Latitude = lat;
 			this.Longitude = longit;
+		}
+		public override string ToString() {
+			return "latitude: "+Latitude+", longitude: "+Longitude;
 		}
 	}
 	readonly struct XYPosition {
@@ -31,13 +37,15 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 		public VegData(string kindName) {
 			this.KindName = kindName;
 		}
+		public override string ToString() {
+			return "kind: "+KindName;
+		}
 	}
-
+	
 	class Decoder<Pos,Dat> {
-		IList<PointInfo<Pos,Dat>> Parse(string json) {
-			var jser = new System.Web.Script.Serialization.JavaScriptSerializer();//<List<PointInfo<LatLongPosition,VegData>>>(json);
-			// TODO: Read https://learn.microsoft.com/en-us/dotnet/api/system.web.script.serialization.javascriptserializer.deserialize
-			throw new Exception("Not yet jajaja");
+		public IList<PointInfo<Pos,Dat>> Decode(string json) {
+			var jser = new System.Web.Script.Serialization.JavaScriptSerializer();
+			return jser.Deserialize<List<PointInfo<Pos,Dat>>>(json);
 		}
 	}
 }
