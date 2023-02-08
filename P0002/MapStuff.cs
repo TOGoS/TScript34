@@ -47,19 +47,32 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 		}
 	}
 	
-	class LatLongVegJsConverter : JavaScriptConverter {
+	class PointInfoConverter<Pos,Dat> : JavaScriptConverter {
 		public override IEnumerable<Type> SupportedTypes {
 			//Define the ListItemCollection as a supported type.
 			get { return new ReadOnlyCollection<Type>(new List<Type>(new Type[] { typeof(PointInfo<LatLongPosition,VegData>) })); }
 		}
 		
+		protected Pos DerserializePos(IDictionary<string, object> dictionary, JavaScriptSerializer serializer) {
+			if( typeof(Pos) == typeof(LatLongPosition) ) {
+				return (Pos) (object) new LatLongPosition(
+					serializer.ConvertToType<double>(dictionary["latitude"]),
+					serializer.ConvertToType<double>(dictionary["longitude"])
+				);
+			} else if( typeof(Pos) == typeof(XYPosition) ) {
+				return (Pos) (object) new XYPosition(
+					serializer.ConvertToType<double>(dictionary["x"]),
+					serializer.ConvertToType<double>(dictionary["y"])
+				);
+			} else {
+				throw new Exception("Unsupported position type cannot be deserialized: "+typeof(Pos));
+			}
+		}
+
 		public override object Deserialize(IDictionary<string, object> dictionary, Type type, JavaScriptSerializer serializer) {
 			if (type == typeof(PointInfo<LatLongPosition,VegData>)) {
-				return new PointInfo<LatLongPosition,VegData>(
-					new LatLongPosition(
-						serializer.ConvertToType<double>(dictionary["latitude"]),
-						serializer.ConvertToType<double>(dictionary["longitude"])
-					),
+				return new PointInfo<Pos,VegData>(
+					DerserializePos(dictionary, serializer),
 					new VegData(serializer.ConvertToType<string>(dictionary["kind"]))
 				);
 			}	
@@ -77,7 +90,7 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 			// TODO: Something like this;
 			// https://learn.microsoft.com/en-us/dotnet/api/system.web.script.serialization.javascriptserializer.registerconverters?view=netframework-4.8.1
 			jser.RegisterConverters(new JavaScriptConverter[] {
-				new LatLongVegJsConverter()
+				new PointInfoConverter<Pos,Dat>()
 			});
 			return jser.Deserialize<List<PointInfo<Pos,Dat>>>(json);
 		}
