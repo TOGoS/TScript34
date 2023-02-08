@@ -1,5 +1,10 @@
-using Exception = System.Exception;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+
+using Exception = System.Exception;
+using JavaScriptConverter = System.Web.Script.Serialization.JavaScriptConverter;
+using JavaScriptSerializer = System.Web.Script.Serialization.JavaScriptSerializer;
+using Type = System.Type;
 
 namespace TOGoS.TScrpt34_2.MapStuff {
 	readonly struct PointInfo<Pos,Dat> {
@@ -10,7 +15,7 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 			this.Data = data;
 		}
 		public override string ToString() {
-			return "PointInfo { "+Position+", "+Data+"}";
+			return "PointInfo{ "+Position+", "+Data+"}";
 		}
 	}
 	readonly struct LatLongPosition {
@@ -42,12 +47,38 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 		}
 	}
 	
+	class LatLongVegJsConverter : JavaScriptConverter {
+		public override IEnumerable<Type> SupportedTypes {
+			//Define the ListItemCollection as a supported type.
+			get { return new ReadOnlyCollection<Type>(new List<Type>(new Type[] { typeof(PointInfo<LatLongPosition,VegData>) })); }
+		}
+		
+		public override object Deserialize(IDictionary<string, object> dictionary, Type type, JavaScriptSerializer serializer) {
+			if (type == typeof(PointInfo<LatLongPosition,VegData>)) {
+				return new PointInfo<LatLongPosition,VegData>(
+					new LatLongPosition(
+						serializer.ConvertToType<double>(dictionary["latitude"]),
+						serializer.ConvertToType<double>(dictionary["longitude"])
+					),
+					new VegData(serializer.ConvertToType<string>(dictionary["kind"]))
+				);
+			}	
+			return null;
+		}
+		
+		public override IDictionary<string,object> Serialize(object obj, JavaScriptSerializer serializer) {
+			throw new Exception("boo");
+		}
+	}
+	
 	class Decoder<Pos,Dat> {
 		public IList<PointInfo<Pos,Dat>> Decode(string json) {
-			var jser = new System.Web.Script.Serialization.JavaScriptSerializer();
+			var jser = new JavaScriptSerializer();
 			// TODO: Something like this;
 			// https://learn.microsoft.com/en-us/dotnet/api/system.web.script.serialization.javascriptserializer.registerconverters?view=netframework-4.8.1
-			// jser.RegisterConverters(new JavaScriptConverter[] {});
+			jser.RegisterConverters(new JavaScriptConverter[] {
+				new LatLongVegJsConverter()
+			});
 			return jser.Deserialize<List<PointInfo<Pos,Dat>>>(json);
 		}
 	}

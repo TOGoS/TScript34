@@ -1,5 +1,7 @@
-Interpreter.exe: Interpreter.cs
-	csc /r:System.Net.Http.dll Interpreter.cs MapStuff.cs NoCheckCertificatePolicy.cs
+cs_source_files = Interpreter.cs MapStuff.cs NoCheckCertificatePolicy.cs
+
+Interpreter.exe: ${cs_source_files}
+	csc /r:System.Net.Http.dll ${cs_source_files}
 
 .PHONY: test
 test: Interpreter.exe
