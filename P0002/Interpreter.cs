@@ -4,7 +4,9 @@ using ArgumentException = System.ArgumentException;
 using Console = System.Console;
 using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
+using Float64 = System.Double;
 using HttpClient = System.Net.Http.HttpClient;
+using IEnumerable = System.Collections.IEnumerable;
 using Int32 = System.Int32;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
@@ -14,7 +16,7 @@ using StringList = System.Collections.Generic.List<string>;
 using StringSplitOptions = System.StringSplitOptions;
 using Uri = System.Uri;
 
-using System.Collections.Generic;
+using SCG = System.Collections.Generic;
 
 using TOGoS.TScrpt34_2.MapStuff;
 
@@ -128,7 +130,7 @@ namespace TOGoS.TScrpt34_2 {
 	/** i.e. take all the strings in an array and concatenate them together */
 	class FlattenStringListOp : Op {
 		void Op.Do(Interpreter interp) {
-			IEnumerable<object> list = (IEnumerable<object>)interp.Pop();
+			IEnumerable list = (IEnumerable)interp.Pop();
 			StringBuilder sb = new StringBuilder();
 			foreach( var item in list ) sb.Append(item.ToString());
 			interp.Push(sb.ToString());
@@ -144,39 +146,45 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(toPush);
 		}
 	}
-	class PushStringOpConstructor : OpConstructor {
-		string resolve(string uri) {
+
+	class UriResolver {
+		public object Resolve(string uri) {
 			if( uri.StartsWith("data:,") ) {
 				return Uri.UnescapeDataString(uri.Substring(6));
 			} else {
 				throw new ArgumentException("string argument not a data:,... URI: '"+uri+"'");
 			}
 		}
-		
-		Op OpConstructor.Parse(IStringList args) {
-			if( args.Count != 1 ) {
-				throw new ArgumentException("'push-string' requires exactly one argument");
-			}
-			return new PushOp(resolve(args[0]));
-		}
+
+		public static UriResolver Instance = new UriResolver();
 	}
+	
 	// TODO: Generic push value with datatype argument!
-	class PushInt32OpConstructor : OpConstructor {
-		int resolve(string uri) {
-			if( uri.StartsWith("data:,") ) {
-				return Int32.Parse(Uri.UnescapeDataString(uri.Substring(6)));
-			} else {
-				throw new ArgumentException("string argument not a data:,... URI: '"+uri+"'");
-			}
-		}
-		
+	class PushStringOpConstructor : OpConstructor {		
 		Op OpConstructor.Parse(IStringList args) {
 			if( args.Count != 1 ) {
 				throw new ArgumentException("'push-string' requires exactly one argument");
 			}
-			return new PushOp(resolve(args[0]));
+			return new PushOp(UriResolver.Instance.Resolve(args[0]).ToString());
 		}
 	}
+	class PushFloat64OpConstructor : OpConstructor {
+		Op OpConstructor.Parse(IStringList args) {
+			if( args.Count != 1 ) {
+				throw new ArgumentException("'push-string' requires exactly one argument");
+			}
+			return new PushOp(Float64.Parse(UriResolver.Instance.Resolve(args[0]).ToString()));
+		}
+	}
+	class PushInt32OpConstructor : OpConstructor {
+		Op OpConstructor.Parse(IStringList args) {
+			if( args.Count != 1 ) {
+				throw new ArgumentException("'push-string' requires exactly one argument");
+			}
+			return new PushOp(UriResolver.Instance.Resolve(args[0]).ToString());
+		}
+	}
+
 	class PrintOp : Op {
 		string postfix;
 		public PrintOp(string postfix="") {
@@ -184,9 +192,11 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		void Op.Do(Interpreter interp) {
 			var value = interp.Pop();
-			if( value is IList<PointInfo<LatLongPosition,VegData>> ) {
+			if( value is string ) {
+				System.Console.Write(value);
+			} else if( value is IEnumerable ) {
 				System.Console.Write("[");
-				foreach( var item in (IList<PointInfo<LatLongPosition,VegData>>)value ) {
+				foreach( var item in (IEnumerable)value ) {
 					System.Console.Write(" ");
 					System.Console.Write(item);
 				}
@@ -202,14 +212,37 @@ namespace TOGoS.TScrpt34_2 {
 	// These should not be in Interpreter.cs
 
 	/**
-	 * Pops JSON (or something that ToString()s to JSON
-	 * And returns a pointinfo list of lat/long to vegdata
+	 * json -- List<PointInfo<?>>
 	*/
-	class DecodeVegLatLongOp : Op {
+	class DecodePointListOp : Op {
 		void Op.Do(Interpreter interp) {
 			string json = interp.Pop().ToString();
-			var pointList = new MapStuff.Decoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
+			var pointList = new MapStuff.JsonDecoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
 			interp.Push(pointList);
+		}
+	}
+	
+	/**
+	 * List<PointInfo<LatLongPosition,?>> centerlat centerlong diameter -- List<PointInfo<XYPosition,?>>
+	 * lat/long are in degrees
+	 */
+	class LatLongToXYPointListOp : Op {
+		void Op.Do(Interpreter interp) {
+			double diameter = (double)interp.Pop();
+			double centerLong = (double)interp.Pop();
+			double centerLat = (double)interp.Pop();
+			IEnumerable inputList = (IEnumerable)interp.Pop();
+			// TODO: Should be Dat-agnostic!  How to do that?
+			SCG.List<PointInfo<XYPosition,VegData>> outputList = new SCG.List<PointInfo<XYPosition,VegData>>();
+			PointInfoConverter<LatLongPosition,XYPosition,VegData> plc =
+				new PointInfoConverter<LatLongPosition,XYPosition,VegData>(
+					new LatLongToXYConverter(diameter, new LatLongPosition(centerLong,centerLat)).LatLongToXY
+				);
+			foreach( object item in inputList ) {
+				PointInfo<LatLongPosition,VegData> point = (PointInfo<LatLongPosition,VegData>)item;
+				outputList.Add(plc.ConvertPointPosition(point));
+			}
+			interp.Push(outputList);
 		}
 	}
 	#endregion
@@ -225,6 +258,7 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["alias"] = new AliasOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
+			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CreateArray"] = new CreateArrayOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
@@ -233,8 +267,10 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
-
-			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodeVegLatLong"] = new DecodeVegLatLongOp();
+			
+			// Map stuff
+			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
+			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList"] = new LatLongToXYPointListOp();
 		}
 
 		public object Peek() {

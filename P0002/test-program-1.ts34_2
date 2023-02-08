@@ -1,6 +1,7 @@
 # Actually an op constructor, hence 'Op' instead of 'Ops'
 alias push-string http://ns.nuke24.net/TScript34/Op/PushString
 alias push-int32 http://ns.nuke24.net/TScript34/Op/PushInt32
+alias push-float64 http://ns.nuke24.net/TScript34/Op/PushFloat64
 alias array http://ns.nuke24.net/TScript34/Ops/CreateArray
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
@@ -46,6 +47,14 @@ dup
 println
 
 fetch-uri
-http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodeVegLatLong
+http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList
 
+push-string data:,Converting%20from%20lat/long%20to%20x/y...
+println
+
+
+push-float64 data:,-79.80120989049429
+push-float64 data:,40.46692825268929
+push-float64 data:,6365000
+http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList
 println
