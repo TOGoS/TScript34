@@ -103,21 +103,25 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 	class LatLongToXYConverter {
 		protected double PlanetRadius;
 		protected LatLongPosition center;
+		protected double distanceFromAxis, longScale, latScale;
 		public LatLongToXYConverter(double planetRadius, LatLongPosition center) {
 			this.PlanetRadius = planetRadius;
 			this.center = center;
+			// Given a latitude, make up a cylinder so that positions close to 0,0 are in the right direction-ish.
+			// Will get screwy as you cos(latitude) approaches zero.
+			this.distanceFromAxis = PlanetRadius * Math.Cos(center.Latitude * Math.PI / 180);
+			this.longScale = distanceFromAxis * Math.PI / 180; // Size of one degree E/W, in xy units, at center
+			this.latScale = PlanetRadius * Math.PI / 180; // Size of one degree N/S, in xy units, at center
 		}
 		
 		public LatLongPosition XYToLatLong(XYPosition xyPos) {
-			throw new Exception("XYToLatLong not implemented");
+			return new LatLongPosition(
+				center.Longitude + xyPos.X/longScale,
+				center.Latitude + xyPos.Y/latScale
+			);
 		}
 		
 		public XYPosition LatLongToXY(LatLongPosition latLong) {
-			// Given a latitude, make up a cylinder so that positions close to 0,0 are in the right direction-ish.
-			// Will get screwy as you cos(latitude) approaches zero.
-			double distanceFromAxis = PlanetRadius * Math.Cos(center.Latitude * Math.PI / 180);
-			double longScale = distanceFromAxis * Math.PI / 180; // Size of one degree E/W, in xy units, at center
-			double latScale = PlanetRadius * Math.PI / 180; // Size of one degree N/S, in xy units, at center
 			return new XYPosition(
 				(latLong.Longitude - center.Longitude) * longScale,
 				(latLong.Latitude - center.Latitude) * latScale
