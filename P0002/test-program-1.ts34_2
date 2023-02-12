@@ -2,14 +2,16 @@
 alias push-string http://ns.nuke24.net/TScript34/Op/PushString
 alias push-int32 http://ns.nuke24.net/TScript34/Op/PushInt32
 alias push-float64 http://ns.nuke24.net/TScript34/Op/PushFloat64
-alias array http://ns.nuke24.net/TScript34/Ops/CreateArray
+alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
 alias fetch-uri http://ns.nuke24.net/TScript34/Ops/FetchUri
+alias get http://ns.nuke24.net/TScript34/Ops/GetElement
 # Print to stdout, just like PostScripts 'print'
 alias print http://ns.nuke24.net/TScript34/Ops/Print
 alias println http://ns.nuke24.net/TScript34/Ops/PrintLine
 alias [ http://ns.nuke24.net/TScript34/Ops/PushMark
+alias quit http://ns.nuke24.net/TScript34/Ops/Quit
 
 push-string data:,Print%20line!
 println
@@ -25,12 +27,25 @@ println
 push-int32 data:,123
 push-int32 data:,456
 counttomark
-array
+array-from-stack
 http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
 println
 
 push-string data:,Okay%20that%20was%20cool.
 println
+
+
+# [ (Foo) (Bar) ] 1 get =
+[
+push-string data:,Foo
+push-string data:,Bar
+counttomark
+array-from-stack
+push-int32 data:,1
+get
+println
+
+quit
 
 push-string data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
 # push-string data:,http://www.nuke24.net/

@@ -8,6 +8,7 @@ using Float64 = System.Double;
 using HttpClient = System.Net.Http.HttpClient;
 using IEnumerable = System.Collections.IEnumerable;
 using Int32 = System.Int32;
+using IList = System.Collections.IList;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
 using Stack = System.Collections.Generic.List<object>;
@@ -27,9 +28,23 @@ namespace TOGoS.TScrpt34_2 {
 	interface OpConstructor {
 		Op Parse(IStringList args);
 	}
-
+	class Procedure : Op {
+		SCG.IList<Op> Operations;
+		public Procedure(SCG.IList<Op> ops) {
+			this.Operations = ops;
+		}
+		void Op.Do(Interpreter interp) {
+			foreach(Op op in this.Operations) {
+				// Maybe some way to return idk
+				op.Do(interp);
+			}
+		}
+	}
+	
+	class QuitException : Exception {}
+	
 	class Mark {}
-
+	
 	interface IUriResolver {
 		object Resolve(string uri);
 	}
@@ -102,7 +117,9 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(interp.CountToMark());
 		}
 	}
-	class CreateArrayOp : Op {
+
+	/** (item1 item2 ... itemN n ArrayFromStack -- array) */
+	class ArrayFromStackOp : Op {
 		void Op.Do(Interpreter interp) {
 			int length = (int)interp.Pop();
 			int stackOffset = interp.DataStack.Count - length;
@@ -113,6 +130,25 @@ namespace TOGoS.TScrpt34_2 {
 			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
 			interp.DataStack.RemoveRange(stackOffset, length);
 			interp.Push(arr);
+		}
+	}
+	class DictFromStackOp : Op {
+		void Op.Do(Interpreter interp) {
+			int length = (int)interp.Pop();
+			if( (length & 1) != 0 ) {
+				throw new Exception("DictFromStackOp requires an even number of stack elements; "+length+" were indicated");
+			}
+			int stackOffset = interp.DataStack.Count - length;
+			if( stackOffset < 0 ) {
+				throw new Exception("Can't create array of "+length+" elements; only "+interp.DataStack.Count+" on stack!");
+			}
+			System.Collections.Generic.Dictionary<object,object> dict = new System.Collections.Generic.Dictionary<object,object>();
+			for( int i=stackOffset; i<interp.DataStack.Count; i += 2 ) {
+				// TODO: Translate strings to name objects as per postscript spec
+				dict[interp.DataStack[i]] = interp.DataStack[i+1];
+			}
+			interp.DataStack.RemoveRange(stackOffset, length);
+			interp.Push(dict);
 		}
 	}
 	class DupOp : Op {
@@ -134,6 +170,35 @@ namespace TOGoS.TScrpt34_2 {
 			StringBuilder sb = new StringBuilder();
 			foreach( var item in list ) sb.Append(item.ToString());
 			interp.Push(sb.ToString());
+		}
+	}
+
+	/** Equivalent to postscript's forall (list proc -- ...) */
+	class ForEachOp : Op {
+		void Op.Do(Interpreter interp) {
+			Op proc = (Op)interp.Pop();
+			IEnumerable list = (IEnumerable)interp.Pop();
+			foreach( object item in list ) {
+				interp.Push(item);
+				proc.Do(interp);
+			}
+		}
+	}
+
+	/**
+	 * Equivalent to postscripts 'get' (collection key -- value)
+	*/
+	class GetElementOp : Op {
+		void Op.Do(Interpreter interp) {
+			object key = interp.Pop();
+			object collection = interp.Pop();
+			if( collection is SCG.IDictionary<string,object> ) {
+				interp.Push( ((SCG.IDictionary<object,object>)collection)[key]);
+			} else if( collection is IList ) {
+				interp.Push( ((IList)collection)[(Int32)key] );
+			} else {
+				throw new Exception("Don't know how to get element of "+collection.GetType());
+			}
 		}
 	}
 	
@@ -181,7 +246,7 @@ namespace TOGoS.TScrpt34_2 {
 			if( args.Count != 1 ) {
 				throw new ArgumentException("'push-string' requires exactly one argument");
 			}
-			return new PushOp(UriResolver.Instance.Resolve(args[0]).ToString());
+			return new PushOp(Int32.Parse(UriResolver.Instance.Resolve(args[0]).ToString()));
 		}
 	}
 
@@ -219,6 +284,12 @@ namespace TOGoS.TScrpt34_2 {
 			string json = interp.Pop().ToString();
 			var pointList = new MapStuff.JsonDecoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
 			interp.Push(pointList);
+		}
+	}
+
+	class QuitOp : Op {
+		void Op.Do(Interpreter interp) {
+			throw new QuitException();
 		}
 	}
 	
@@ -260,13 +331,16 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/CreateArray"] = new CreateArrayOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
+			definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
 			
 			// Map stuff
 			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
@@ -314,7 +388,7 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 		
-		public void HandleLine(string line) {
+		public void HandleLine(string line, int lineNumber) {
 			line = line.Trim();
 			if( line.Length == 0 ) return;
 			if( line[0] == '#' ) return;
@@ -322,15 +396,18 @@ namespace TOGoS.TScrpt34_2 {
 			DoCommand(parts);
 		}
 		
-
-
 		public static void Main(string[] args) {
 			NoCheckCertificatePolicy.Init();
 
+			int lineNumber = 1;
 			string line;
 			Interpreter interp = new Interpreter();
-			while( (line = Console.ReadLine()) != null ) {
-				interp.HandleLine(line);
+			try {
+				while( (line = Console.ReadLine()) != null ) {
+					interp.HandleLine(line, lineNumber);
+					++lineNumber;
+				}
+			} catch( QuitException e ) {
 			}
 		}
 	}
