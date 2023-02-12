@@ -26,7 +26,7 @@ namespace TOGoS.TScrpt34_2 {
 		void Do(Interpreter interp);
 	}
 	interface OpConstructor {
-		Op Parse(IStringList args);
+		Op Parse(IStringList args, IUriResolver resolver);
 	}
 	class Procedure : Op {
 		SCG.IList<Op> Operations;
@@ -51,10 +51,14 @@ namespace TOGoS.TScrpt34_2 {
 
 	class AUriResolver : IUriResolver {
 		object IUriResolver.Resolve(string uri) {
-			using (HttpClient client = new HttpClient()) {
-				// For now just strings
-				string s = client.GetStringAsync(uri).Result;
-				return s;
+			if( uri.StartsWith("data:,") ) {
+				return Uri.UnescapeDataString(uri.Substring(6));
+			} else {
+				using (HttpClient client = new HttpClient()) {
+					// For now just strings
+					string s = client.GetStringAsync(uri).Result;
+					return s;
+				}
 			}
 		}
 	}
@@ -105,7 +109,7 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	class AliasOpConstructor : OpConstructor {
-		Op OpConstructor.Parse(IStringList args) {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count != 2 ) {
 				throw new ArgumentException("'alias' requires exactly two arguments; new name and name of value to be aliased");
 			}
@@ -160,7 +164,7 @@ namespace TOGoS.TScrpt34_2 {
 	class FetchUriOp : Op {
 		void Op.Do(Interpreter interp) {
 			string uri = (string)interp.Pop();
-			interp.Push(new UriResource(uri, interp.UriResolver));
+			interp.Push(new UriResource(uri, interp));
 		}
 	}
 	/** i.e. take all the strings in an array and concatenate them together */
@@ -211,42 +215,50 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(toPush);
 		}
 	}
-
-	class UriResolver {
-		public object Resolve(string uri) {
-			if( uri.StartsWith("data:,") ) {
-				return Uri.UnescapeDataString(uri.Substring(6));
+	
+	class PushValueOpConstructor : OpConstructor {
+		object Decode(object lexical, string datatype) {
+			if( datatype == "http://www.w3.org/2001/XMLSchema#decimal" ) {
+				return Float64.Parse(lexical.ToString());
 			} else {
-				throw new ArgumentException("string argument not a data:,... URI: '"+uri+"'");
+				throw new Exception("Unknown datatype: "+datatype);
 			}
 		}
 
-		public static UriResolver Instance = new UriResolver();
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+			if( args.Count < 1 ) {
+				throw new ArgumentException("'push-value' expects one or more arguments (value, encoding1, encoding2...)");
+			}
+			object value = resolver.Resolve(args[0]);
+			for( int i=1; i<args.Count; ++i ) {
+				// Apply lexical-to-value mapping of each encoding ('datatype')
+				value = this.Decode(value, args[i]);
+			}
+			return new PushOp(value);
+		}
 	}
-	
-	// TODO: Generic push value with datatype argument!
 	class PushStringOpConstructor : OpConstructor {		
-		Op OpConstructor.Parse(IStringList args) {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count != 1 ) {
 				throw new ArgumentException("'push-string' requires exactly one argument");
 			}
-			return new PushOp(UriResolver.Instance.Resolve(args[0]).ToString());
+			return new PushOp(resolver.Resolve(args[0]).ToString());
 		}
 	}
 	class PushFloat64OpConstructor : OpConstructor {
-		Op OpConstructor.Parse(IStringList args) {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count != 1 ) {
 				throw new ArgumentException("'push-string' requires exactly one argument");
 			}
-			return new PushOp(Float64.Parse(UriResolver.Instance.Resolve(args[0]).ToString()));
+			return new PushOp(Float64.Parse(resolver.Resolve(args[0]).ToString()));
 		}
 	}
 	class PushInt32OpConstructor : OpConstructor {
-		Op OpConstructor.Parse(IStringList args) {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count != 1 ) {
 				throw new ArgumentException("'push-string' requires exactly one argument");
 			}
-			return new PushOp(Int32.Parse(UriResolver.Instance.Resolve(args[0]).ToString()));
+			return new PushOp(Int32.Parse(resolver.Resolve(args[0]).ToString()));
 		}
 	}
 
@@ -318,15 +330,24 @@ namespace TOGoS.TScrpt34_2 {
 	}
 	#endregion
 
-	class Interpreter {
+	class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 
 		public DefDict definitions = new DefDict();
 		public Stack DataStack = new Stack();
-		public readonly AUriResolver UriResolver = new AUriResolver();
+		protected readonly AUriResolver UriResolver = new AUriResolver();
+
+		object IUriResolver.Resolve(string uri) {
+			if( this.definitions.ContainsKey(uri) ) {
+				return this.definitions[uri];
+			} else {
+				return ((IUriResolver)this.UriResolver).Resolve(uri);
+			}
+		}
 
 		public Interpreter() {
 			definitions["alias"] = new AliasOpConstructor();
+			definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
@@ -381,7 +402,7 @@ namespace TOGoS.TScrpt34_2 {
 				// WHY IS THERE NO SLICE IN DOTNET
 				StringList opArgs = new StringList();
 				for( int i=1; i<args.Count; ++i ) opArgs.Add(args[i]);
-				def = ((OpConstructor)def).Parse(opArgs);
+				def = ((OpConstructor)def).Parse(opArgs, this);
 			}
 			if( def is Op ) {
 				((Op)def).Do(this);
