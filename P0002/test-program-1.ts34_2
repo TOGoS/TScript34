@@ -4,6 +4,7 @@ alias push-int32 http://ns.nuke24.net/TScript34/Op/PushInt32
 alias push-float64 http://ns.nuke24.net/TScript34/Op/PushFloat64
 alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
+alias dict-from-stack http://ns.nuke24.net/TScript34/Ops/DictFromStack
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
 alias fetch-uri http://ns.nuke24.net/TScript34/Ops/FetchUri
 alias get http://ns.nuke24.net/TScript34/Ops/GetElement
@@ -42,6 +43,18 @@ push-string data:,Bar
 counttomark
 array-from-stack
 push-int32 data:,1
+get
+println
+
+# << (Foo) 123 (Bar) 456 >> (Bar) get =
+[
+push-string data:,Foo
+push-int32 data:,123
+push-string data:,Bar
+push-int32 data:,456
+counttomark
+dict-from-stack
+push-string data:,Bar
 get
 println
 

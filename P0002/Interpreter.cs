@@ -192,10 +192,10 @@ namespace TOGoS.TScrpt34_2 {
 		void Op.Do(Interpreter interp) {
 			object key = interp.Pop();
 			object collection = interp.Pop();
-			if( collection is SCG.IDictionary<string,object> ) {
+			if( collection is SCG.IDictionary<object,object> ) {
 				interp.Push( ((SCG.IDictionary<object,object>)collection)[key]);
 			} else if( collection is IList ) {
-				interp.Push( ((IList)collection)[(Int32)key] );
+				interp.Push( ((IList)collection)[(int)key] );
 			} else {
 				throw new Exception("Don't know how to get element of "+collection.GetType());
 			}
