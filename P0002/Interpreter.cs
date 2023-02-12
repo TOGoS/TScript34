@@ -136,6 +136,13 @@ namespace TOGoS.TScrpt34_2 {
 			interp.Push(arr);
 		}
 	}
+	class DefineOp : Op {
+		void Op.Do(Interpreter interp) {
+			object value = interp.Pop();
+			object key = interp.Pop();
+			interp.definitions.Add(key.ToString(), value);
+		}
+	}
 	class DictFromStackOp : Op {
 		void Op.Do(Interpreter interp) {
 			int length = (int)interp.Pop();
@@ -159,6 +166,19 @@ namespace TOGoS.TScrpt34_2 {
 		void Op.Do(Interpreter interp) {
 			if( interp.DataStack.Count < 1 ) throw new Exception("Can't dup; stack empty!");
 			interp.Push(interp.Peek());
+		}
+	}
+	class ExchOp : Op {
+		void Op.Do(Interpreter interp) {
+			object a = interp.Pop();
+			object b = interp.Pop();
+			interp.Push(a);
+			interp.Push(b);
+		}
+	}
+	class ExecOp : Op {
+		void Op.Do(Interpreter interp) {
+			((Op)interp.Pop()).Do(interp);
 		}
 	}
 	class FetchUriOp : Op {
@@ -205,7 +225,11 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 	}
-	
+	class PopOp : Op {
+		void Op.Do(Interpreter interp) {
+			interp.Pop();
+		}
+	}
 	class PushOp : Op {
 		object toPush;
 		public PushOp(object toPush) {
@@ -262,25 +286,53 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
+	interface IFormatter {
+		string Format(object val);
+	}
+	class ToStringFormatter : IFormatter {
+		public static ToStringFormatter Instance = new ToStringFormatter();
+		
+		string IFormatter.Format(object val) {
+			return val.ToString();
+		}		
+	}
+	class PostScriptSourceFormatter : IFormatter {
+		public static PostScriptSourceFormatter Instance = new PostScriptSourceFormatter();
+		
+		string IFormatter.Format(object val) {
+			if( val is Int32 || val is Float64 ) {
+				return val.ToString();
+			} else if( val is SCG.IEnumerable<object> ) {
+				string r = "[";
+				foreach( object item in (SCG.IEnumerable<object>)val ) {
+					r += " ";
+					r += ((IFormatter)this).Format(item);
+				}
+				return r + " ]";
+			} else if( val is SCG.Dictionary<object,object> ) {
+				string r = "<<";
+				foreach( SCG.KeyValuePair<object,object> pair in (SCG.Dictionary<object,object>)val ) {
+					r += " ";
+					r += ((IFormatter)this).Format(pair.Key);
+					r += " ";
+					r += ((IFormatter)this).Format(pair.Value);
+				}
+				return r + " >>";
+			} else {
+				return "("+val.ToString().Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")";
+			}
+		}
+	}
+
 	class PrintOp : Op {
+		IFormatter formatter;
 		string postfix;
-		public PrintOp(string postfix="") {
+		public PrintOp(IFormatter formatter, string postfix="") {
+			this.formatter = formatter;
 			this.postfix = postfix;
 		}
 		void Op.Do(Interpreter interp) {
-			var value = interp.Pop();
-			if( value is string ) {
-				System.Console.Write(value);
-			} else if( value is IEnumerable ) {
-				System.Console.Write("[");
-				foreach( var item in (IEnumerable)value ) {
-					System.Console.Write(" ");
-					System.Console.Write(item);
-				}
-				System.Console.Write("]");
-			} else {
-				System.Console.Write(value);
-			}
+			System.Console.Write(this.formatter.Format(interp.Pop()));
 			System.Console.Write(postfix);
 		}
 	}
@@ -302,6 +354,17 @@ namespace TOGoS.TScrpt34_2 {
 	class QuitOp : Op {
 		void Op.Do(Interpreter interp) {
 			throw new QuitException();
+		}
+	}
+
+	class OpenProcedureOp : Op {
+		void Op.Do(Interpreter interp) {
+			throw new Exception(this.GetType()+" can't be executed directly");
+		}
+	}
+	class CloseProcedureOp : Op {
+		void Op.Do(Interpreter interp) {
+			throw new Exception(this.GetType()+" can't be executed directly");
 		}
 	}
 	
@@ -351,15 +414,23 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
+			definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/Define"] = new DefineOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/ForEach"] = new ForEachOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp("");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp("\n");
+			definitions["http://ns.nuke24.net/TScript34/Ops/OpenProcedure"] = new OpenProcedureOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/Pop"] = new PopOp();
+			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp(ToStringFormatter.Instance, "");
+			definitions["http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource"] = new PrintOp(PostScriptSourceFormatter.Instance, "\n");
+			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
 			definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
 			
@@ -372,6 +443,7 @@ namespace TOGoS.TScrpt34_2 {
 			if( DataStack.Count == 0 ) return null;
 			return DataStack[DataStack.Count - 1];
 		}
+
 		public object Pop() {
 			var index = DataStack.Count-1;
 			object value = DataStack[index];
@@ -391,6 +463,8 @@ namespace TOGoS.TScrpt34_2 {
 			throw new Exception("No mark on stack!");			
 		}
 		
+		SCG.List<SCG.List<Op>> procedureDefinitionStack = new SCG.List<SCG.List<Op>>();
+
 		public void DoCommand(IStringList args) {
 			if( args.Count == 0 ) throw new ArgumentException("DoCommand requires at least one thing in the args array");
 
@@ -404,8 +478,22 @@ namespace TOGoS.TScrpt34_2 {
 				for( int i=1; i<args.Count; ++i ) opArgs.Add(args[i]);
 				def = ((OpConstructor)def).Parse(opArgs, this);
 			}
+			if( def is OpenProcedureOp ) {
+				procedureDefinitionStack.Add(new SCG.List<Op>());
+				return;
+			} else if( def is CloseProcedureOp ) {
+				if( procedureDefinitionStack.Count == 0 ) {
+					throw new Exception("Can't close procedure; not currently defining one!");
+				}
+				def = new PushOp(new Procedure(procedureDefinitionStack[procedureDefinitionStack.Count-1]));
+				procedureDefinitionStack.RemoveAt(procedureDefinitionStack.Count-1);
+			}
 			if( def is Op ) {
-				((Op)def).Do(this);
+				if( procedureDefinitionStack.Count == 0 ) {
+					((Op)def).Do(this);
+				} else {
+					procedureDefinitionStack[procedureDefinitionStack.Count-1].Add((Op)def);
+				}
 			}
 		}
 		

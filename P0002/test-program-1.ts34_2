@@ -6,20 +6,57 @@ alias push-float64 http://ns.nuke24.net/TScript34/Op/PushFloat64
 alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
 alias dict-from-stack http://ns.nuke24.net/TScript34/Ops/DictFromStack
+alias def http://ns.nuke24.net/TScript34/Ops/Define
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
+alias exec http://ns.nuke24.net/TScript34/Ops/Exec
+alias exch http://ns.nuke24.net/TScript34/Ops/Exch
 alias fetch-uri http://ns.nuke24.net/TScript34/Ops/FetchUri
+alias forall http://ns.nuke24.net/TScript34/Ops/ForEach
 alias get http://ns.nuke24.net/TScript34/Ops/GetElement
+alias pop http://ns.nuke24.net/TScript34/Ops/Pop
 # Print to stdout, just like PostScripts 'print'
 alias print http://ns.nuke24.net/TScript34/Ops/Print
 alias println http://ns.nuke24.net/TScript34/Ops/PrintLine
 alias [ http://ns.nuke24.net/TScript34/Ops/PushMark
+alias << http://ns.nuke24.net/TScript34/Ops/PushMark
 alias quit http://ns.nuke24.net/TScript34/Ops/Quit
+alias == http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource
+alias { http://ns.nuke24.net/TScript34/Ops/OpenProcedure
+alias } http://ns.nuke24.net/TScript34/Ops/CloseProcedure
 
-push data:,123.2500 http://www.w3.org/2001/XMLSchema#decimal
-push data:,A%20number:%20
-print
-println
+push-string data:,]
+{
+    counttomark
+    array-from-stack
+    exch
+    pop
+}
+def
+
+push-string data:,>>
+{
+    counttomark
+    dict-from-stack
+    exch
+    pop
+}
+def
+
+{
+    [
+        push-int32 data:,123
+        push-int32 data:,456
+    ]
+    {
+        push-string data:,Blah
+        print
+        println
+    }
+    forall
+}
+exec
 quit
+
 
 push-string data:,Print%20line!
 println
@@ -34,13 +71,21 @@ println
 [
 push-int32 data:,123
 push-int32 data:,456
-counttomark
-array-from-stack
-http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
-println
+[
+push-string data:,seven,%20eight,%20nine
+]
+]
+==
+# http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
+# println
 
 push-string data:,Okay%20that%20was%20cool.
 println
+
+{
+
+}
+exec
 
 
 # [ (Foo) (Bar) ] 1 get =
@@ -54,16 +99,13 @@ get
 println
 
 # << (Foo) 123 (Bar) 456 >> (Bar) get =
-[
+<<
 push-string data:,Foo
 push-int32 data:,123
 push-string data:,Bar
 push-int32 data:,456
-counttomark
-dict-from-stack
-push-string data:,Bar
-get
-println
+>>
+==
 
 quit
 
