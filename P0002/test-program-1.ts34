@@ -24,6 +24,8 @@ alias quit http://ns.nuke24.net/TScript34/Ops/Quit
 alias == http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource
 alias { http://ns.nuke24.net/TScript34/Ops/OpenProcedure
 alias } http://ns.nuke24.net/TScript34/Ops/CloseProcedure
+alias Decimal http://www.w3.org/2001/XMLSchema#decimal
+alias Symbol http://ns.nuke24.net/TScript34/Datatypes/Symbol
 
 push-string data:,]
 {
@@ -46,8 +48,8 @@ def
 # Demonstrate that { ... } procedures work
 {
     [
-        push-int32 data:,123
-        push-int32 data:,456
+        push data:,123 Decimal
+        push data:,456 Decimal
     ]
     {
         push-string data:,Blah

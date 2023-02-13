@@ -43,6 +43,30 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	
+	interface IEncoding {
+		object Encode(object v);
+		object Decode(object l);
+	}
+
+	class DecimalEncoding : IEncoding {
+		// TODO: Make sure this is actually following http://www.w3.org/2001/XMLSchema#decimal
+		object IEncoding.Encode(object v) {
+			return ((double)v).ToString();
+		}
+		object IEncoding.Decode(object l) {
+			return Float64.Parse(l.ToString());
+		}
+	}
+	class SymbolEncoding : IEncoding {
+		// Treating symbols as strings for now
+		object IEncoding.Encode(object v) {
+			return v.ToString();
+		}
+		object IEncoding.Decode(object l) {
+			return l.ToString();
+		}
+	}
+
 	class QuitException : Exception {}
 	
 	class Mark {}
@@ -103,7 +127,7 @@ namespace TOGoS.TScrpt34_2 {
 			this.targetName = targetName;
 		}
 		void Op.Do(Interpreter interp) {
-			object value = interp.definitions[this.targetName];
+			object value = ((IUriResolver)interp).Resolve(this.targetName);
 			if( value == null ) {
 				throw new Exception("alias: '"+this.targetName+"' not defined");
 			}
@@ -243,22 +267,15 @@ namespace TOGoS.TScrpt34_2 {
 	}
 	
 	class PushValueOpConstructor : OpConstructor {
-		object Decode(object lexical, string datatype) {
-			if( datatype == "http://www.w3.org/2001/XMLSchema#decimal" ) {
-				return Float64.Parse(lexical.ToString());
-			} else {
-				throw new Exception("Unknown datatype: "+datatype);
-			}
-		}
-
 		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count < 1 ) {
 				throw new ArgumentException("'push-value' expects one or more arguments (value, encoding1, encoding2...)");
 			}
 			object value = resolver.Resolve(args[0]);
 			for( int i=1; i<args.Count; ++i ) {
-				// Apply lexical-to-value mapping of each encoding ('datatype')
-				value = this.Decode(value, args[i]);
+				IEncoding e = (IEncoding)resolver.Resolve(args[i]);
+				//Console.WriteLine("# Decoding "+value)
+				value = e.Decode(value);
 			}
 			return new PushOp(value);
 		}
@@ -411,11 +428,13 @@ namespace TOGoS.TScrpt34_2 {
 		}
 
 		public Interpreter() {
+			// Parameterized ops
 			definitions["alias"] = new AliasOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
+			// Regular ops
 			definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
 			definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
@@ -435,6 +454,9 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
 			definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
+			// Datatypes
+			definitions["http://www.w3.org/2001/XMLSchema#decimal"] = new DecimalEncoding();
+			definitions["http://ns.nuke24.net/TScript34/Datatypes/Symbol"] = new SymbolEncoding();
 			
 			// Map stuff
 			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
@@ -469,11 +491,11 @@ namespace TOGoS.TScrpt34_2 {
 
 		public void DoCommand(IStringList args) {
 			if( args.Count == 0 ) throw new ArgumentException("DoCommand requires at least one thing in the args array");
-
-			object def = definitions[args[0]];
-			if( def == null ) {
+			
+			if( !definitions.ContainsKey(args[0]) ) {
 				throw new ArgumentException("'"+args[0]+"' not defined");
 			}
+			object def = definitions[args[0]];
 			if( def is OpConstructor ) {
 				// WHY IS THERE NO SLICE IN DOTNET
 				StringList opArgs = new StringList();
@@ -560,7 +582,7 @@ namespace TOGoS.TScrpt34_2 {
 						}
 					});
 				}
-			} catch( QuitException e ) {
+			} catch( QuitException ) {
 			}
 		}
 	}
