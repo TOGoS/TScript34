@@ -11,13 +11,15 @@ using Int32 = System.Int32;
 using IList = System.Collections.IList;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
+using SCG = System.Collections.Generic;
 using Stack = System.Collections.Generic.List<object>;
+using Stream = System.IO.Stream;
+using StreamReader = System.IO.StreamReader;
 using StringBuilder = System.Text.StringBuilder;
 using StringList = System.Collections.Generic.List<string>;
 using StringSplitOptions = System.StringSplitOptions;
+using TextReader = System.IO.TextReader;
 using Uri = System.Uri;
-
-using SCG = System.Collections.Generic;
 
 using TOGoS.TScrpt34_2.MapStuff;
 
@@ -504,17 +506,59 @@ namespace TOGoS.TScrpt34_2 {
 			IStringList parts = line.Split(whitespace, StringSplitOptions.RemoveEmptyEntries);
 			DoCommand(parts);
 		}
+
+		protected delegate void ReaderHandler(TextReader s);
+		protected void StreamFile(string filename, ReaderHandler h) {
+			if( filename == "-" ) {
+				h( Console.In );
+			} else if( filename.Contains(":") ) {
+				h( new System.IO.StringReader(((IUriResolver)this).Resolve(filename).ToString()) );
+			} else {
+				StreamReader sr = new StreamReader(filename);
+				h(sr);
+				sr.Close();
+				// Assume file
+			}
+		}
 		
 		public static void Main(string[] args) {
 			NoCheckCertificatePolicy.Init();
+			StringList scriptFiles = new StringList();
+			StringList scriptArgs = new StringList();
 
+			bool mainScriptIndicated = false;
+			for( int i=0; i<args.Length; ++i ) {
+				if( mainScriptIndicated ) {
+					scriptArgs.Add(args[i]);
+				} else if( args[i] == "-f" ) {
+					if( args.Length <= i+1 ) {
+						throw new Exception("-f requires an additional [script file] argument");
+					}
+					scriptFiles.Add(args[i+1]);
+					++i;
+				} else if( !args[i].StartsWith("-") ) {
+					scriptFiles.Add(args[i]);
+					mainScriptIndicated = true;
+				} else {
+					throw new Exception("Unrecognized argument: "+args[i]);
+				}
+			}
+
+			if( scriptFiles.Count == 0 ) {
+				scriptFiles.Add("-");
+			}
+			
 			int lineNumber = 1;
 			string line;
 			Interpreter interp = new Interpreter();
 			try {
-				while( (line = Console.ReadLine()) != null ) {
-					interp.HandleLine(line, lineNumber);
-					++lineNumber;
+				foreach( string path in scriptFiles ) {
+					interp.StreamFile(path, delegate(TextReader r) {
+						while( (line = r.ReadLine()) != null ) {
+							interp.HandleLine(line, lineNumber);
+							++lineNumber;
+						}
+					});
 				}
 			} catch( QuitException e ) {
 			}
