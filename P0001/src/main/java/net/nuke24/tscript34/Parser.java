@@ -84,7 +84,7 @@ public class Parser {
 			{
 				StringBuilder nameText = new StringBuilder();
 				while( !isTerminator(currentChar) ) {
-					nameText.append(currentChar);
+					nameText.append((char)currentChar);
 					nextChar();
 				}
 				return mkToken(isLiteralName ? Token.QuoteStyle.LITERAL_WORD : Token.QuoteStyle.BAREWORD, nameText.toString());

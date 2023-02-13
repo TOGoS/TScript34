@@ -18,4 +18,16 @@ public class ParserTest extends TestCase {
 			token
 		);
 	}
+	
+	public void testParseBareword() throws IOException {
+		StringReader r = new StringReader("foo 123 %comment");
+		Parser parser = new Parser(r, "testParseBareword", 1, 1);
+		Token token = parser.readToken();
+		assertEquals(
+			// EOF is 'zero-width', so start and end source locations should be the same
+			new Token(Token.QuoteStyle.BAREWORD, "foo", "testParseBareword", 1, 1, 1, 4),
+			token
+		);
+		
+	}
 }
