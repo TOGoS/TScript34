@@ -3,7 +3,7 @@
 ** Sub-projects
 
 - [[./P0001/][P0001]] :: Java...tokenizer, thing
-- [[./P0002][P0002]] :: C# even-more-simplified interpreter
+- [[./P0002/][P0002]] :: C# even-more-simplified interpreter
 
 ** Language
 
