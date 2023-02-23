@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.StringReader;
 
 import junit.framework.TestCase;
-import net.nuke24.tscript34.Parser;
-import net.nuke24.tscript34.Token;
 
 public class ParserTest extends TestCase {
 	public void testParseNothing() throws IOException {
@@ -36,6 +34,27 @@ public class ParserTest extends TestCase {
 		);
 		assertEquals(
 			new Token(Token.QuoteStyle.EOF, "", "testParseBareword", 1, 25, 1, 25),
+			parser.readToken()
+		);
+	}
+	
+	public void testParseString() throws IOException {
+		StringReader r = new StringReader("(foo 123) (456) /baz");
+		Parser parser = new Parser(r, "testParseString", 1, 1);
+		assertEquals(
+			new Token(Token.QuoteStyle.LITERAL_STRING, "foo 123", "testParseString", 1, 1, 1, 10),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.LITERAL_STRING, "456", "testParseString", 1, 11, 1, 16),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.LITERAL_WORD, "baz", "testParseString", 1, 17, 1, 21),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseString", 1, 21, 1, 21),
 			parser.readToken()
 		);
 	}

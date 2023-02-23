@@ -67,6 +67,22 @@ public class Parser {
 		return new Token(qs, text, filename, tokenStartLineNumber, tokenStartColumnNumber, lineNumber, columnNumber);
 	}
 	
+	static char decodeBsEscaped(int escChar) {
+		// PLRM, p29
+		switch(escChar) {
+		case 'n': return '\n';
+		case 'r': return '\r';
+		case 't': return '\t';
+		case 'b': return '\b';
+		case 'f': return '\f';
+		case '\\': return '\\';
+		case '(': return '(';
+		case ')': return ')';
+		default:
+			throw new IllegalArgumentException("Not currently handling '\\"+escChar+"' escape sequence");
+		}
+	}
+	
 	public Token readToken() throws IOException {
 		do {
 			nextChar();
@@ -77,6 +93,22 @@ public class Parser {
 		boolean isLiteralName = false;
 		switch( currentChar ) {
 		case -1: return mkToken(Token.QuoteStyle.EOF, "");
+		case '(':
+			{
+				nextChar();
+				StringBuilder literalText = new StringBuilder();
+				while( currentChar != ')' ) {
+					if( currentChar == '\\' ) {
+						nextChar();
+						literalText.append(decodeBsEscaped(currentChar));
+					} else {
+						literalText.append((char)currentChar);
+					}
+					nextChar();
+				}
+				nextChar();
+				return mkToken(Token.QuoteStyle.LITERAL_STRING, literalText.toString());
+			}
 		case '%':
 			{
 				nextChar();
