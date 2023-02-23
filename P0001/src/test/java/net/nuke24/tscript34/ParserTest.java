@@ -20,14 +20,23 @@ public class ParserTest extends TestCase {
 	}
 	
 	public void testParseBareword() throws IOException {
-		StringReader r = new StringReader("foo 123 %comment");
+		StringReader r = new StringReader("foo 123 %comment foo bar");
 		Parser parser = new Parser(r, "testParseBareword", 1, 1);
-		Token token = parser.readToken();
 		assertEquals(
-			// EOF is 'zero-width', so start and end source locations should be the same
 			new Token(Token.QuoteStyle.BAREWORD, "foo", "testParseBareword", 1, 1, 1, 4),
-			token
+			parser.readToken()
 		);
-		
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "123", "testParseBareword", 1, 5, 1, 8),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.HASH_COMMENT, "comment foo bar", "testParseBareword", 1, 9, 1, 25),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseBareword", 1, 25, 1, 25),
+			parser.readToken()
+		);
 	}
 }

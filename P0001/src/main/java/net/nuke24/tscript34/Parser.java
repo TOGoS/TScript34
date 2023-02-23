@@ -74,9 +74,19 @@ public class Parser {
 		
 		this.tokenStartLineNumber = lineNumber;
 		this.tokenStartColumnNumber = columnNumber;
-		boolean isLiteralName = false; 
+		boolean isLiteralName = false;
 		switch( currentChar ) {
 		case -1: return mkToken(Token.QuoteStyle.EOF, "");
+		case '%':
+			{
+				nextChar();
+				StringBuilder commentText = new StringBuilder();
+				while( currentChar != -1 && currentChar != '\n' ) {
+					commentText.append((char)currentChar);
+					nextChar();
+				}
+				return mkToken(Token.QuoteStyle.HASH_COMMENT, commentText.toString());
+			}
 		case '/':
 			isLiteralName = true;
 			nextChar();
@@ -88,7 +98,7 @@ public class Parser {
 					nextChar();
 				}
 				return mkToken(isLiteralName ? Token.QuoteStyle.LITERAL_WORD : Token.QuoteStyle.BAREWORD, nameText.toString());
-   		}
+			}
 		}
 	}
 }
