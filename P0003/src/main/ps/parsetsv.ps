@@ -1,0 +1,47 @@
+% Read TSV file, converting to ps syntax
+
+% haystack delimiter  --split--  [str str ...]
+/split { 
+	[ 3 1 roll     % [ str del
+	{              % [ ... str del
+		search {    % [ ... post match pre
+			3 1 roll % [ ... pre post match
+		} {         % [ ... str
+			exit     % [ ... str
+		} ifelse
+	} loop         % [ ...
+	]              % [ ... ]
+} def
+
+% string --clear-if-comment-- string|()
+/clear-if-comment {
+	dup length
+	0 ne {
+		dup 0 get      % string first-char
+		35 eq {
+			% (line is comment: ) print dup =
+			pop ()
+		} {
+		} ifelse
+	} if
+} def
+
+(%stdin) (r) file  % stdin
+1024 string        % stdin buffer-string
+{
+	2 copy                % stdin buffer-string stdin buffer-string
+	readline              % stdin buffer-string (line true | false)
+	{                     % stdin buffer-string line
+		% (read line: ) print dup =
+		clear-if-comment   % stdin buffer-string non-comment-line|()
+		dup length         % stdin buffer-string non-comment-line|() line-length
+		0 eq {
+			pop
+		} {
+			(\t) split      % stdin buffer-string [str1 str2 ...]
+			==
+		} ifelse
+	} {
+		exit
+	} ifelse % stdin buffer-string
+} loop
