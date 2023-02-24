@@ -3,6 +3,8 @@ package net.nuke24.tscript34;
 import java.io.IOException;
 import java.io.Reader;
 
+import net.nuke24.tscript34.Token.QuoteStyle;
+
 public class PSTokenizer {
 	final Reader reader;
 	String filename;
@@ -83,6 +85,20 @@ public class PSTokenizer {
 		}
 	}
 	
+	protected void readToEndOfLine(Appendable into) throws IOException {
+		while( currentChar != -1 && currentChar != '\n' ) {
+			into.append((char)currentChar);
+			nextChar();
+		}
+	}
+	
+	protected void readToEndOfWord(Appendable into) throws IOException {
+		while( !isTerminator(currentChar) ) {
+			into.append((char)currentChar);
+			nextChar();
+		}
+	}
+	
 	public Token readToken() throws IOException {
 		do {
 			nextChar();
@@ -109,14 +125,33 @@ public class PSTokenizer {
 				nextChar();
 				return mkToken(Token.QuoteStyle.LITERAL_STRING, literalText.toString());
 			}
+		case '#':
+			{
+				nextChar();
+				Token.QuoteStyle quoteStyle;
+				StringBuilder tokenText = new StringBuilder();
+				if( currentChar == ' ' ) {
+					quoteStyle = QuoteStyle.HASH_COMMENT;
+				} else if( currentChar == '!' ) {
+					quoteStyle = QuoteStyle.SHEBANG_COMMENT;
+				} else {
+					quoteStyle = Token.QuoteStyle.BAREWORD;
+					tokenText.append("#");
+					tokenText.append((char)currentChar);
+				}
+				nextChar();
+				if( quoteStyle == Token.QuoteStyle.BAREWORD ) {
+					readToEndOfWord(tokenText);
+				} else {
+					readToEndOfLine(tokenText);
+				}
+				return mkToken(quoteStyle, tokenText.toString());
+			}
 		case '%':
 			{
 				nextChar();
 				StringBuilder commentText = new StringBuilder();
-				while( currentChar != -1 && currentChar != '\n' ) {
-					commentText.append((char)currentChar);
-					nextChar();
-				}
+				readToEndOfLine(commentText);
 				return mkToken(Token.QuoteStyle.HASH_COMMENT, commentText.toString());
 			}
 		case '/':
@@ -125,10 +160,7 @@ public class PSTokenizer {
 		default:
 			{
 				StringBuilder nameText = new StringBuilder();
-				while( !isTerminator(currentChar) ) {
-					nameText.append((char)currentChar);
-					nextChar();
-				}
+				readToEndOfWord(nameText);
 				return mkToken(isLiteralName ? Token.QuoteStyle.LITERAL_WORD : Token.QuoteStyle.BAREWORD, nameText.toString());
 			}
 		}

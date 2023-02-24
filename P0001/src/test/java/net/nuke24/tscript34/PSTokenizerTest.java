@@ -58,4 +58,51 @@ public class PSTokenizerTest extends TestCase {
 			parser.readToken()
 		);
 	}
+	
+	public void testParseHashComment() throws IOException {
+		StringReader r = new StringReader("# foo bar baz");
+		PSTokenizer parser = new PSTokenizer(r, "testParseHashComment", 1, 1);
+		assertEquals(
+			new Token(Token.QuoteStyle.HASH_COMMENT, "foo bar baz", "testParseHashComment", 1, 1, 1, 14),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseHashComment", 1, 14, 1, 14),
+			parser.readToken()
+		);
+	}
+	
+	public void testParseShebangComment() throws IOException {
+		StringReader r = new StringReader("#!foo bar baz");
+		PSTokenizer parser = new PSTokenizer(r, "testParseShebangComment", 1, 1);
+		assertEquals(
+			new Token(Token.QuoteStyle.SHEBANG_COMMENT, "foo bar baz", "testParseShebangComment", 1, 1, 1, 14),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseShebangComment", 1, 14, 1, 14),
+			parser.readToken()
+		);
+	}
+	
+	public void testParseNotComment() throws IOException {
+		StringReader r = new StringReader("#foo bar baz");
+		PSTokenizer parser = new PSTokenizer(r, "testParseNotComment", 1, 1);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "#foo", "testParseNotComment", 1, 1, 1, 5),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "bar", "testParseNotComment", 1, 6, 1, 9),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "baz", "testParseNotComment", 1, 10, 1, 13),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseNotComment", 1, 13, 1, 13),
+			parser.readToken()
+		);
+	}
 }
