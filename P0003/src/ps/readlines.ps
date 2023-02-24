@@ -1,0 +1,9 @@
+% Demonstration of reading lines in PostScript:
+(%stdin) (r) file  % stdin
+1024 string        % stdin buffer-string
+{
+  2 copy             % stdin buffer-string stdin buffer-string
+  readline           % stdin buffer-string substring true
+  {=} {(# EOF reached) = exit} ifelse % stdin buffer-string
+} loop
+quit
