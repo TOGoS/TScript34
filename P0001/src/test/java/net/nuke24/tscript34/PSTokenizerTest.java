@@ -105,4 +105,56 @@ public class PSTokenizerTest extends TestCase {
 			parser.readToken()
 		);
 	}
+	
+	public void testParseSquareBrackets() throws IOException {
+		StringReader r = new StringReader("[foo bar]");
+		PSTokenizer parser = new PSTokenizer(r, "testParseSquareBrackets", 1, 1);
+		
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "[", "testParseSquareBrackets", 1, 1, 1, 2),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "foo", "testParseSquareBrackets", 1, 2, 1, 5),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "bar", "testParseSquareBrackets", 1, 6, 1, 9),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "]", "testParseSquareBrackets", 1, 9, 1, 10),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseSquareBrackets", 1, 10, 1, 10),
+			parser.readToken()
+		);
+	}
+	
+	public void testParseCurlyBrackets() throws IOException {
+		StringReader r = new StringReader("{foo bar}");
+		PSTokenizer parser = new PSTokenizer(r, "testParseCurlyBrackets", 1, 1);
+		
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "{", "testParseCurlyBrackets", 1, 1, 1, 2),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "foo", "testParseCurlyBrackets", 1, 2, 1, 5),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "bar", "testParseCurlyBrackets", 1, 6, 1, 9),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.BAREWORD, "}", "testParseCurlyBrackets", 1, 9, 1, 10),
+			parser.readToken()
+		);
+		assertEquals(
+			new Token(Token.QuoteStyle.EOF, "", "testParseCurlyBrackets", 1, 10, 1, 10),
+			parser.readToken()
+		);
+	}
 }

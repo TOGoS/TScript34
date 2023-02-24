@@ -57,7 +57,7 @@ public class PSTokenizer {
 		// > the entity preceding it and is not included in the entity.
 		// -- PostScript language reference, 3rd edition, p27
 		case '(': case ')': case '<': case '>':
-		case '[': case ']': case '{': case '}':
+		case '[': case ']': case '{': case '}': 
 		case '/': case '%':
 			return true;
 		default:
@@ -92,17 +92,24 @@ public class PSTokenizer {
 		}
 	}
 	
+	/**
+	 * Including currentChar,
+	 * keep reading until a terminator character is reached.
+	 * If currentChar is already a terminator, it
+	 * will be the only character added to the word.
+	 **/
 	protected void readToEndOfWord(Appendable into) throws IOException {
-		while( !isTerminator(currentChar) ) {
+		if( isTerminator(currentChar) ) {
 			into.append((char)currentChar);
 			nextChar();
-		}
+		} else while( !isTerminator(currentChar) ) {
+			into.append((char)currentChar);
+			nextChar();
+		};
 	}
 	
 	public Token readToken() throws IOException {
-		do {
-			nextChar();
-		} while( isWhitespace(currentChar) );
+		while( currentChar == -2 || isWhitespace(currentChar) ) nextChar();
 		
 		this.tokenStartLineNumber = lineNumber;
 		this.tokenStartColumnNumber = columnNumber;
