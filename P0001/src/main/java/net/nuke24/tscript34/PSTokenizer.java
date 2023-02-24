@@ -3,7 +3,7 @@ package net.nuke24.tscript34;
 import java.io.IOException;
 import java.io.Reader;
 
-public class Parser {
+public class PSTokenizer {
 	final Reader reader;
 	String filename;
 	int lineNumber = 1;
@@ -12,7 +12,7 @@ public class Parser {
 	int tokenStartLineNumber = -1;
 	int tokenStartColumnNumber = -1;
 	
-	public Parser(Reader r, String filename, int lineNumber, int columnNumber) {
+	public PSTokenizer(Reader r, String filename, int lineNumber, int columnNumber) {
 		this.reader = r;
 		this.filename = filename;
 		this.lineNumber = lineNumber;

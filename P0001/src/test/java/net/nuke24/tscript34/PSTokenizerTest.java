@@ -5,10 +5,10 @@ import java.io.StringReader;
 
 import junit.framework.TestCase;
 
-public class ParserTest extends TestCase {
+public class PSTokenizerTest extends TestCase {
 	public void testParseNothing() throws IOException {
 		StringReader r = new StringReader("");
-		Parser parser = new Parser(r, "testParseNothing", 1, 1);
+		PSTokenizer parser = new PSTokenizer(r, "testParseNothing", 1, 1);
 		Token token = parser.readToken();
 		assertEquals(
 			// EOF is 'zero-width', so start and end source locations should be the same
@@ -19,7 +19,7 @@ public class ParserTest extends TestCase {
 	
 	public void testParseBareword() throws IOException {
 		StringReader r = new StringReader("foo 123 %comment foo bar");
-		Parser parser = new Parser(r, "testParseBareword", 1, 1);
+		PSTokenizer parser = new PSTokenizer(r, "testParseBareword", 1, 1);
 		assertEquals(
 			new Token(Token.QuoteStyle.BAREWORD, "foo", "testParseBareword", 1, 1, 1, 4),
 			parser.readToken()
@@ -40,7 +40,7 @@ public class ParserTest extends TestCase {
 	
 	public void testParseString() throws IOException {
 		StringReader r = new StringReader("(foo 123) (456) /baz");
-		Parser parser = new Parser(r, "testParseString", 1, 1);
+		PSTokenizer parser = new PSTokenizer(r, "testParseString", 1, 1);
 		assertEquals(
 			new Token(Token.QuoteStyle.LITERAL_STRING, "foo 123", "testParseString", 1, 1, 1, 10),
 			parser.readToken()
