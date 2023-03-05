@@ -5,4 +5,4 @@ Interpreter.exe: ${cs_source_files}
 
 .PHONY: test
 test: Interpreter.exe
-	mono --debug Interpreter.exe <test-program-1.ts34_2
+	mono --debug Interpreter.exe <test-program-1.ts34
