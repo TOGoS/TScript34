@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
+using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
+using IEnumerable = System.Collections.IEnumerable;
 using JavaScriptConverter = System.Web.Script.Serialization.JavaScriptConverter;
 using JavaScriptSerializer = System.Web.Script.Serialization.JavaScriptSerializer;
 using Math = System.Math;
@@ -140,6 +142,49 @@ namespace TOGoS.TScrpt34_2.MapStuff {
 
 		public PointInfo<Pos1,Dat> ConvertPointPosition(PointInfo<Pos0,Dat> input) {
 			return new PointInfo<Pos1, Dat>(positionConverter(input.Position), input.Data);
+		}
+	}
+
+	static class MapOps {
+		/**
+		* json -- List<PointInfo<?>>
+		*/
+		class DecodePointListOp : Op {
+			void Op.Do(Interpreter interp) {
+				string json = interp.Pop().ToString();
+				var pointList = new MapStuff.JsonDecoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
+				interp.Push(pointList);
+			}
+		}
+		
+		/**
+		* List<PointInfo<LatLongPosition,?>> centerlat centerlong diameter -- List<PointInfo<XYPosition,?>>
+		* lat/long are in degrees
+		*/
+		class LatLongToXYPointListOp : Op {
+			void Op.Do(Interpreter interp) {
+				double diameter = (double)interp.Pop();
+				double centerLong = (double)interp.Pop();
+				double centerLat = (double)interp.Pop();
+				IEnumerable inputList = (IEnumerable)interp.Pop();
+				// TODO: Should be Dat-agnostic!  How to do that?
+				List<PointInfo<XYPosition,VegData>> outputList = new List<PointInfo<XYPosition,VegData>>();
+				PointInfoConverter<LatLongPosition,XYPosition,VegData> plc =
+					new PointInfoConverter<LatLongPosition,XYPosition,VegData>(
+						new LatLongToXYConverter(diameter, new LatLongPosition(centerLong,centerLat)).LatLongToXY
+					);
+				foreach( object item in inputList ) {
+					PointInfo<LatLongPosition,VegData> point = (PointInfo<LatLongPosition,VegData>)item;
+					outputList.Add(plc.ConvertPointPosition(point));
+				}
+				interp.Push(outputList);
+			}
+		}
+
+		public static DefDict Definitions = new DefDict();
+		static MapOps() {
+			Definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
+			Definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList"] = new LatLongToXYPointListOp();
 		}
 	}
 }

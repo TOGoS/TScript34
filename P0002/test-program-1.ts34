@@ -46,6 +46,9 @@ push-string data:,>>
 }
 def
 
+# BEGIN Ignore all this stuff
+{
+
 # Demonstrate that { ... } procedures work
 {
     [
@@ -112,7 +115,9 @@ push-int32 data:,456
 >>
 ==
 
-quit
+}
+pop
+# END Ignore all this stuff
 
 push-string data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
 # push-string data:,http://www.nuke24.net/
@@ -139,4 +144,4 @@ push-float64 data:,-79.80120989049429
 push-float64 data:,40.46692825268929
 push-float64 data:,6365000
 http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList
-println
+==

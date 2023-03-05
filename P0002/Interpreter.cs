@@ -6,9 +6,10 @@ using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
 using Float64 = System.Double;
 using HttpClient = System.Net.Http.HttpClient;
+using IDictionary = System.Collections.IDictionary;
 using IEnumerable = System.Collections.IEnumerable;
-using Int32 = System.Int32;
 using IList = System.Collections.IList;
+using Int32 = System.Int32;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
 using SCG = System.Collections.Generic;
@@ -324,28 +325,28 @@ namespace TOGoS.TScrpt34_2 {
 		string IFormatter.Format(object val) {
 			if( val is Int32 || val is Float64 ) {
 				return val.ToString();
-			} else if( val is SCG.IEnumerable<object> ) {
-				string r = "[";
-				foreach( object item in (SCG.IEnumerable<object>)val ) {
-					r += " ";
-					r += ((IFormatter)this).Format(item);
-				}
-				return r + " ]";
-			} else if( val is SCG.Dictionary<object,object> ) {
+			} else if( val is IDictionary ) {
 				string r = "<<";
-				foreach( SCG.KeyValuePair<object,object> pair in (SCG.Dictionary<object,object>)val ) {
+				foreach( System.Collections.DictionaryEntry pair in (IDictionary)val ) {
 					r += " ";
 					r += ((IFormatter)this).Format(pair.Key);
 					r += " ";
 					r += ((IFormatter)this).Format(pair.Value);
 				}
 				return r + " >>";
+			} else if( val is IEnumerable ) {
+				string r = "[";
+				foreach( object item in (IEnumerable)val ) {
+					r += " ";
+					r += ((IFormatter)this).Format(item);
+				}
+				return r + " ]";
 			} else {
 				return "("+val.ToString().Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")";
 			}
 		}
 	}
-
+	
 	class PrintOp : Op {
 		IFormatter formatter;
 		string postfix;
@@ -356,20 +357,6 @@ namespace TOGoS.TScrpt34_2 {
 		void Op.Do(Interpreter interp) {
 			System.Console.Write(this.formatter.Format(interp.Pop()));
 			System.Console.Write(postfix);
-		}
-	}
-
-	#region Map Ops
-	// These should not be in Interpreter.cs
-
-	/**
-	 * json -- List<PointInfo<?>>
-	*/
-	class DecodePointListOp : Op {
-		void Op.Do(Interpreter interp) {
-			string json = interp.Pop().ToString();
-			var pointList = new MapStuff.JsonDecoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
-			interp.Push(pointList);
 		}
 	}
 
@@ -389,32 +376,50 @@ namespace TOGoS.TScrpt34_2 {
 			throw new Exception(this.GetType()+" can't be executed directly");
 		}
 	}
-	
-	/**
-	 * List<PointInfo<LatLongPosition,?>> centerlat centerlong diameter -- List<PointInfo<XYPosition,?>>
-	 * lat/long are in degrees
-	 */
-	class LatLongToXYPointListOp : Op {
-		void Op.Do(Interpreter interp) {
-			double diameter = (double)interp.Pop();
-			double centerLong = (double)interp.Pop();
-			double centerLat = (double)interp.Pop();
-			IEnumerable inputList = (IEnumerable)interp.Pop();
-			// TODO: Should be Dat-agnostic!  How to do that?
-			SCG.List<PointInfo<XYPosition,VegData>> outputList = new SCG.List<PointInfo<XYPosition,VegData>>();
-			PointInfoConverter<LatLongPosition,XYPosition,VegData> plc =
-				new PointInfoConverter<LatLongPosition,XYPosition,VegData>(
-					new LatLongToXYConverter(diameter, new LatLongPosition(centerLong,centerLat)).LatLongToXY
-				);
-			foreach( object item in inputList ) {
-				PointInfo<LatLongPosition,VegData> point = (PointInfo<LatLongPosition,VegData>)item;
-				outputList.Add(plc.ConvertPointPosition(point));
+
+	static class DictUtil {
+		public static void AddAll(DefDict target, DefDict toBeAdded) {
+			foreach( var pair in toBeAdded ) {
+				target.Add(pair.Key, pair.Value);
 			}
-			interp.Push(outputList);
 		}
 	}
-	#endregion
 
+	static class StandardOps {
+		public static DefDict Definitions = new DefDict();
+		static StandardOps() {
+			// Parameterized ops
+			Definitions["http://ns.nuke24.net/TScript34/Op/Alias"] = new AliasOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
+			// Regular ops
+			Definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Define"] = new DefineOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/ForEach"] = new ForEachOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/OpenProcedure"] = new OpenProcedureOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Pop"] = new PopOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp(ToStringFormatter.Instance, "");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource"] = new PrintOp(PostScriptSourceFormatter.Instance, "\n");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(Mark.Instance);
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
+			// Datatypes
+			Definitions["http://www.w3.org/2001/XMLSchema#decimal"] = new DecimalEncoding();
+			Definitions["http://ns.nuke24.net/TScript34/Datatypes/Symbol"] = new SymbolEncoding();
+		}
+	}
+	
 	class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 
@@ -430,42 +435,10 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 		
-		public Interpreter() {
-			// Parameterized ops
-			definitions["http://ns.nuke24.net/TScript34/Op/Alias"] = new AliasOpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
-			// Regular ops
-			definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Define"] = new DefineOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/ForEach"] = new ForEachOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/OpenProcedure"] = new OpenProcedureOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Pop"] = new PopOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp(ToStringFormatter.Instance, "");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource"] = new PrintOp(PostScriptSourceFormatter.Instance, "\n");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(Mark.Instance);
-			definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
-			// Datatypes
-			definitions["http://www.w3.org/2001/XMLSchema#decimal"] = new DecimalEncoding();
-			definitions["http://ns.nuke24.net/TScript34/Datatypes/Symbol"] = new SymbolEncoding();
-			
-			// Map stuff
-			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
-			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList"] = new LatLongToXYPointListOp();
+		public void DefineAll(DefDict defs) {
+			DictUtil.AddAll(this.definitions, defs);
 		}
-		
+
 		public object Peek() {
 			if( DataStack.Count == 0 ) return null;
 			return DataStack[DataStack.Count - 1];
@@ -576,6 +549,8 @@ namespace TOGoS.TScrpt34_2 {
 			int lineNumber = 1;
 			string line;
 			Interpreter interp = new Interpreter();
+			interp.DefineAll(StandardOps.Definitions);
+			interp.DefineAll(MapStuff.MapOps.Definitions);
 			try {
 				foreach( string path in scriptFiles ) {
 					interp.StreamFile(path, delegate(TextReader r) {
