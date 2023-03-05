@@ -309,40 +309,58 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
-	interface IFormatter {
-		string Format(object val);
+	/**
+	 * Simplified interface for a stream-to-be-written-to
+	 * allowing both strings and byte arrays to be written.
+	 */
+	public interface ISimpleOutput {
+		void Write(byte[] data);
+		void Write(char[] data);
+	}
+	public static class SimpleOutputHelper {
+		public static void Write(this ISimpleOutput outputter, string data) {
+			outputter.Write(data.ToCharArray());
+		}
+	}
+
+	public interface IFormatter {
+		void Format(object val, ISimpleOutput dest);
 	}
 	class ToStringFormatter : IFormatter {
 		public static ToStringFormatter Instance = new ToStringFormatter();
 		
-		string IFormatter.Format(object val) {
-			return val.ToString();
+		void IFormatter.Format(object val, ISimpleOutput dest) {
+			dest.Write(val.ToString());
 		}		
 	}
 	class PostScriptSourceFormatter : IFormatter {
 		public static PostScriptSourceFormatter Instance = new PostScriptSourceFormatter();
 		
-		string IFormatter.Format(object val) {
+		void IFormatter.Format(object val, ISimpleOutput dest) {
 			if( val is Int32 || val is Float64 ) {
-				return val.ToString();
+				dest.Write(val.ToString());
 			} else if( val is IDictionary ) {
-				string r = "<<";
+				string sep = " ";
+				dest.Write("<<");
 				foreach( System.Collections.DictionaryEntry pair in (IDictionary)val ) {
-					r += " ";
-					r += ((IFormatter)this).Format(pair.Key);
-					r += " ";
-					r += ((IFormatter)this).Format(pair.Value);
+					dest.Write(sep);
+					((IFormatter)this).Format(pair.Key, dest);
+					dest.Write(" ");
+					((IFormatter)this).Format(pair.Value, dest);
+					sep = " ";
 				}
-				return r + " >>";
+				dest.Write(" >>");
 			} else if( val is IEnumerable ) {
-				string r = "[";
+				dest.Write("[");
+				string sep = "";
 				foreach( object item in (IEnumerable)val ) {
-					r += " ";
-					r += ((IFormatter)this).Format(item);
+					dest.Write(sep);
+					((IFormatter)this).Format(item, dest);
+					sep = " ";
 				}
-				return r + " ]";
+				dest.Write("]");
 			} else {
-				return "("+val.ToString().Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")";
+				dest.Write("("+val.ToString().Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")");
 			}
 		}
 	}
@@ -355,7 +373,7 @@ namespace TOGoS.TScrpt34_2 {
 			this.postfix = postfix;
 		}
 		void Op.Do(Interpreter interp) {
-			System.Console.Write(this.formatter.Format(interp.Pop()));
+			this.formatter.Format(interp.Pop(), interp.OutputStream);
 			System.Console.Write(postfix);
 		}
 	}
@@ -434,6 +452,18 @@ namespace TOGoS.TScrpt34_2 {
 				return ((IUriResolver)this.UriResolver).Resolve(uri);
 			}
 		}
+
+		class ConsoleOutput : ISimpleOutput {
+			public void Write(byte[] data) {
+				Console.Out.Write(data);
+			}
+			public void Write(char[] data) {
+				Console.Out.Write(data);
+			}
+		}
+
+
+		public ISimpleOutput OutputStream = new ConsoleOutput();
 		
 		public void DefineAll(DefDict defs) {
 			DictUtil.AddAll(this.definitions, defs);
