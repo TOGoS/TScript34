@@ -426,10 +426,10 @@ namespace TOGoS.TScrpt34_2 {
 				return ((IUriResolver)this.UriResolver).Resolve(uri);
 			}
 		}
-
+		
 		public Interpreter() {
 			// Parameterized ops
-			definitions["alias"] = new AliasOpConstructor();
+			definitions["http://ns.nuke24.net/TScript34/Op/Alias"] = new AliasOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
 			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
@@ -462,7 +462,7 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
 			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList"] = new LatLongToXYPointListOp();
 		}
-
+		
 		public object Peek() {
 			if( DataStack.Count == 0 ) return null;
 			return DataStack[DataStack.Count - 1];

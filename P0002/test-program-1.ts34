@@ -1,4 +1,5 @@
 #TScript34.1
+http://ns.nuke24.net/TScript34/Op/Alias alias http://ns.nuke24.net/TScript34/Op/Alias
 # Actually an op constructor, hence 'Op' instead of 'Ops'
 alias push http://ns.nuke24.net/TScript34/Op/PushValue
 alias push-string http://ns.nuke24.net/TScript34/Op/PushString
