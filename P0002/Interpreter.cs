@@ -69,7 +69,10 @@ namespace TOGoS.TScrpt34_2 {
 
 	class QuitException : Exception {}
 	
-	class Mark {}
+	class Mark {
+		private Mark() { }
+		public static Mark Instance = new Mark();
+	}
 	
 	interface IUriResolver {
 		object Resolve(string uri);
@@ -452,7 +455,7 @@ namespace TOGoS.TScrpt34_2 {
 			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp(ToStringFormatter.Instance, "");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource"] = new PrintOp(PostScriptSourceFormatter.Instance, "\n");
 			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
+			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(Mark.Instance);
 			definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
 			// Datatypes
 			definitions["http://www.w3.org/2001/XMLSchema#decimal"] = new DecimalEncoding();
