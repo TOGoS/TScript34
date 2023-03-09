@@ -322,7 +322,7 @@ namespace TOGoS.TScrpt34_2 {
 			outputter.Write(data.ToCharArray());
 		}
 	}
-
+	
 	public interface IFormatter {
 		void Format(object val, ISimpleOutput dest);
 	}
