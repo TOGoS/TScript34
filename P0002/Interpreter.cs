@@ -77,7 +77,7 @@ namespace TOGoS.TScrpt34_2 {
 		object Resolve(string uri);
 	}
 
-	public class AUriResolver : IUriResolver {
+	class AUriResolver : IUriResolver {
 		object IUriResolver.Resolve(string uri) {
 			if( uri.StartsWith("data:,") ) {
 				return Uri.UnescapeDataString(uri.Substring(6));
@@ -438,10 +438,10 @@ namespace TOGoS.TScrpt34_2 {
 	
 	public class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
-
+		
 		public DefDict definitions = new DefDict();
 		public Stack DataStack = new Stack();
-		protected readonly AUriResolver UriResolver = new AUriResolver();
+		public IUriResolver UriResolver = new AUriResolver();
 
 		object IUriResolver.Resolve(string uri) {
 			if( this.definitions.ContainsKey(uri) ) {
@@ -450,7 +450,7 @@ namespace TOGoS.TScrpt34_2 {
 				return ((IUriResolver)this.UriResolver).Resolve(uri);
 			}
 		}
-
+		
 		class ConsoleOutput : ISimpleOutput {
 			public void Write(byte[] data) {
 				Console.Out.Write(data);
