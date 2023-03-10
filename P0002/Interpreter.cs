@@ -81,12 +81,14 @@ namespace TOGoS.TScrpt34_2 {
 		object IUriResolver.Resolve(string uri) {
 			if( uri.StartsWith("data:,") ) {
 				return Uri.UnescapeDataString(uri.Substring(6));
-			} else {
+			} else if( uri.StartsWith("http:") || uri.StartsWith("https:") ) {
 				using (HttpClient client = new HttpClient()) {
 					// For now just strings
 					string s = client.GetStringAsync(uri).Result;
 					return s;
 				}
+			} else {
+				return null;
 			}
 		}
 	}
