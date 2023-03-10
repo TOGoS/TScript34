@@ -1,4 +1,4 @@
-cs_source_files = Interpreter.cs MapStuff.cs NoCheckCertificatePolicy.cs
+cs_source_files = Interpreter.cs NoCheckCertificatePolicy.cs
 
 .PHONY: all
 all: TS34Interpreter.exe TS34Interpreter.dll

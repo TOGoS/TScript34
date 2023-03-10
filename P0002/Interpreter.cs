@@ -22,8 +22,6 @@ using StringSplitOptions = System.StringSplitOptions;
 using TextReader = System.IO.TextReader;
 using Uri = System.Uri;
 
-using TOGoS.TScrpt34_2.MapStuff;
-
 namespace TOGoS.TScrpt34_2 {
 	public interface Op {
 		void Do(Interpreter interp);
@@ -594,7 +592,6 @@ namespace TOGoS.TScrpt34_2 {
 			NoCheckCertificatePolicy.Init();
 			Interpreter interp = new Interpreter();
 			interp.DefineAll(StandardOps.Definitions);
-			interp.DefineAll(MapStuff.MapOps.Definitions);
 			interp.DoMain(args);
 		}
 	}

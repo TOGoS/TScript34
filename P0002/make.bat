@@ -1,4 +1,4 @@
-set "cs_source_files=Interpreter.cs MapStuff.cs NoCheckCertificatePolicy.cs"
+set "cs_source_files=Interpreter.cs NoCheckCertificatePolicy.cs"
 set "csc_opts="
 :set "csc_opts=/debug:full"
 
