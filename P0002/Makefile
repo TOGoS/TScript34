@@ -1,13 +1,14 @@
 cs_source_files = Interpreter.cs NoCheckCertificatePolicy.cs
+csc_opts = /debug:full
 
 .PHONY: all
 all: TS34Interpreter.exe TS34Interpreter.dll
 
 TS34Interpreter.exe: ${cs_source_files}
-	csc /out:"$@" /debug:full /r:System.Net.Http.dll ${cs_source_files}
+	csc /out:"$@" ${csc_opts} /r:System.Net.Http.dll ${cs_source_files}
 
-LibTest.exe: TS34Interpreter.exe LibTest.cs
-	csc /out:"$@" /main:TOGoS.TScrpt34_2.LibTest /debug:full /r:System.Net.Http.dll /r:TS34Interpreter.exe /target:exe LibTest.cs
+LibTest.exe: LibTest.cs ${cs_source_files}
+	csc /out:"$@" /main:TOGoS.TScrpt34_2.LibTest ${csc_opts} /r:System.Net.Http.dll /target:exe LibTest.cs ${cs_source_files}
 
 .PHONY: test
 test: Interpreter.exe
