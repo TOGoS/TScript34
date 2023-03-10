@@ -25,13 +25,13 @@ using Uri = System.Uri;
 using TOGoS.TScrpt34_2.MapStuff;
 
 namespace TOGoS.TScrpt34_2 {
-	interface Op {
+	public interface Op {
 		void Do(Interpreter interp);
 	}
-	interface OpConstructor {
+	public interface OpConstructor {
 		Op Parse(IStringList args, IUriResolver resolver);
 	}
-	class Procedure : Op {
+	public class Procedure : Op {
 		SCG.IList<Op> Operations;
 		public Procedure(SCG.IList<Op> ops) {
 			this.Operations = ops;
@@ -44,12 +44,12 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	
-	interface IEncoding {
+	public interface IEncoding {
 		object Encode(object v);
 		object Decode(object l);
 	}
 
-	class DecimalEncoding : IEncoding {
+	public class DecimalEncoding : IEncoding {
 		// TODO: Make sure this is actually following http://www.w3.org/2001/XMLSchema#decimal
 		object IEncoding.Encode(object v) {
 			return ((double)v).ToString();
@@ -58,7 +58,7 @@ namespace TOGoS.TScrpt34_2 {
 			return Float64.Parse(l.ToString());
 		}
 	}
-	class SymbolEncoding : IEncoding {
+	public class SymbolEncoding : IEncoding {
 		// Treating symbols as strings for now
 		object IEncoding.Encode(object v) {
 			return v.ToString();
@@ -68,18 +68,18 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
-	class QuitException : Exception {}
+	public class QuitException : Exception {}
 	
-	class Mark {
+	public class Mark {
 		private Mark() { }
 		public static Mark Instance = new Mark();
 	}
 	
-	interface IUriResolver {
+	public interface IUriResolver {
 		object Resolve(string uri);
 	}
 
-	class AUriResolver : IUriResolver {
+	public class AUriResolver : IUriResolver {
 		object IUriResolver.Resolve(string uri) {
 			if( uri.StartsWith("data:,") ) {
 				return Uri.UnescapeDataString(uri.Substring(6));
@@ -403,7 +403,7 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
-	static class StandardOps {
+	public static class StandardOps {
 		public static DefDict Definitions = new DefDict();
 		static StandardOps() {
 			// Parameterized ops
@@ -438,7 +438,7 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	
-	class Interpreter : IUriResolver {
+	public class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 
 		public DefDict definitions = new DefDict();
@@ -549,11 +549,10 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 		
-		public static void Main(string[] args) {
-			NoCheckCertificatePolicy.Init();
+		public void DoMain(string[] args) {
 			StringList scriptFiles = new StringList();
 			StringList scriptArgs = new StringList();
-
+			
 			bool mainScriptIndicated = false;
 			for( int i=0; i<args.Length; ++i ) {
 				if( mainScriptIndicated ) {
@@ -571,27 +570,32 @@ namespace TOGoS.TScrpt34_2 {
 					throw new Exception("Unrecognized argument: "+args[i]);
 				}
 			}
-
+			
 			if( scriptFiles.Count == 0 ) {
 				scriptFiles.Add("-");
 			}
 			
-			int lineNumber = 1;
 			string line;
-			Interpreter interp = new Interpreter();
-			interp.DefineAll(StandardOps.Definitions);
-			interp.DefineAll(MapStuff.MapOps.Definitions);
 			try {
 				foreach( string path in scriptFiles ) {
-					interp.StreamFile(path, delegate(TextReader r) {
+					int lineNumber = 1;
+					this.StreamFile(path, delegate(TextReader r) {
 						while( (line = r.ReadLine()) != null ) {
-							interp.HandleLine(line, lineNumber);
+							this.HandleLine(line, lineNumber);
 							++lineNumber;
 						}
 					});
 				}
 			} catch( QuitException ) {
 			}
+		}
+
+		public static void Main(string[] args) {
+			NoCheckCertificatePolicy.Init();
+			Interpreter interp = new Interpreter();
+			interp.DefineAll(StandardOps.Definitions);
+			interp.DefineAll(MapStuff.MapOps.Definitions);
+			interp.DoMain(args);
 		}
 	}
 }

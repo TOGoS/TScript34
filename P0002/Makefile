@@ -9,6 +9,9 @@ TS34Interpreter.exe: ${cs_source_files}
 TS34Interpreter.dll: ${cs_source_files}
 	csc /out:"$@" /debug:full /r:System.Net.Http.dll /target:library ${cs_source_files}
 
+LibTest.exe: TS34Interpreter.exe LibTest.cs
+	csc /out:"$@" /main:TOGoS.TScrpt34_2.LibTest /debug:full /r:System.Net.Http.dll /r:TS34Interpreter.exe /target:exe LibTest.cs
+
 .PHONY: test
 test: Interpreter.exe
 	mono --debug Interpreter.exe <test-program-1.ts34

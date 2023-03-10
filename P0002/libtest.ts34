@@ -1,0 +1,4 @@
+# A script to test that a custom operator
+# added by 'LibTest', works.
+xxx:LibTest
+http://ns.nuke24.net/TScript34/Ops/PrintLine
