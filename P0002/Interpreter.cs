@@ -498,10 +498,10 @@ namespace TOGoS.TScrpt34_2 {
 		public void DoCommand(IStringList args) {
 			if( args.Count == 0 ) throw new ArgumentException("DoCommand requires at least one thing in the args array");
 			
-			if( !definitions.ContainsKey(args[0]) ) {
+			object def = ((IUriResolver)this).Resolve(args[0]);
+			if( def == null ) {
 				throw new ArgumentException("'"+args[0]+"' not defined");
 			}
-			object def = definitions[args[0]];
 			if( def is OpConstructor ) {
 				// WHY IS THERE NO SLICE IN DOTNET
 				StringList opArgs = new StringList();
