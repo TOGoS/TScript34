@@ -317,6 +317,37 @@ namespace TOGoS.TScrpt34_2 {
 		void Write(byte[] data);
 		void Write(char[] data);
 	}
+
+	public class ConsoleOutput : ISimpleOutput {
+		public void Write(byte[] data) {
+			throw new Exception("ConsoleOutput can't write raw bytes");
+		}
+		public void Write(char[] data) {
+			Console.Out.Write(data);
+		}
+	}
+	public class StreamOutput : ISimpleOutput {
+		Stream OutStream;
+		public StreamOutput(Stream outstre) {
+			this.OutStream = outstre;
+		}
+		public void Write(byte[] data) {
+			// this.OutStream.Write(data); //  Could not load type 'System.ReadOnlySpan`1'
+			this.OutStream.Write(data, 0, data.Length); // Works better
+		}
+		public void Write(char[] chars) {
+			this.Write(System.Text.Encoding.ASCII.GetBytes(chars));
+		}
+	}
+	public class ErroringOutput : ISimpleOutput {
+		public void Write(byte[] data) {
+			throw new Exception("No output configured");
+		}
+		public void Write(char[] chars) {
+			throw new Exception("No output configured");
+		}
+	}
+
 	public static class SimpleOutputHelper {
 		public static void Write(this ISimpleOutput outputter, string data) {
 			outputter.Write(data.ToCharArray());
@@ -330,8 +361,12 @@ namespace TOGoS.TScrpt34_2 {
 		public static ToStringFormatter Instance = new ToStringFormatter();
 		
 		void IFormatter.Format(object val, ISimpleOutput dest) {
-			dest.Write(val.ToString());
-		}		
+			if( val is System.Byte[] ) {
+				dest.Write((byte[])val);
+			} else {
+				dest.Write(val.ToString());
+			}
+		}
 	}
 	class PostScriptSourceFormatter : IFormatter {
 		public static PostScriptSourceFormatter Instance = new PostScriptSourceFormatter();
@@ -373,8 +408,9 @@ namespace TOGoS.TScrpt34_2 {
 			this.postfix = postfix;
 		}
 		void Op.Do(Interpreter interp) {
-			this.formatter.Format(interp.Pop(), interp.OutputStream);
-			System.Console.Write(postfix);
+			object value = interp.Pop();
+			this.formatter.Format(value, interp.OutputStream);
+			interp.OutputStream.Write(postfix);
 		}
 	}
 
@@ -453,17 +489,7 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 		
-		class ConsoleOutput : ISimpleOutput {
-			public void Write(byte[] data) {
-				Console.Out.Write(data);
-			}
-			public void Write(char[] data) {
-				Console.Out.Write(data);
-			}
-		}
-
-
-		public ISimpleOutput OutputStream = new ConsoleOutput();
+		public ISimpleOutput OutputStream = new ErroringOutput();
 		
 		public void DefineAll(DefDict defs) {
 			DictUtil.AddAll(this.definitions, defs);
@@ -593,6 +619,8 @@ namespace TOGoS.TScrpt34_2 {
 		public static void Main(string[] args) {
 			NoCheckCertificatePolicy.Init();
 			Interpreter interp = new Interpreter();
+			
+			interp.OutputStream = new StreamOutput(System.Console.OpenStandardOutput());
 			interp.DefineAll(StandardOps.Definitions);
 			interp.DoMain(args);
 		}
