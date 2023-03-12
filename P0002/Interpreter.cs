@@ -7,9 +7,7 @@ using Exception = System.Exception;
 using Float32 = System.Single;
 using Float64 = System.Double;
 using HttpClient = System.Net.Http.HttpClient;
-using IDictionary = System.Collections.IDictionary;
 using IEnumerable = System.Collections.IEnumerable;
-using IList = System.Collections.IList;
 using Int32 = System.Int32;
 using Int64 = System.Int64;
 using IStringList = System.Collections.Generic.IList<string>;
@@ -124,7 +122,7 @@ namespace TOGoS.TScrpt34_2 {
 					decoded.Add(this.ThunkCodec.Decode(item));
 				}
 				return decoded;
-			} else if( collection is IList ) {
+			} else if( collection is SCG.IList<object> ) {
 				throw new Exception("Object is a regular list; can't thunk-decode elements");
 			} else {
 				throw new Exception("Don't know how to ThunkedValueCollection-decode a "+collection.GetType());
@@ -334,9 +332,9 @@ namespace TOGoS.TScrpt34_2 {
 			} else if( collection is SCG.IList<TS34Thunk> ) {
 				int index = interp.ThunkToValue<int>(keyThunk);
 				interp.PushThunk( ((SCG.IList<TS34Thunk>)collection)[index] );
-			} else if( collection is IList ) {
+			} else if( collection is SCG.IList<object> ) {
 				int index = interp.ThunkToValue<int>(keyThunk);
-				interp.PushThunk( interp.ValueToThunk(((IList)collection)[index]) );
+				interp.PushThunk( interp.ValueToThunk(((SCG.IList<object>)collection)[index]) );
 			} else {
 				throw new Exception("Don't know how to get element of "+collection.GetType());
 			}
@@ -455,10 +453,10 @@ namespace TOGoS.TScrpt34_2 {
 				dest.Write(val.ToString());
 			} else if( val is string ) {
 				FormatString((string)val, dest);
-			} else if( val is IDictionary ) {
+			} else if( val is SCG.IDictionary<object,object> ) {
 				string sep = " ";
 				dest.Write("<<");
-				foreach( System.Collections.DictionaryEntry pair in (IDictionary)val ) {
+				foreach( System.Collections.Generic.KeyValuePair<object, object> pair in (SCG.IDictionary<object,object>)val ) {
 					dest.Write(sep);
 					((IFormatter)this).Format(pair.Key, dest);
 					dest.Write(" ");
