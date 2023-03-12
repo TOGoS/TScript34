@@ -229,7 +229,7 @@ namespace TOGoS.TScrpt34_2 {
 			SCG.List<TS34Thunk> arr = new SCG.List<TS34Thunk>();
 			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.PushThunkCollection(arr);
+			interp.PushThunkedValueCollection(arr);
 
 			//SCG.IList<object> decoded = new SCG.List<object>(arr.Count);
 			//foreach( TS34Thunk thunk in arr ) {
@@ -255,14 +255,14 @@ namespace TOGoS.TScrpt34_2 {
 			if( stackOffset < 0 ) {
 				throw new Exception("Can't create array of "+length+" elements; only "+interp.DataStack.Count+" on stack!");
 			}
-			System.Collections.Generic.Dictionary<object,object> dict = new System.Collections.Generic.Dictionary<object,object>();
+			System.Collections.Generic.Dictionary<object,TS34Thunk> dict = new System.Collections.Generic.Dictionary<object,TS34Thunk>();
 			for( int i=stackOffset; i<interp.DataStack.Count; i += 2 ) {
 				// TODO: Translate strings to name objects as per postscript spec
 				object key = interp.ThunkToValue<object>(interp.DataStack[i]);
 				dict[key] = interp.DataStack[i+1];
 			}
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.PushThunkCollection(dict);
+			interp.PushThunkedValueCollection(dict);
 		}
 	}
 	class DupOp : Op {
@@ -324,13 +324,17 @@ namespace TOGoS.TScrpt34_2 {
 			// TODO: For now assuming that any Collection<TS34Thunk> represents
 			// a collection of things-by-thunk, not a collection of thunks!
 			if( collection is SCG.IDictionary<object,TS34Thunk> ) {
-				interp.PushThunk( ((SCG.IDictionary<object,TS34Thunk>)collection)[interp.ThunkToValue<object>(keyThunk)] );
+				object key = interp.ThunkToValue<object>(keyThunk);
+				interp.PushThunk( ((SCG.IDictionary<object,TS34Thunk>)collection)[key] );
 			} else if( collection is SCG.IDictionary<object,object> ) {
-				interp.PushThunk( interp.ValueToThunk(((SCG.IDictionary<object,object>)collection)[interp.ThunkToValue<object>(keyThunk)]) );
+				object key = interp.ThunkToValue<object>(keyThunk);
+				interp.PushThunk( interp.ValueToThunk(((SCG.IDictionary<object,object>)collection)[key]) );
 			} else if( collection is SCG.IList<TS34Thunk> ) {
-				interp.PushThunk( ((SCG.IList<TS34Thunk>)collection)[interp.ThunkToValue<int>(keyThunk)] );
+				int index = interp.ThunkToValue<int>(keyThunk);
+				interp.PushThunk( ((SCG.IList<TS34Thunk>)collection)[index] );
 			} else if( collection is IList ) {
-				interp.PushThunk( interp.ValueToThunk(((IList)collection)[interp.ThunkToValue<int>(keyThunk)]) );
+				int index = interp.ThunkToValue<int>(keyThunk);
+				interp.PushThunk( interp.ValueToThunk(((IList)collection)[index]) );
 			} else {
 				throw new Exception("Don't know how to get element of "+collection.GetType());
 			}
@@ -583,6 +587,32 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	#nullable disable
+
+	static class ValueUtil {
+		public static string Describe(object o) {
+			// TODO: always include type, but for simple values (numbers, short strings, thunks, etc)
+			// also include the data
+			return DescribeValueOfType(o.GetType());
+		}
+		public static string DescribeValueOfType(System.Type type) {
+			return "a "+type;
+		}
+		public static T LosslesslyConvert<T>(object value) {
+			if( value is T ) return (T)value;
+
+			if( value is System.IConvertible ) {
+				T converted = (T)System.Convert.ChangeType(value, System.Type.GetTypeCode(typeof(T)));
+				object convertedBack = System.Convert.ChangeType(converted, ((System.IConvertible)value).GetTypeCode() );
+				if( value.Equals(convertedBack) ) {
+					return converted;
+				} else {
+					throw new Exception( $"{Describe(value)} cannot be losslessly converted to {DescribeValueOfType(typeof(T))}" );
+				}
+			}
+
+			throw new Exception($"Don't know how to convert {Describe(value)} to {DescribeValueOfType(typeof(T))}");
+		}
+	}
 	
 	public class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
@@ -646,7 +676,10 @@ namespace TOGoS.TScrpt34_2 {
 		public void PushValue(object value) {
 			this.PushThunk(this.ValueToThunk(value));
 		}
-		public void PushThunkCollection(object tcol) {
+		public void PushThunkedValueCollection(SCG.IDictionary<object,TS34Thunk> tcol) {
+			this.PushThunk(this.ThunkedValueCollectionToThunk(tcol));
+		}
+		public void PushThunkedValueCollection(SCG.IList<TS34Thunk> tcol) {
 			this.PushThunk(this.ThunkedValueCollectionToThunk(tcol));
 		}
 		public object PopValue() {
@@ -675,11 +708,7 @@ namespace TOGoS.TScrpt34_2 {
 				}
 				val = ((IEncoding)encodingVal).Decode(val);
 			}
-			if( val is T ) {
-				return (T)val;
-			} else {
-				throw new Exception("Don't [yet] know how to convert "+val.GetType()+" to "+typeof(T));
-			}
+			return ValueUtil.LosslesslyConvert<T>(val);
 		}
 		public T ThunkToValue<T>(TS34Thunk thunk) {
 			return this.ThunkToValue<T>(thunk, typeof(T));
@@ -691,7 +720,7 @@ namespace TOGoS.TScrpt34_2 {
 				return ThunkToValue<T>(thunk);
 			}
 		}
-		public TS34Thunk ThunkedValueCollectionToThunk(object collection) {
+		protected TS34Thunk ThunkedValueCollectionToThunk(object collection) {
 			return new TS34Thunk(collection, TS34EncodingList.ThunkedValueCollection);
 		}
 		
