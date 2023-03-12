@@ -764,7 +764,7 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 		
-		public void HandleLine(string line, int lineNumber) {
+		public void HandleLine(string line) {
 			line = line.Trim();
 			if( line.Length == 0 ) return;
 			if( line[0] == '#' ) return;
@@ -815,21 +815,24 @@ namespace TOGoS.TScrpt34_2 {
 			string line;
 			string sourceFilename = "(not yet initialized)";
 			int sourceLineNumber = 0;
+			bool okay = false;
 			try {
 				foreach( string path in scriptFiles ) {
 					sourceFilename = path;
 					sourceLineNumber = 1;
 					this.StreamFile(path, delegate(TextReader r) {
 						while( (line = r.ReadLine()) != null ) {
-							this.HandleLine(line, sourceLineNumber);
+							this.HandleLine(line);
 							++sourceLineNumber;
 						}
 					});
 				}
+				okay = true;
 			} catch( QuitException ) {
-			} catch( Exception e ) {
-				System.Console.Error.Write($"Error encountered at {sourceFilename}:{sourceLineNumber}");
-				throw e;
+			} finally {
+				if( !okay ) {
+					System.Console.Error.Write($"Error encountered at {sourceFilename}:{sourceLineNumber}");
+				}
 			}
 		}
 
