@@ -229,7 +229,7 @@ namespace TOGoS.TScrpt34_2 {
 			SCG.List<TS34Thunk> arr = new SCG.List<TS34Thunk>();
 			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.PushThunkedValueCollection(arr);
+			interp.PushThunk(interp.ThunkedValueCollectionToThunk(arr));
 
 			//SCG.IList<object> decoded = new SCG.List<object>(arr.Count);
 			//foreach( TS34Thunk thunk in arr ) {
@@ -262,7 +262,7 @@ namespace TOGoS.TScrpt34_2 {
 				dict[key] = interp.DataStack[i+1];
 			}
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.PushThunkedValueCollection(dict);
+			interp.PushThunk(interp.ThunkedValueCollectionToThunk(dict));
 		}
 	}
 	class DupOp : Op {
@@ -676,12 +676,6 @@ namespace TOGoS.TScrpt34_2 {
 		public void PushValue(object value) {
 			this.PushThunk(this.ValueToThunk(value));
 		}
-		public void PushThunkedValueCollection(SCG.IDictionary<object,TS34Thunk> tcol) {
-			this.PushThunk(this.ThunkedValueCollectionToThunk(tcol));
-		}
-		public void PushThunkedValueCollection(SCG.IList<TS34Thunk> tcol) {
-			this.PushThunk(this.ThunkedValueCollectionToThunk(tcol));
-		}
 		public object PopValue() {
 			return this.ThunkToValue<object>(this.PopThunk());
 		}
@@ -720,7 +714,10 @@ namespace TOGoS.TScrpt34_2 {
 				return ThunkToValue<T>(thunk);
 			}
 		}
-		protected TS34Thunk ThunkedValueCollectionToThunk(object collection) {
+		public TS34Thunk ThunkedValueCollectionToThunk(SCG.IDictionary<object,TS34Thunk> collection) {
+			return new TS34Thunk(collection, TS34EncodingList.ThunkedValueCollection);
+		}
+		public TS34Thunk ThunkedValueCollectionToThunk(SCG.IList<TS34Thunk> collection) {
 			return new TS34Thunk(collection, TS34EncodingList.ThunkedValueCollection);
 		}
 		
