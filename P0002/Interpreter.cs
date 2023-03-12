@@ -444,9 +444,15 @@ namespace TOGoS.TScrpt34_2 {
 	class PostScriptSourceFormatter : IFormatter {
 		public static PostScriptSourceFormatter Instance = new PostScriptSourceFormatter();
 		
-		void IFormatter.Format(object val, ISimpleOutput dest) {
+		void FormatString(string v, ISimpleOutput dest) {
+			dest.Write("("+v.Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")");
+		}
+		
+		public void Format(object val, ISimpleOutput dest) {
 			if( val is Int32 || val is Float64 ) {
 				dest.Write(val.ToString());
+			} else if( val is string ) {
+				FormatString((string)val, dest);
 			} else if( val is IDictionary ) {
 				string sep = " ";
 				dest.Write("<<");
@@ -468,7 +474,7 @@ namespace TOGoS.TScrpt34_2 {
 				}
 				dest.Write("]");
 			} else {
-				dest.Write("("+val.ToString().Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")");
+				FormatString(val.ToString(), dest);
 			}
 		}
 	}
