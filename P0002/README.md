@@ -5,6 +5,8 @@ a super simplistic one-op-per-line textual representation.
 
 ## A thought: TS34Thunk
 
+(Update: merged thunkification changes; representing all values as TS34Thunks is implemented.)
+
 Passing all values as expressions means that anything can be used as an LValue.
 
 In practice, don't want to go around having random expressions being treated as lvalues;
