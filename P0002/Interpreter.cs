@@ -34,7 +34,7 @@ namespace TOGoS.TScrpt34_2 {
 		public Procedure(SCG.IList<Op> ops) {
 			this.Operations = ops;
 		}
-		void Op.Do(Interpreter interp) {
+		public void Do(Interpreter interp) {
 			foreach(Op op in this.Operations) {
 				// Maybe some way to return idk
 				op.Do(interp);
@@ -65,6 +65,31 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		object IEncoding.Decode(object l) {
 			return l;
+		}
+	}
+
+	/** Since this encoder doesn't have access to the interpreter,
+	 * it can only do very basic decoding, like data:,... */
+	public class UriReferenceEncoding : IEncoding {
+		public string Uri { get { return "http://ns.nuke24.net/TOGVM/Datatypes/URIResource"; } }
+
+		protected IUriResolver Resolver;
+
+		public UriReferenceEncoding(IUriResolver resolver) {
+			this.Resolver = resolver;
+		}
+
+		object IEncoding.Encode(object v) {
+			if( v is string ) {
+				return "data:,"+System.Uri.EscapeDataString((string)v);
+			}
+			throw new Exception("UriReferenceEncoding cannot encode a "+v.GetType());
+		}
+		object IEncoding.Decode(object l) {
+			if( l is string ) {
+				return Resolver.Resolve((string)l);
+			}
+			throw new Exception("UriReferenceEncoding cannot decode a "+l.GetType()+" because it is not a string");
 		}
 	}
 
@@ -139,7 +164,7 @@ namespace TOGoS.TScrpt34_2 {
 			if( value == null ) {
 				throw new Exception("alias: '"+this.targetName+"' not defined");
 			}
-			interp.definitions[this.name] = value;
+			interp.Definitions[this.name] = value;
 		}
 	}
 	class AliasOpConstructor : OpConstructor {
@@ -177,7 +202,7 @@ namespace TOGoS.TScrpt34_2 {
 		void Op.Do(Interpreter interp) {
 			TS34Thunk value = interp.Pop();
 			string key = interp.ThunkToValue<string>(interp.Pop());
-			interp.definitions.Add(key.ToString(), value);
+			interp.Definitions.Add(key.ToString(), interp.ThunkToValue<object>(value));
 		}
 	}
 	class DictFromStackOp : Op {
@@ -290,11 +315,13 @@ namespace TOGoS.TScrpt34_2 {
 			if( args.Count < 1 ) {
 				throw new ArgumentException("'push-value' expects one or more arguments (value, encoding1, encoding2...)");
 			}
-
+			
+			// Since our args[0] is always at least URI-encoded
 			TS34EncodingList encodingList = null;
 			for( int i=args.Count-1; i>0; --i ) {
 				encodingList = new TS34EncodingList(args[i], encodingList);
 			}
+			encodingList = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource", encodingList);
 			return new PushOp(new TS34Thunk(args[0], encodingList));
 		}
 	}
@@ -471,6 +498,10 @@ namespace TOGoS.TScrpt34_2 {
 			this.PreviousEncodings = previousEncodings;
 		}
 
+		public override string ToString() {
+			return this.EncodingUri + (this.PreviousEncodings == null ? "" : " " + this.PreviousEncodings);
+		}
+
 		public static TS34EncodingList Uri = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource", null);
 	}
 	public record TS34Thunk {
@@ -486,6 +517,10 @@ namespace TOGoS.TScrpt34_2 {
 			this.Encodings = null;
 		}
 		
+		public override string ToString() {
+			return this.EncodedValue + (this.Encodings == null ? "" : " " + this.Encodings);
+		}
+		
 		public static TS34Thunk ForUri(string uri) {
 			return new TS34Thunk(uri, TS34EncodingList.Uri);
 		}
@@ -495,22 +530,27 @@ namespace TOGoS.TScrpt34_2 {
 	public class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 		
-		public DefDict definitions = new DefDict();
+		public DefDict Definitions = new DefDict();
 		public SCG.List<TS34Thunk> DataStack = new SCG.List<TS34Thunk>();
 		public IUriResolver UriResolver = new AUriResolver();
 
-		object IUriResolver.Resolve(string uri) {
-			if( this.definitions.ContainsKey(uri) ) {
-				return this.definitions[uri];
+		public Interpreter() {
+			// Pretty basic and necessary for functioning!
+			this.Definitions["http://ns.nuke24.net/TOGVM/Datatypes/URIResource"] = new UriReferenceEncoding(this);
+		}
+
+		public object Resolve(string uri) {
+			if( this.Definitions.ContainsKey(uri) ) {
+				return this.Definitions[uri];
 			} else {
-				return ((IUriResolver)this.UriResolver).Resolve(uri);
+				return this.UriResolver.Resolve(uri);
 			}
 		}
 		
 		public ISimpleOutput OutputStream = new ErroringOutput();
 		
 		public void DefineAll(DefDict defs) {
-			DictUtil.AddAll(this.definitions, defs);
+			DictUtil.AddAll(this.Definitions, defs);
 		}
 
 		public TS34Thunk Peek() {
@@ -519,6 +559,7 @@ namespace TOGoS.TScrpt34_2 {
 		}
 
 		public TS34Thunk Pop() {
+			System.Console.WriteLine("Popping from stack, which has "+DataStack.Count+" items...");
 			var index = DataStack.Count-1;
 			TS34Thunk value = DataStack[index];
 			DataStack.RemoveAt(index);
@@ -526,6 +567,7 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		public void Push(TS34Thunk value) {
 			DataStack.Add(value);
+			System.Console.WriteLine("Pushing "+value+"; stack now has "+this.DataStack.Count+" items");
 		}
 		public int CountToMark() {
 			var count = 0;
@@ -541,14 +583,25 @@ namespace TOGoS.TScrpt34_2 {
 			return new TS34Thunk(val); // No encodings => EncodedValue is the entity
 		}
 		public T ThunkToValue<T>(TS34Thunk thunk, System.Type t) {
-			throw new Exception("asdasd");
+			object val = thunk.EncodedValue;
+			for( TS34EncodingList el = thunk.Encodings; el != null; el = el.PreviousEncodings ) {
+				object encodingVal = ((IUriResolver)this).Resolve(el.EncodingUri);
+				if( !(encodingVal is IEncoding) ) {
+					throw new Exception("Uh oh; "+el.EncodingUri+" does not name an encoding; got a "+encodingVal.GetType());
+				}
+				val = ((IEncoding)encodingVal).Decode(val);
+			}
+			if( val is T ) {
+				return (T)val;
+			} else {
+				throw new Exception("Don't [yet] know how to convert "+val.GetType()+" to "+typeof(T));
+			}
 		}
 		public T ThunkToValue<T>(TS34Thunk thunk) {
-			throw new Exception("asdasd "+typeof(T).Name);
-			//return this.ThunkToValue(thunk, typeof(T)); // Maybe we can't do this
+			return this.ThunkToValue<T>(thunk, typeof(T));
 		}
 		public T ThunkToValueShallow<T>(TS34Thunk thunk) {
-			throw new Exception("salty");
+			throw new Exception("TODO: Shallow thunk-to-object");
 		}
 		
 		SCG.List<SCG.List<Op>> procedureDefinitionStack = new SCG.List<SCG.List<Op>>();
@@ -566,6 +619,7 @@ namespace TOGoS.TScrpt34_2 {
 				for( int i=1; i<args.Count; ++i ) opArgs.Add(args[i]);
 				def = ((OpConstructor)def).Parse(opArgs, this);
 			}
+			// TODO: Some ops can be compile time ops
 			if( def is OpenProcedureOp ) {
 				procedureDefinitionStack.Add(new SCG.List<Op>());
 				return;
@@ -582,6 +636,8 @@ namespace TOGoS.TScrpt34_2 {
 				} else {
 					procedureDefinitionStack[procedureDefinitionStack.Count-1].Add((Op)def);
 				}
+			} else {
+				throw new Exception(args[0]+" does not name an op, but a "+def.GetType());
 			}
 		}
 		

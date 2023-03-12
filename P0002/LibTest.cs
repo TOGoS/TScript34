@@ -9,7 +9,7 @@ namespace TOGoS.TScrpt34_2 {
         }
         public static void Main(string[] args) {
             Interpreter interp = new Interpreter();
-            interp.definitions.Add("xxx:LibTest", new LibTestOp());
+            interp.Definitions.Add("xxx:LibTest", new LibTestOp());
             interp.DefineAll(StandardOps.Definitions);
             interp.DoMain(args);
         }

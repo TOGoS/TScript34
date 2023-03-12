@@ -2,9 +2,6 @@
 http://ns.nuke24.net/TScript34/Op/Alias alias http://ns.nuke24.net/TScript34/Op/Alias
 # Actually an op constructor, hence 'Op' instead of 'Ops'
 alias push http://ns.nuke24.net/TScript34/Op/PushValue
-alias push-string http://ns.nuke24.net/TScript34/Op/PushString
-alias push-int32 http://ns.nuke24.net/TScript34/Op/PushInt32
-alias push-float64 http://ns.nuke24.net/TScript34/Op/PushFloat64
 alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
 alias dict-from-stack http://ns.nuke24.net/TScript34/Ops/DictFromStack
@@ -28,7 +25,7 @@ alias } http://ns.nuke24.net/TScript34/Ops/CloseProcedure
 alias Decimal http://www.w3.org/2001/XMLSchema#decimal
 alias Symbol http://ns.nuke24.net/TScript34/Datatypes/Symbol
 
-push-string data:,]
+push data:,]
 {
     counttomark
     array-from-stack
@@ -37,7 +34,7 @@ push-string data:,]
 }
 def
 
-push-string data:,>>
+push data:,>>
 {
     counttomark
     dict-from-stack
@@ -56,7 +53,7 @@ def
         push data:,456 Decimal
     ]
     {
-        push-string data:,Blah
+        push data:,Blah
         print
         println
     }
@@ -66,12 +63,12 @@ exec
 quit
 
 
-push-string data:,Print%20line!
+push data:,Print%20line!
 println
 
-push-string data:,Word.
-push-string data:,One%20
-push-string data:,Print%20
+push data:,Word.
+push data:,One%20
+push data:,Print%20
 print
 print
 println
@@ -80,14 +77,14 @@ println
 push-int32 data:,123
 push-int32 data:,456
 [
-push-string data:,seven,%20eight,%20nine
+push data:,seven,%20eight,%20nine
 ]
 ]
 ==
 # http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
 # println
 
-push-string data:,Okay%20that%20was%20cool.
+push data:,Okay%20that%20was%20cool.
 println
 
 {
@@ -98,8 +95,8 @@ exec
 
 # [ (Foo) (Bar) ] 1 get =
 [
-push-string data:,Foo
-push-string data:,Bar
+push data:,Foo
+push data:,Bar
 counttomark
 array-from-stack
 push-int32 data:,1
@@ -108,9 +105,9 @@ println
 
 # << (Foo) 123 (Bar) 456 >> (Bar) get =
 <<
-push-string data:,Foo
+push data:,Foo
 push-int32 data:,123
-push-string data:,Bar
+push data:,Bar
 push-int32 data:,456
 >>
 ==
@@ -119,15 +116,15 @@ push-int32 data:,456
 pop
 # END Ignore all this stuff
 
-push-string data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
-# push-string data:,http://www.nuke24.net/
+push data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
+# push data:,http://www.nuke24.net/
 
 dup
-push-string data:,Now%20let's%20download%20
+push data:,Now%20let's%20download%20
 print
 println
 
-push-string data:,Again,%20that's%20
+push data:,Again,%20that's%20
 print
 
 dup
@@ -136,7 +133,7 @@ println
 fetch-uri
 http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList
 
-push-string data:,Converting%20from%20lat/long%20to%20x/y...
+push data:,Converting%20from%20lat/long%20to%20x/y...
 println
 
 
