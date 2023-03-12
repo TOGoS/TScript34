@@ -4,7 +4,6 @@ http://ns.nuke24.net/TScript34/Op/Alias alias http://ns.nuke24.net/TScript34/Op/
 alias push http://ns.nuke24.net/TScript34/Op/PushValue
 alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
-alias decimal http://www.w3.org/2001/XMLSchema#decimal
 alias dict-from-stack http://ns.nuke24.net/TScript34/Ops/DictFromStack
 alias def http://ns.nuke24.net/TScript34/Ops/Define
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
@@ -44,78 +43,74 @@ push data:,>>
 }
 def
 
-# BEGIN Ignore all this stuff
 {
-
-# Demonstrate that { ... } procedures work
-{
-    [
-        push data:,123 Decimal
-        push data:,456 Decimal
-    ]
+    push data:,Let's%20play%20with%20arrays!
+    # Demonstrate that { ... } procedures work
     {
-        push data:,Blah
-        print
-        println
+        [
+            push data:,123 Decimal
+            push data:,456 Decimal
+        ]
+        {
+            push data:,Blah
+            print
+            println
+        }
+        forall
     }
-    forall
+    exec
+
+    push data:,Print%20line!
+    println
+
+    push data:,Word.
+    push data:,One%20
+    push data:,Print%20
+    print
+    print
+    println
+
+    [
+    push data:,123 Decimal
+    push data:,456 Decimal
+    [
+    push data:,seven,%20eight,%20nine
+    ]
+    ]
+    ==
+    # http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
+    # println
+
+    push data:,Okay%20that%20was%20cool.
+    println
+
+    {
+
+    }
+    exec
+
+
+    # [ (Foo) (Bar) ] 1 get =
+    [
+    push data:,Foo
+    push data:,Bar
+    counttomark
+    array-from-stack
+    push data:,1 Decimal
+    get
+    println
+
+    # << (Foo) 123 (Bar) 456 >> (Bar) get =
+    <<
+    push data:,Foo
+    push data:,123 Decimal
+    push data:,Bar
+    push data:,456 Decimal
+    >>
+    ==
+
 }
 exec
-quit
-
-
-push data:,Print%20line!
-println
-
-push data:,Word.
-push data:,One%20
-push data:,Print%20
-print
-print
-println
-
-[
-push data:,123 decimal
-push data:,456 decimal
-[
-push data:,seven,%20eight,%20nine
-]
-]
-==
-# http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
-# println
-
-push data:,Okay%20that%20was%20cool.
-println
-
-{
-
-}
-exec
-
-
-# [ (Foo) (Bar) ] 1 get =
-[
-push data:,Foo
-push data:,Bar
-counttomark
-array-from-stack
-push data:,1 decimal
-get
-println
-
-# << (Foo) 123 (Bar) 456 >> (Bar) get =
-<<
-push data:,Foo
-push data:,123 decimal
-push data:,Bar
-push data:,456 decimal
->>
-==
-
-}
-pop
-# END Ignore all this stuff
 
 push data:,https%3A%2F%2Fmaps.datascience.wisc.edu%2Fmap-maker%2Fapi%2Fterrain%2Fpublic%2Fvegetation%3Fwidth%3D800%26tlx%3D-79.80120989049429%26tly%3D40.46692825268929%26brx%3D-79.77285593567697%26bry%3D40.448193641702986
 # push data:,http://www.nuke24.net/

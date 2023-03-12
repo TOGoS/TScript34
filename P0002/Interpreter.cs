@@ -93,6 +93,17 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
+	public class ThunkedValueCollectionEncoding : IEncoding {
+		public string Uri { get { return "http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"; } }
+
+		public object Encode(object v) {
+			throw new Exception(GetType()+"#Encode not yet implemented (usually this is done specially by the interpreter");
+		}
+		public object Decode(object l) {
+			throw new Exception(GetType()+"#Decode not yet implemented (usually this is done specially by the interpreter");
+		}
+	}
+
 	public class QuitException : Exception {}
 	
 	public class Mark {
@@ -192,16 +203,13 @@ namespace TOGoS.TScrpt34_2 {
 			SCG.List<TS34Thunk> arr = new SCG.List<TS34Thunk>();
 			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
 			interp.DataStack.RemoveRange(stackOffset, length);
+			interp.PushThunkCollection(arr);
 
-			// TODO: Don't need to decode everything if we have a way
-			// of indicating a collection of things-by-thunk
-
-			SCG.IList<object> decoded = new SCG.List<object>(arr.Count);
-			foreach( TS34Thunk thunk in arr ) {
-				decoded.Add(interp.ThunkToValue<object>(thunk));
-			}
-			
-			interp.PushValue(decoded);
+			//SCG.IList<object> decoded = new SCG.List<object>(arr.Count);
+			//foreach( TS34Thunk thunk in arr ) {
+			//	decoded.Add(interp.ThunkToValue<object>(thunk));
+			//}
+			//interp.PushValue(decoded);
 		}
 	}
 	class DefineOp : Op {
@@ -224,10 +232,11 @@ namespace TOGoS.TScrpt34_2 {
 			System.Collections.Generic.Dictionary<object,object> dict = new System.Collections.Generic.Dictionary<object,object>();
 			for( int i=stackOffset; i<interp.DataStack.Count; i += 2 ) {
 				// TODO: Translate strings to name objects as per postscript spec
-				dict[interp.DataStack[i]] = interp.DataStack[i+1];
+				object key = interp.ThunkToValue<object>(interp.DataStack[i]);
+				dict[key] = interp.DataStack[i+1];
 			}
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.PushThunk(interp.ValueToThunk(dict));
+			interp.PushThunkCollection(dict);
 		}
 	}
 	class DupOp : Op {
@@ -514,12 +523,17 @@ namespace TOGoS.TScrpt34_2 {
 			this.EncodingUri = uri;
 			this.PreviousEncodings = previousEncodings;
 		}
+		public TS34EncodingList(string uri) {
+			this.EncodingUri = uri;
+			this.PreviousEncodings = null;
+		}
 
 		public override string ToString() {
 			return this.EncodingUri + (this.PreviousEncodings == null ? "" : " " + this.PreviousEncodings);
 		}
 
 		public static TS34EncodingList Uri = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource", null);
+		public static TS34EncodingList ThunkedValueCollection = new TS34EncodingList("http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection", null);
 	}
 	public record TS34Thunk {
 		public object EncodedValue;
@@ -554,6 +568,7 @@ namespace TOGoS.TScrpt34_2 {
 		public Interpreter() {
 			// Pretty basic and necessary for functioning!
 			this.Definitions["http://ns.nuke24.net/TOGVM/Datatypes/URIResource"] = new UriReferenceEncoding(this);
+			this.Definitions["http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"] = new ThunkedValueCollectionEncoding();
 		}
 
 		public object Resolve(string uri) {
@@ -588,6 +603,9 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		public void PushValue(object value) {
 			this.PushThunk(this.ValueToThunk(value));
+		}
+		public void PushThunkCollection(object tcol) {
+			this.PushThunk(this.ThunkedValueCollectionToThunk(tcol));
 		}
 		public object PopValue() {
 			return this.ThunkToValue<object>(this.PopThunk());
@@ -625,7 +643,14 @@ namespace TOGoS.TScrpt34_2 {
 			return this.ThunkToValue<T>(thunk, typeof(T));
 		}
 		public T ThunkToValueShallow<T>(TS34Thunk thunk) {
-			throw new Exception("TODO: Shallow thunk-to-object");
+			if( thunk.Encodings == TS34EncodingList.ThunkedValueCollection ) {
+				return (T)thunk.EncodedValue;
+			} else {
+				return ThunkToValue<T>(thunk);
+			}
+		}
+		public TS34Thunk ThunkedValueCollectionToThunk(object collection) {
+			return new TS34Thunk(collection, TS34EncodingList.ThunkedValueCollection);
 		}
 		
 		SCG.List<SCG.List<Op>> procedureDefinitionStack = new SCG.List<SCG.List<Op>>();
