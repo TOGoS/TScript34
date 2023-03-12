@@ -815,17 +815,23 @@ namespace TOGoS.TScrpt34_2 {
 			}
 			
 			string line;
+			string sourceFilename = "(not yet initialized)";
+			int sourceLineNumber = 0;
 			try {
 				foreach( string path in scriptFiles ) {
-					int lineNumber = 1;
+					sourceFilename = path;
+					sourceLineNumber = 1;
 					this.StreamFile(path, delegate(TextReader r) {
 						while( (line = r.ReadLine()) != null ) {
-							this.HandleLine(line, lineNumber);
-							++lineNumber;
+							this.HandleLine(line, sourceLineNumber);
+							++sourceLineNumber;
 						}
 					});
 				}
 			} catch( QuitException ) {
+			} catch( Exception e ) {
+				System.Console.Error.Write($"Error encountered at {sourceFilename}:{sourceLineNumber}");
+				throw e;
 			}
 		}
 
