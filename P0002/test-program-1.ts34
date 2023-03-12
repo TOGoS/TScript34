@@ -63,19 +63,19 @@ def
     push data:,Print%20line!
     println
 
-    push data:,Word.
-    push data:,One%20
+    push data:,words.
+    push data:,three%20
     push data:,Print%20
     print
     print
     println
 
     [
-    push data:,123 Decimal
-    push data:,456 Decimal
-    [
-    push data:,seven,%20eight,%20nine
-    ]
+        push data:,123 Decimal
+        push data:,456 Decimal
+        [
+            push data:,seven,%20eight,%20nine
+        ]
     ]
     ==
     # http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
