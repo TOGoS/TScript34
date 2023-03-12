@@ -4,12 +4,14 @@ using ArgumentException = System.ArgumentException;
 using Console = System.Console;
 using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
+using Float32 = System.Single;
 using Float64 = System.Double;
 using HttpClient = System.Net.Http.HttpClient;
 using IDictionary = System.Collections.IDictionary;
 using IEnumerable = System.Collections.IEnumerable;
 using IList = System.Collections.IList;
 using Int32 = System.Int32;
+using Int64 = System.Int64;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
 using SCG = System.Collections.Generic;
@@ -449,7 +451,7 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		
 		public void Format(object val, ISimpleOutput dest) {
-			if( val is Int32 || val is Float64 ) {
+			if( val is Int32 || val is Int64 || val is Float32 || val is Float64 ) {
 				dest.Write(val.ToString());
 			} else if( val is string ) {
 				FormatString((string)val, dest);
