@@ -42,28 +42,31 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	
-	public interface IEncoding {
+	public interface ICodec<V,L> {
+		L Encode(V v);
+		V Decode(L l);
+	}
+	
+	public interface IEncoding : ICodec<object,object> {
 		string Uri { get; }
-		object Encode(object v);
-		object Decode(object l);
 	}
 
 	public class DecimalEncoding : IEncoding {
 		public string Uri { get { return "http://www.w3.org/2001/XMLSchema#decimal"; } }
 		// TODO: Make sure this is actually following http://www.w3.org/2001/XMLSchema#decimal
-		object IEncoding.Encode(object v) {
+		public object Encode(object v) {
 			return ((double)v).ToString();
 		}
-		object IEncoding.Decode(object l) {
+		public object Decode(object l) {
 			return Float64.Parse(l.ToString());
 		}
 	}
 	public class SymbolEncoding : IEncoding {
 		public string Uri { get { return "http://ns.nuke24.net/TScript34/Datatypes/Symbol"; } }
-		object IEncoding.Encode(object v) {
+		public object Encode(object v) {
 			return v;
 		}
-		object IEncoding.Decode(object l) {
+		public object Decode(object l) {
 			return l;
 		}
 	}
@@ -79,13 +82,13 @@ namespace TOGoS.TScrpt34_2 {
 			this.Resolver = resolver;
 		}
 
-		object IEncoding.Encode(object v) {
+		public object Encode(object v) {
 			if( v is string ) {
 				return "data:,"+System.Uri.EscapeDataString((string)v);
 			}
 			throw new Exception("UriReferenceEncoding cannot encode a "+v.GetType());
 		}
-		object IEncoding.Decode(object l) {
+		public object Decode(object l) {
 			if( l is string ) {
 				return Resolver.Resolve((string)l);
 			}
@@ -95,12 +98,35 @@ namespace TOGoS.TScrpt34_2 {
 
 	public class ThunkedValueCollectionEncoding : IEncoding {
 		public string Uri { get { return "http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"; } }
-
-		public object Encode(object v) {
-			throw new Exception(GetType()+"#Encode not yet implemented (usually this is done specially by the interpreter");
+		
+		protected ICodec<object,TS34Thunk> ThunkCodec;
+		public ThunkedValueCollectionEncoding(ICodec<object,TS34Thunk> thunkCodec) {
+			this.ThunkCodec = thunkCodec;
 		}
-		public object Decode(object l) {
-			throw new Exception(GetType()+"#Decode not yet implemented (usually this is done specially by the interpreter");
+		
+		public object Encode(object v) {
+			throw new Exception(GetType()+"#Encode not yet implemented (usually they are created directly by e.g. createArray ops)");
+		}
+		public object Decode(object collection) {
+			if( collection is SCG.IDictionary<object,TS34Thunk> ) {
+				SCG.Dictionary<object,object> decoded = new SCG.Dictionary<object,object>();
+				foreach( var entry in (SCG.IDictionary<object,TS34Thunk>)collection ) {
+					decoded[entry.Key] = this.ThunkCodec.Decode(entry.Value);
+				}
+				return decoded;
+			} else if( collection is SCG.IDictionary<object,object> ) {
+				throw new Exception("Object is a regular dictionary; can't thunk-decode elements");
+			} else if( collection is SCG.IList<TS34Thunk> ) {
+				SCG.List<object> decoded = new SCG.List<object>();
+				foreach( var item in (SCG.IList<TS34Thunk>)collection ) {
+					decoded.Add(this.ThunkCodec.Decode(item));
+				}
+				return decoded;
+			} else if( collection is IList ) {
+				throw new Exception("Object is a regular list; can't thunk-decode elements");
+			} else {
+				throw new Exception("Don't know how to ThunkedValueCollection-decode a "+collection.GetType());
+			}
 		}
 	}
 
@@ -564,11 +590,27 @@ namespace TOGoS.TScrpt34_2 {
 		public DefDict Definitions = new DefDict();
 		public SCG.List<TS34Thunk> DataStack = new SCG.List<TS34Thunk>();
 		public IUriResolver UriResolver = new AUriResolver();
+		
+		protected class InterpreterThunkCodec : ICodec<object,TS34Thunk> {
+			Interpreter Interp;
+			public InterpreterThunkCodec(Interpreter interp) {
+				this.Interp = interp;
+			}
+			public TS34Thunk Encode(object obj) {
+				return Interp.ValueToThunk(obj);
+			}
+			public object Decode(TS34Thunk thunk) {
+				return Interp.ThunkToValue<object>(thunk);
+			}
+		}
 
+		protected InterpreterThunkCodec ThunkCodec;
+		
 		public Interpreter() {
+			this.ThunkCodec = new InterpreterThunkCodec(this);
 			// Pretty basic and necessary for functioning!
 			this.Definitions["http://ns.nuke24.net/TOGVM/Datatypes/URIResource"] = new UriReferenceEncoding(this);
-			this.Definitions["http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"] = new ThunkedValueCollectionEncoding();
+			this.Definitions["http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"] = new ThunkedValueCollectionEncoding(this.ThunkCodec);
 		}
 
 		public object Resolve(string uri) {
