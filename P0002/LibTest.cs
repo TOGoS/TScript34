@@ -4,7 +4,7 @@ namespace TOGoS.TScrpt34_2 {
     class LibTest {
         class LibTestOp : Op {
             public void Do(Interpreter interp) {
-                interp.Push(interp.ValueToThunk("LibTest"));
+                interp.PushThunk(interp.ValueToThunk("LibTest"));
             }
         }
         public static void Main(string[] args) {

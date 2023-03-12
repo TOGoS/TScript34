@@ -8,4 +8,4 @@ if errorlevel 1 exit /B 1
 call csc /out:LibTest.exe /main:TOGoS.TScrpt34_2.LibTest %csc_opts% /r:System.Net.Http.dll /target:exe LibTest.cs %cs_source_files%
 if errorlevel 1 exit /B 1
 
-TS34Interpreter.exe test-program-1.ts34
+mono TS34Interpreter.exe test-program-1.ts34

@@ -4,6 +4,7 @@ http://ns.nuke24.net/TScript34/Op/Alias alias http://ns.nuke24.net/TScript34/Op/
 alias push http://ns.nuke24.net/TScript34/Op/PushValue
 alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
+alias decimal http://www.w3.org/2001/XMLSchema#decimal
 alias dict-from-stack http://ns.nuke24.net/TScript34/Ops/DictFromStack
 alias def http://ns.nuke24.net/TScript34/Ops/Define
 alias dup http://ns.nuke24.net/TScript34/Ops/Dup
@@ -74,8 +75,8 @@ print
 println
 
 [
-push-int32 data:,123
-push-int32 data:,456
+push data:,123 decimal
+push data:,456 decimal
 [
 push data:,seven,%20eight,%20nine
 ]
@@ -99,16 +100,16 @@ push data:,Foo
 push data:,Bar
 counttomark
 array-from-stack
-push-int32 data:,1
+push data:,1 decimal
 get
 println
 
 # << (Foo) 123 (Bar) 456 >> (Bar) get =
 <<
 push data:,Foo
-push-int32 data:,123
+push data:,123 decimal
 push data:,Bar
-push-int32 data:,456
+push data:,456 decimal
 >>
 ==
 
@@ -131,14 +132,4 @@ dup
 println
 
 fetch-uri
-http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList
-
-push data:,Converting%20from%20lat/long%20to%20x/y...
 println
-
-
-push-float64 data:,-79.80120989049429
-push-float64 data:,40.46692825268929
-push-float64 data:,6365000
-http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList
-==

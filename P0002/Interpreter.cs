@@ -177,37 +177,43 @@ namespace TOGoS.TScrpt34_2 {
 	}
 	class CountToMarkOp : Op {
 		void Op.Do(Interpreter interp) {
-			interp.Push(interp.ValueToThunk(interp.CountToMark()));
+			interp.PushValue(interp.CountToMark());
 		}
 	}
 
 	/** (item1 item2 ... itemN n ArrayFromStack -- array) */
 	class ArrayFromStackOp : Op {
 		void Op.Do(Interpreter interp) {
-			int length = interp.ThunkToValue<int>(interp.Pop());
+			int length = interp.ThunkToValue<int>(interp.PopThunk());
 			int stackOffset = interp.DataStack.Count - length;
 			if( stackOffset < 0 ) {
 				throw new Exception("Can't create array of "+length+" elements; only "+interp.DataStack.Count+" on stack!");
 			}
-			Stack arr = new Stack();
+			SCG.List<TS34Thunk> arr = new SCG.List<TS34Thunk>();
 			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
 			interp.DataStack.RemoveRange(stackOffset, length);
-			// TODO: This is wrong; array is of thunks;
-			// need some way to indicate array aside from a literal array;
-			// maybe a datatype of List-of-TS34Thunk?
-			interp.Push(interp.ValueToThunk(arr));
+
+			// TODO: Don't need to decode everything if we have a way
+			// of indicating a collection of things-by-thunk
+
+			SCG.IList<object> decoded = new SCG.List<object>(arr.Count);
+			foreach( TS34Thunk thunk in arr ) {
+				decoded.Add(interp.ThunkToValue<object>(thunk));
+			}
+			
+			interp.PushValue(decoded);
 		}
 	}
 	class DefineOp : Op {
 		void Op.Do(Interpreter interp) {
-			TS34Thunk value = interp.Pop();
-			string key = interp.ThunkToValue<string>(interp.Pop());
+			TS34Thunk value = interp.PopThunk();
+			string key = interp.ThunkToValue<string>(interp.PopThunk());
 			interp.Definitions.Add(key.ToString(), interp.ThunkToValue<object>(value));
 		}
 	}
 	class DictFromStackOp : Op {
 		void Op.Do(Interpreter interp) {
-			int length = interp.ThunkToValue<int>(interp.Pop());
+			int length = interp.ThunkToValue<int>(interp.PopThunk());
 			if( (length & 1) != 0 ) {
 				throw new Exception("DictFromStackOp requires an even number of stack elements; "+length+" were indicated");
 			}
@@ -221,53 +227,53 @@ namespace TOGoS.TScrpt34_2 {
 				dict[interp.DataStack[i]] = interp.DataStack[i+1];
 			}
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.Push(interp.ValueToThunk(dict));
+			interp.PushThunk(interp.ValueToThunk(dict));
 		}
 	}
 	class DupOp : Op {
 		void Op.Do(Interpreter interp) {
 			if( interp.DataStack.Count < 1 ) throw new Exception("Can't dup; stack empty!");
-			interp.Push(interp.Peek());
+			interp.PushThunk(interp.Peek());
 		}
 	}
 	class ExchOp : Op {
 		void Op.Do(Interpreter interp) {
-			TS34Thunk a = interp.Pop();
-			TS34Thunk b = interp.Pop();
-			interp.Push(a);
-			interp.Push(b);
+			TS34Thunk a = interp.PopThunk();
+			TS34Thunk b = interp.PopThunk();
+			interp.PushThunk(a);
+			interp.PushThunk(b);
 		}
 	}
 	class ExecOp : Op {
 		void Op.Do(Interpreter interp) {
-			interp.ThunkToValue<Op>(interp.Pop()).Do(interp);
+			interp.ThunkToValue<Op>(interp.PopThunk()).Do(interp);
 		}
 	}
 	class FetchUriOp : Op {
 		void Op.Do(Interpreter interp) {
-			string uri = interp.ThunkToValue<string>(interp.Pop());
-			interp.Push(TS34Thunk.ForUri(uri));
+			string uri = interp.ThunkToValue<string>(interp.PopThunk());
+			interp.PushThunk(TS34Thunk.ForUri(uri));
 		}
 	}
 	/** i.e. take all the strings in an array and concatenate them together */
 	class FlattenStringListOp : Op {
 		void Op.Do(Interpreter interp) {
-			IEnumerable list = interp.ThunkToValue<IEnumerable>(interp.Pop());
+			IEnumerable list = interp.ThunkToValue<IEnumerable>(interp.PopThunk());
 			StringBuilder sb = new StringBuilder();
 			foreach( var item in list ) sb.Append(item.ToString());
-			interp.Push(interp.ValueToThunk(sb.ToString()));
+			interp.PushThunk(interp.ValueToThunk(sb.ToString()));
 		}
 	}
 
 	/** Equivalent to postscript's forall (list proc -- ...) */
 	class ForEachOp : Op {
 		void Op.Do(Interpreter interp) {
-			Op proc = interp.ThunkToValue<Op>(interp.Pop());
-			SCG.IEnumerable<TS34Thunk> list = interp.ThunkToValueShallow<SCG.IEnumerable<TS34Thunk>>(interp.Pop());
+			Op proc = interp.ThunkToValue<Op>(interp.PopThunk());
+			SCG.IEnumerable<TS34Thunk> list = interp.ThunkToValueShallow<SCG.IEnumerable<TS34Thunk>>(interp.PopThunk());
 			// TODO: Oh dear, hold up; we probably should have a separate
 			// method that returns an IEnumerable of thunks!
 			foreach( TS34Thunk item in list ) {
-				interp.Push(item);
+				interp.PushThunk(item);
 				proc.Do(interp);
 			}
 		}
@@ -278,18 +284,18 @@ namespace TOGoS.TScrpt34_2 {
 	*/
 	class GetElementOp : Op {
 		void Op.Do(Interpreter interp) {
-			TS34Thunk keyThunk = interp.Pop();
-			object collection = interp.ThunkToValueShallow<object>(interp.Pop());
+			TS34Thunk keyThunk = interp.PopThunk();
+			object collection = interp.ThunkToValueShallow<object>(interp.PopThunk());
 			// TODO: For now assuming that any Collection<TS34Thunk> represents
 			// a collection of things-by-thunk, not a collection of thunks!
 			if( collection is SCG.IDictionary<object,TS34Thunk> ) {
-				interp.Push( ((SCG.IDictionary<object,TS34Thunk>)collection)[interp.ThunkToValue<object>(keyThunk)] );
+				interp.PushThunk( ((SCG.IDictionary<object,TS34Thunk>)collection)[interp.ThunkToValue<object>(keyThunk)] );
 			} else if( collection is SCG.IDictionary<object,object> ) {
-				interp.Push( interp.ValueToThunk(((SCG.IDictionary<object,object>)collection)[interp.ThunkToValue<object>(keyThunk)]) );
+				interp.PushThunk( interp.ValueToThunk(((SCG.IDictionary<object,object>)collection)[interp.ThunkToValue<object>(keyThunk)]) );
 			} else if( collection is SCG.IList<TS34Thunk> ) {
-				interp.Push( ((SCG.IList<TS34Thunk>)collection)[interp.ThunkToValue<int>(keyThunk)] );
+				interp.PushThunk( ((SCG.IList<TS34Thunk>)collection)[interp.ThunkToValue<int>(keyThunk)] );
 			} else if( collection is IList ) {
-				interp.Push( interp.ValueToThunk(((IList)collection)[interp.ThunkToValue<int>(keyThunk)]) );
+				interp.PushThunk( interp.ValueToThunk(((IList)collection)[interp.ThunkToValue<int>(keyThunk)]) );
 			} else {
 				throw new Exception("Don't know how to get element of "+collection.GetType());
 			}
@@ -297,7 +303,7 @@ namespace TOGoS.TScrpt34_2 {
 	}
 	class PopOp : Op {
 		void Op.Do(Interpreter interp) {
-			interp.Pop();
+			interp.PopThunk();
 		}
 	}
 	class PushOp : Op {
@@ -306,11 +312,15 @@ namespace TOGoS.TScrpt34_2 {
 			this.toPush = toPush;
 		}
 		void Op.Do(Interpreter interp) {
-			interp.Push(toPush);
+			interp.PushThunk(toPush);
 		}
 	}
 	
 	class PushValueOpConstructor : OpConstructor {
+		// TODO: Could have eager/lazy variants;
+		// eager ones would resolve/decode immediately.
+		// Possibly eager/lazy based on encoding!
+
 		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count < 1 ) {
 				throw new ArgumentException("'push-value' expects one or more arguments (value, encoding1, encoding2...)");
@@ -319,7 +329,14 @@ namespace TOGoS.TScrpt34_2 {
 			// Since our args[0] is always at least URI-encoded
 			TS34EncodingList encodingList = null;
 			for( int i=args.Count-1; i>0; --i ) {
-				encodingList = new TS34EncodingList(args[i], encodingList);
+				// Even if not eagerly decoding, we want to get the canonical
+				// URI of the encoding.  Don't want to store some alias!
+				// Also, no sense in creating thunks with invalid encodings.
+				var encoding = resolver.Resolve(args[i]);
+				if( !(encoding is IEncoding) ) {
+					throw new Exception(args[i]+" does not name an encoding");
+				}
+				encodingList = new TS34EncodingList(((IEncoding)encoding).Uri, encodingList);
 			}
 			encodingList = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource", encodingList);
 			return new PushOp(new TS34Thunk(args[0], encodingList));
@@ -425,7 +442,7 @@ namespace TOGoS.TScrpt34_2 {
 			this.postfix = postfix;
 		}
 		void Op.Do(Interpreter interp) {
-			object value = interp.Pop();
+			object value = interp.ThunkToValue<object>(interp.PopThunk());
 			this.formatter.Format(value, interp.OutputStream);
 			interp.OutputStream.Write(postfix);
 		}
@@ -558,17 +575,24 @@ namespace TOGoS.TScrpt34_2 {
 			return DataStack[DataStack.Count - 1];
 		}
 
-		public TS34Thunk Pop() {
-			System.Console.WriteLine("Popping from stack, which has "+DataStack.Count+" items...");
+		public TS34Thunk PopThunk() {
+			// System.Console.WriteLine("Popping from stack, which has "+DataStack.Count+" items...");
 			var index = DataStack.Count-1;
 			TS34Thunk value = DataStack[index];
 			DataStack.RemoveAt(index);
 			return value;
 		}
-		public void Push(TS34Thunk value) {
+		public void PushThunk(TS34Thunk value) {
 			DataStack.Add(value);
-			System.Console.WriteLine("Pushing "+value+"; stack now has "+this.DataStack.Count+" items");
+			//System.Console.WriteLine("Pushing "+value+"; stack now has "+this.DataStack.Count+" items");
 		}
+		public void PushValue(object value) {
+			this.PushThunk(this.ValueToThunk(value));
+		}
+		public object PopValue() {
+			return this.ThunkToValue<object>(this.PopThunk());
+		}
+
 		public int CountToMark() {
 			var count = 0;
 			for( var index = DataStack.Count - 1; index >= 0; --index, ++count ) {
