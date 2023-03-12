@@ -135,7 +135,7 @@ namespace TOGoS.TScrpt34_2 {
 			if( value == null ) {
 				throw new Exception("alias: '"+this.targetName+"' not defined");
 			}
-			interp.definitions[this.name] = value;
+			interp.Definitions[this.name] = value;
 		}
 	}
 	class AliasOpConstructor : OpConstructor {
@@ -170,7 +170,7 @@ namespace TOGoS.TScrpt34_2 {
 		void Op.Do(Interpreter interp) {
 			object value = interp.Pop();
 			object key = interp.Pop();
-			interp.definitions.Add(key.ToString(), value);
+			interp.Definitions.Add(key.ToString(), value);
 		}
 	}
 	class DictFromStackOp : Op {
@@ -477,13 +477,13 @@ namespace TOGoS.TScrpt34_2 {
 	public class Interpreter : IUriResolver {
 		static char[] whitespace = new char[] { ' ', '\t', '\r' };
 		
-		public DefDict definitions = new DefDict();
+		public DefDict Definitions = new DefDict();
 		public Stack DataStack = new Stack();
 		public IUriResolver UriResolver = new AUriResolver();
 
 		object IUriResolver.Resolve(string uri) {
-			if( this.definitions.ContainsKey(uri) ) {
-				return this.definitions[uri];
+			if( this.Definitions.ContainsKey(uri) ) {
+				return this.Definitions[uri];
 			} else {
 				return ((IUriResolver)this.UriResolver).Resolve(uri);
 			}
@@ -492,7 +492,7 @@ namespace TOGoS.TScrpt34_2 {
 		public ISimpleOutput OutputStream = new ErroringOutput();
 		
 		public void DefineAll(DefDict defs) {
-			DictUtil.AddAll(this.definitions, defs);
+			DictUtil.AddAll(this.Definitions, defs);
 		}
 
 		public object Peek() {
