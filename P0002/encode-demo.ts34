@@ -1,0 +1,36 @@
+#TScript34.1
+http://ns.nuke24.net/TScript34/Op/Alias alias http://ns.nuke24.net/TScript34/Op/Alias
+alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
+alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
+alias def http://ns.nuke24.net/TScript34/Ops/Define
+alias encode http://ns.nuke24.net/TScript34/Op/Encode
+alias exch http://ns.nuke24.net/TScript34/Ops/Exch
+alias pop http://ns.nuke24.net/TScript34/Ops/Pop
+alias print http://ns.nuke24.net/TScript34/Ops/Print
+alias println http://ns.nuke24.net/TScript34/Ops/PrintLine
+alias push http://ns.nuke24.net/TScript34/Op/PushValue
+alias { http://ns.nuke24.net/TScript34/Ops/OpenProcedure
+alias } http://ns.nuke24.net/TScript34/Ops/CloseProcedure
+
+alias [ http://ns.nuke24.net/TScript34/Ops/PushMark
+push data:,]
+{
+    counttomark
+    array-from-stack
+    exch
+    pop
+}
+def
+
+[
+	push data:,Foo%20bar%20baz.
+	push data:,%20%20Quux.
+]
+http://ns.nuke24.net/TScript34/Ops/FlattenStringList
+
+encode http://ns.nuke24.net/TOGVM/Datatypes/URIResource
+
+push data:,Our%20string,%20URIResource-encoded:%20
+print
+
+println

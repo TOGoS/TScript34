@@ -212,6 +212,7 @@ namespace TOGoS.TScrpt34_2 {
 			return new AliasOp(args[0], args[1]);
 		}
 	}
+
 	class CountToMarkOp : Op {
 		void Op.Do(Interpreter interp) {
 			interp.PushValue(interp.CountToMark());
@@ -269,6 +270,35 @@ namespace TOGoS.TScrpt34_2 {
 		void Op.Do(Interpreter interp) {
 			if( interp.DataStack.Count < 1 ) throw new Exception("Can't dup; stack empty!");
 			interp.PushThunk(interp.Peek());
+		}
+	}
+	class EncodeOpConstructor : OpConstructor {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+			SCG.IList<IEncoding> encodings = new SCG.List<IEncoding>();
+			foreach( string encodingRef in args ) {
+				object maybeAnEncoding = resolver.Resolve(encodingRef);
+				if( !(maybeAnEncoding is IEncoding) ) {
+					throw new Exception(encodingRef+" does not name an encoding; is "+ValueUtil.Describe(maybeAnEncoding));
+				}
+				encodings.Add((IEncoding)maybeAnEncoding);
+			}
+			return new EncodeOp(encodings);
+		}
+	}
+	class EncodeOp : Op {
+		protected SCG.IList<IEncoding> Encodings;
+		public EncodeOp(SCG.IList<IEncoding> encodings) {
+			this.Encodings = encodings;
+		}
+		public void Do(Interpreter interp) {
+			// Theoretically some encodings could work on thunks.
+			// e.g. if value is a think whose last encoding applied is the one to be re-applied,
+			// simply make a new thunk dropping that encoding.
+			object value = interp.PopValue();
+			foreach( IEncoding encoding in this.Encodings ) {
+				value = encoding.Encode(value);
+			}
+			interp.PushValue(value);
 		}
 	}
 	class ExchOp : Op {
@@ -523,6 +553,7 @@ namespace TOGoS.TScrpt34_2 {
 		static StandardOps() {
 			// Parameterized ops
 			Definitions["http://ns.nuke24.net/TScript34/Op/Alias"] = new AliasOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/Encode"] = new EncodeOpConstructor();
 			Definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
 			// Regular ops
 			Definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
