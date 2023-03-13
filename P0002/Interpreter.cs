@@ -273,16 +273,25 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	class EncodeOpConstructor : OpConstructor {
-		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+		public static SCG.IList<IEncoding> ParseEncodings(IStringList encodingRefs, IUriResolver resolver) {
 			SCG.IList<IEncoding> encodings = new SCG.List<IEncoding>();
-			foreach( string encodingRef in args ) {
+			foreach( string encodingRef in encodingRefs ) {
 				object maybeAnEncoding = resolver.Resolve(encodingRef);
 				if( !(maybeAnEncoding is IEncoding) ) {
 					throw new Exception(encodingRef+" does not name an encoding; is "+ValueUtil.Describe(maybeAnEncoding));
 				}
 				encodings.Add((IEncoding)maybeAnEncoding);
 			}
-			return new EncodeOp(encodings);
+			return encodings;
+		}
+
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+			return new EncodeOp(ParseEncodings(args, resolver));
+		}
+	}
+	class DecodeOpConstructor : OpConstructor {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+			return new DecodeOp(EncodeOpConstructor.ParseEncodings(args, resolver));
 		}
 	}
 	class EncodeOp : Op {
@@ -301,6 +310,22 @@ namespace TOGoS.TScrpt34_2 {
 			interp.PushValue(value);
 		}
 	}
+	class DecodeOp : Op {
+		protected SCG.IList<IEncoding> Encodings;
+		public DecodeOp(SCG.IList<IEncoding> encodings) {
+			this.Encodings = encodings;
+		}
+		public void Do(Interpreter interp) {
+			// Theoretically some decodings could work on thunks.
+			// Just add the named encoding to the list of decode steps to be done!
+			object value = interp.PopValue();
+			foreach( IEncoding encoding in this.Encodings ) {
+				value = encoding.Decode(value);
+			}
+			interp.PushValue(value);
+		}
+	}
+
 	class ExchOp : Op {
 		void Op.Do(Interpreter interp) {
 			TS34Thunk a = interp.PopThunk();
