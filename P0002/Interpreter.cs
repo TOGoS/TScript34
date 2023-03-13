@@ -534,7 +534,7 @@ namespace TOGoS.TScrpt34_2 {
 			Definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
-			Definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringList"] = new FlattenStringListOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/ForEach"] = new ForEachOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/OpenProcedure"] = new OpenProcedureOp();

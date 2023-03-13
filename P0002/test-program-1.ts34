@@ -78,7 +78,7 @@ def
         ]
     ]
     ==
-    # http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp
+    # http://ns.nuke24.net/TScript34/Ops/FlattenStringList
     # println
 
     push data:,Okay%20that%20was%20cool.
