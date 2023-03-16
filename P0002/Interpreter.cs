@@ -753,8 +753,11 @@ namespace TOGoS.TScrpt34_2 {
 		public void PushValue(object value) {
 			this.PushThunk(this.ValueToThunk(value));
 		}
+		public T PopValue<T>() {
+			return this.ThunkToValue<T>(this.PopThunk());
+		}
 		public object PopValue() {
-			return this.ThunkToValue<object>(this.PopThunk());
+			return this.PopValue<object>();
 		}
 
 		public int CountToMark() {
