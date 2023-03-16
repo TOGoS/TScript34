@@ -579,6 +579,7 @@ namespace TOGoS.TScrpt34_2 {
 			// Parameterized ops
 			Definitions["http://ns.nuke24.net/TScript34/Op/Alias"] = new AliasOpConstructor();
 			Definitions["http://ns.nuke24.net/TScript34/Op/Encode"] = new EncodeOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/Decode"] = new DecodeOpConstructor();
 			Definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
 			// Regular ops
 			Definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();

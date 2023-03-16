@@ -2,7 +2,9 @@
 http://ns.nuke24.net/TScript34/Op/Alias alias http://ns.nuke24.net/TScript34/Op/Alias
 alias array-from-stack http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
 alias counttomark http://ns.nuke24.net/TScript34/Ops/CountToMark
+alias decode http://ns.nuke24.net/TScript34/Op/Decode
 alias def http://ns.nuke24.net/TScript34/Ops/Define
+alias dup http://ns.nuke24.net/TScript34/Ops/Dup
 alias encode http://ns.nuke24.net/TScript34/Op/Encode
 alias exch http://ns.nuke24.net/TScript34/Ops/Exch
 alias pop http://ns.nuke24.net/TScript34/Ops/Pop
@@ -31,6 +33,11 @@ http://ns.nuke24.net/TScript34/Ops/FlattenStringList
 encode http://ns.nuke24.net/TOGVM/Datatypes/URIResource
 
 push data:,Our%20string,%20URIResource-encoded:%20
-print
+dup
+
+println
+
+decode http://ns.nuke24.net/TOGVM/Datatypes/URIResource
+println
 
 println
