@@ -677,9 +677,9 @@ namespace TOGoS.TScrpt34_2 {
 		public static T LosslesslyConvert<T>(object value) {
 			if( value is T ) return (T)value;
 
-			if( value is System.IConvertible ) {
-				T converted = (T)System.Convert.ChangeType(value, System.Type.GetTypeCode(typeof(T)));
-				object convertedBack = System.Convert.ChangeType(converted, ((System.IConvertible)value).GetTypeCode() );
+			if( value is System.IConvertible && typeof(System.IConvertible).IsAssignableFrom(typeof(T)) ) {
+				T converted = (T)System.Convert.ChangeType( (System.IConvertible)value, System.Type.GetTypeCode(typeof(T)) );
+				object convertedBack = System.Convert.ChangeType( converted, ((System.IConvertible)value).GetTypeCode() );
 				if( value.Equals(convertedBack) ) {
 					return converted;
 				} else {
