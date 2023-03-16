@@ -561,6 +561,24 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
+	/** For debugging */
+	class PrintStackThunksOp : Op {
+		IFormatter formatter;
+		string postfix;
+		public PrintStackThunksOp(IFormatter formatter, string postfix="") {
+			this.formatter = formatter;
+			this.postfix = postfix;
+		}
+		async void Op.Do(Interpreter interp) {
+			for( int i=interp.DataStack.Count; i>0; ) {
+				--i;
+				TS34Thunk thunk = interp.DataStack[i];
+				this.formatter.Format(thunk, interp.OutputStream);
+				interp.OutputStream.Write(this.postfix);
+			}
+		}
+	}
+
 	class QuitOp : Op {
 		void Op.Do(Interpreter interp) {
 			throw new QuitException();
@@ -601,6 +619,7 @@ namespace TOGoS.TScrpt34_2 {
 			Definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/Define"] = new DefineOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PrintStackThunks"] = new PrintStackThunksOp(ToStringFormatter.Instance, "\n");
 			Definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
 			Definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
