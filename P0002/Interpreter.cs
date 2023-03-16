@@ -756,7 +756,7 @@ namespace TOGoS.TScrpt34_2 {
 		public TS34Thunk ValueToThunk(object val) {
 			return new TS34Thunk(val); // No encodings => EncodedValue is the entity
 		}
-		public T ThunkToValue<T>(TS34Thunk thunk, System.Type t) {
+		public T ThunkToValue<T>(TS34Thunk thunk) {
 			object val = thunk.EncodedValue;
 			for( TS34EncodingList el = thunk.Encodings; el != null; el = el.PreviousEncodings ) {
 				object encodingVal = ((IUriResolver)this).Resolve(el.EncodingUri);
@@ -766,9 +766,6 @@ namespace TOGoS.TScrpt34_2 {
 				val = ((IEncoding)encodingVal).Decode(val);
 			}
 			return ValueUtil.LosslesslyConvert<T>(val);
-		}
-		public T ThunkToValue<T>(TS34Thunk thunk) {
-			return this.ThunkToValue<T>(thunk, typeof(T));
 		}
 		public T ThunkToValueShallow<T>(TS34Thunk thunk) {
 			if( thunk.Encodings == TS34EncodingList.ThunkedValueCollection ) {
