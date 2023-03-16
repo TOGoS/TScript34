@@ -31,13 +31,15 @@ def
 http://ns.nuke24.net/TScript34/Ops/FlattenStringList
 
 encode http://ns.nuke24.net/TOGVM/Datatypes/URIResource
-
-push data:,Our%20string,%20URIResource-encoded:%20
 dup
 
+push data:,Our%20string,%20URIResource-encoded%20%20%20%20%20%20%20%20%20:%20
+print
+
 println
+
+push data:,That%20encoded%20value,%20URIResource-decoded%20:%20
+print
 
 decode http://ns.nuke24.net/TOGVM/Datatypes/URIResource
-println
-
 println

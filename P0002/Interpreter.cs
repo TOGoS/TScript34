@@ -90,7 +90,11 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		public object Decode(object l) {
 			if( l is string ) {
-				return Resolver.Resolve((string)l);
+				object value = Resolver.Resolve((string)l);
+				if( value == null ) {
+					throw new Exception($"{this.GetType()}: Unable to decode '{l}' using {this.Resolver.GetType()} as IUriResolver");
+				}
+				return value;
 			}
 			throw new Exception("UriReferenceEncoding cannot decode a "+l.GetType()+" because it is not a string");
 		}
@@ -305,7 +309,11 @@ namespace TOGoS.TScrpt34_2 {
 			// simply make a new thunk dropping that encoding.
 			object value = interp.PopValue();
 			foreach( IEncoding encoding in this.Encodings ) {
-				value = encoding.Encode(value);
+				object encodedValue = encoding.Encode(value);
+				// Null may be valid in some cases,
+				// but for figuring out my current problem...
+				if( encodedValue == null ) throw new Exception($"{encoding.Uri}-encoded {ValueUtil.Describe(value)} is null!");
+				value = encodedValue;
 			}
 			interp.PushValue(value);
 		}
@@ -319,8 +327,13 @@ namespace TOGoS.TScrpt34_2 {
 			// Theoretically some decodings could work on thunks.
 			// Just add the named encoding to the list of decode steps to be done!
 			object value = interp.PopValue();
+
 			foreach( IEncoding encoding in this.Encodings ) {
-				value = encoding.Decode(value);
+				object decodedValue = encoding.Decode(value);
+				// Null may be valid in some cases,
+				// but for figuring out my current problem...
+				if( decodedValue == null ) throw new Exception($"{encoding.Uri}-decoded {ValueUtil.Describe(value)} is null!");
+				value = decodedValue;
 			}
 			interp.PushValue(value);
 		}
@@ -625,8 +638,8 @@ namespace TOGoS.TScrpt34_2 {
 			return this.EncodingUri + (this.PreviousEncodings == null ? "" : " " + this.PreviousEncodings);
 		}
 
-		public static TS34EncodingList Uri = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource", null);
-		public static TS34EncodingList ThunkedValueCollection = new TS34EncodingList("http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection", null);
+		public static TS34EncodingList Uri = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource");
+		public static TS34EncodingList ThunkedValueCollection = new TS34EncodingList("http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection");
 	}
 	public record TS34Thunk {
 		public object EncodedValue;
@@ -653,6 +666,7 @@ namespace TOGoS.TScrpt34_2 {
 
 	static class ValueUtil {
 		public static string Describe(object o) {
+			if( o == null ) return "null";
 			// TODO: always include type, but for simple values (numbers, short strings, thunks, etc)
 			// also include the data
 			return DescribeValueOfType(o.GetType());
@@ -758,12 +772,16 @@ namespace TOGoS.TScrpt34_2 {
 		}
 		public T ThunkToValue<T>(TS34Thunk thunk) {
 			object val = thunk.EncodedValue;
+			if( val == null ) throw new Exception("Encoded value is null!");
 			for( TS34EncodingList el = thunk.Encodings; el != null; el = el.PreviousEncodings ) {
 				object encodingVal = ((IUriResolver)this).Resolve(el.EncodingUri);
 				if( !(encodingVal is IEncoding) ) {
 					throw new Exception("Uh oh; "+el.EncodingUri+" does not name an encoding; got a "+encodingVal.GetType());
 				}
-				val = ((IEncoding)encodingVal).Decode(val);
+				IEncoding encoding = (IEncoding)encodingVal;
+				object decodedVal = encoding.Decode(val);
+				if( decodedVal == null ) throw new Exception($"Decoded value after {encoding.Uri}-decoding {ValueUtil.Describe(decodedVal)} is null!");
+				val = decodedVal;
 			}
 			return ValueUtil.LosslesslyConvert<T>(val);
 		}

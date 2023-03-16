@@ -12,7 +12,10 @@ LibTest.exe: LibTest.cs ${cs_source_files}
 
 .PHONY: test
 test: TS34Interpreter.exe
-	mono --debug TS34Interpreter.exe <test-program-1.ts34
+	mono --debug TS34Interpreter.exe test-program-1.ts34
+
+test-encode: TS34Interpreter.exe encode-demo.ts34
+	mono --debug TS34Interpreter.exe encode-demo.ts34
 
 .PHONY: clean
 clean:
