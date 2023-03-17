@@ -494,6 +494,10 @@ namespace TOGoS.TScrpt34_2 {
 			outputter.Write(data.ToCharArray());
 		}
 	}
+
+	public interface ISerializable {
+		public void WriteTo(ISimpleOutput dest);
+	}
 	
 	public interface IFormatter {
 		void Format(object val, ISimpleOutput dest);
@@ -502,7 +506,9 @@ namespace TOGoS.TScrpt34_2 {
 		public static ToStringFormatter Instance = new ToStringFormatter();
 		
 		void IFormatter.Format(object val, ISimpleOutput dest) {
-			if( val is System.Byte[] ) {
+			if( val is ISerializable ) {
+				((ISerializable)val).WriteTo(dest);
+			} else if( val is System.Byte[] ) {
 				dest.Write((byte[])val);
 			} else {
 				dest.Write(val.ToString());
