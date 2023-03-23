@@ -497,6 +497,7 @@ namespace TOGoS.TScrpt34_2 {
 
 	public interface ISerializable {
 		public void WriteTo(ISimpleOutput dest);
+		public void WriteTo(System.IO.Stream dest);
 	}
 	
 	public interface IFormatter {
