@@ -575,7 +575,7 @@ namespace TOGoS.TScrpt34_2 {
 			this.formatter = formatter;
 			this.postfix = postfix;
 		}
-		async void Op.Do(Interpreter interp) {
+		void Op.Do(Interpreter interp) {
 			for( int i=interp.DataStack.Count; i>0; ) {
 				--i;
 				TS34Thunk thunk = interp.DataStack[i];
