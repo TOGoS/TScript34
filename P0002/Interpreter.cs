@@ -646,6 +646,34 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 
+	class WriteResourceOp : Op {
+		public void Do(Interpreter interp) {
+			ISerializable toBeWritten = interp.PopValue<ISerializable>();
+			TS34Thunk resourceThunk = interp.PopThunk();
+			if(
+				resourceThunk.Encodings.EncodingUri.Equals("http://ns.nuke24.net/TOGVM/Datatypes/URIResource") &&
+				resourceThunk.Encodings.PreviousEncodings == null
+			) {
+				string uri = resourceThunk.EncodedValue.ToString();
+				System.IO.Stream stream = new System.Net.WebClient().OpenWrite(uri);
+				toBeWritten.WriteTo(stream);
+				stream.Flush();
+				//System.Console.WriteLine($"Closing WriteStream for {uri}...");
+				stream.Close();
+				//System.Console.WriteLine($"Done writing to {uri}");
+			} else {
+				throw new Exception($"First argument to WriteResource should be an URI resource reference, but got {resourceThunk}");
+			}
+		}
+	}
+
+	public static class WriteOps {
+		public static DefDict Definitions = new DefDict();
+		static WriteOps() {
+			Definitions["http://ns.nuke24.net/TScript34/Ops/WriteResource"] = new WriteResourceOp();
+		}
+	}
+
 	#nullable enable
 	public record TS34EncodingList {
 		public string EncodingUri; 
