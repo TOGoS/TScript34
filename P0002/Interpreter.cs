@@ -647,6 +647,17 @@ namespace TOGoS.TScrpt34_2 {
 	}
 
 	class WriteResourceOp : Op {
+		System.IO.Stream OpenWriteStream(string uri) {
+			if( uri.StartsWith("file:///") ) {
+				// This might be wrong, idklol
+				string path = Uri.UnescapeDataString(uri.Substring(7));
+				return System.IO.File.OpenWrite(path);
+			} else {
+				// Warning: Calling 'close' on these hangs forever???
+				return new System.Net.WebClient().OpenWrite(uri);
+			}
+		}
+
 		public void Do(Interpreter interp) {
 			ISerializable toBeWritten = interp.PopValue<ISerializable>();
 			TS34Thunk resourceThunk = interp.PopThunk();
@@ -655,12 +666,9 @@ namespace TOGoS.TScrpt34_2 {
 				resourceThunk.Encodings.PreviousEncodings == null
 			) {
 				string uri = resourceThunk.EncodedValue.ToString();
-				System.IO.Stream stream = new System.Net.WebClient().OpenWrite(uri);
+				System.IO.Stream stream = OpenWriteStream(uri);
 				toBeWritten.WriteTo(stream);
-				stream.Flush();
-				//System.Console.WriteLine($"Closing WriteStream for {uri}...");
 				stream.Close();
-				//System.Console.WriteLine($"Done writing to {uri}");
 			} else {
 				throw new Exception($"First argument to WriteResource should be an URI resource reference, but got {resourceThunk}");
 			}
