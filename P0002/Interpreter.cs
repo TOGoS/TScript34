@@ -736,13 +736,16 @@ namespace TOGoS.TScrpt34_2 {
 		public static string DescribeValueOfType(System.Type type) {
 			return "a "+type;
 		}
-		public static T LosslesslyConvert<T>(object value) {
+		public static bool IsFloatingPointType(System.Type type) {
+			return (type == typeof(System.Single) || type == typeof(System.Double));
+		}
+		public static T Convert<T>(object value, bool lossyConversionAllowed) {
 			if( value is T ) return (T)value;
 
 			if( value is System.IConvertible && typeof(System.IConvertible).IsAssignableFrom(typeof(T)) ) {
 				T converted = (T)System.Convert.ChangeType( (System.IConvertible)value, System.Type.GetTypeCode(typeof(T)) );
 				object convertedBack = System.Convert.ChangeType( converted, ((System.IConvertible)value).GetTypeCode() );
-				if( value.Equals(convertedBack) ) {
+				if( lossyConversionAllowed || value.Equals(convertedBack) ) {
 					return converted;
 				} else {
 					throw new Exception( $"{Describe(value)} cannot be losslessly converted to {DescribeValueOfType(typeof(T))}" );
@@ -750,6 +753,14 @@ namespace TOGoS.TScrpt34_2 {
 			}
 
 			throw new Exception($"Don't know how to convert {Describe(value)} to {DescribeValueOfType(typeof(T))}");
+		}
+		
+		public static T Convert<T>(object value) {
+			return Convert<T>(value, IsFloatingPointType(typeof(T)) && IsFloatingPointType(value.GetType()));
+		}
+		
+		public static T LosslesslyConvert<T>(object value) {
+			return Convert<T>(value, false);
 		}
 	}
 	
@@ -848,7 +859,7 @@ namespace TOGoS.TScrpt34_2 {
 				if( decodedVal == null ) throw new Exception($"Decoded value after {encoding.Uri}-decoding {ValueUtil.Describe(decodedVal)} is null!");
 				val = decodedVal;
 			}
-			return ValueUtil.LosslesslyConvert<T>(val);
+			return ValueUtil.Convert<T>(val);
 		}
 		public T ThunkToValueShallow<T>(TS34Thunk thunk) {
 			if( thunk.Encodings == TS34EncodingList.ThunkedValueCollection ) {
