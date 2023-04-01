@@ -734,6 +734,19 @@ namespace TOGoS.TScrpt34_2 {
 	static class ValueUtil {
 		public static string Describe(object o) {
 			if( o == null ) return "null";
+			if( o is string ) {
+				string s = (string)o;
+				bool truncated = false;
+				if( s.Length > 15 ) {
+					s = s.Substring(0,12);
+					truncated = true;
+				}
+				int index = s.IndexOf((char)0);
+				if( index != -1 ) {
+					s = s.Substring(0, index);
+				}
+				return "a string, \""+Regex.Escape(s)+"\""+(truncated ? "..." : "");
+			}
 			// TODO: always include type, but for simple values (numbers, short strings, thunks, etc)
 			// also include the data
 			return DescribeValueOfType(o.GetType());
