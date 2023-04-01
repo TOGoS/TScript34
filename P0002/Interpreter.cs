@@ -938,6 +938,7 @@ namespace TOGoS.TScrpt34_2 {
 			StringList scriptFiles = new StringList();
 			StringList scriptArgs = new StringList();
 			
+			bool helpRequested = false;
 			bool mainScriptIndicated = false;
 			for( int i=0; i<args.Length; ++i ) {
 				if( mainScriptIndicated ) {
@@ -948,12 +949,19 @@ namespace TOGoS.TScrpt34_2 {
 					}
 					scriptFiles.Add(args[i+1]);
 					++i;
+				} else if( args[i] == "-?" || args[i] == "--help" ) {
+					helpRequested = true;
 				} else if( !args[i].StartsWith("-") ) {
 					scriptFiles.Add(args[i]);
 					mainScriptIndicated = true;
 				} else {
 					throw new Exception("Unrecognized argument: "+args[i]);
 				}
+			}
+
+			if( helpRequested ) {
+				System.Console.WriteLine("Usage: TS34Interpreter.exe [-f <script file>] [--|<main script file>] [<script arguments>...]");
+				return;
 			}
 			
 			if( scriptFiles.Count == 0 ) {
