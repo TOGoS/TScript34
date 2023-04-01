@@ -13,6 +13,7 @@ using Int64 = System.Int64;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
 using SCG = System.Collections.Generic;
+using Regex = System.Text.RegularExpressions.Regex;
 using Stack = System.Collections.Generic.List<object>;
 using Stream = System.IO.Stream;
 using StreamReader = System.IO.StreamReader;
@@ -919,12 +920,14 @@ namespace TOGoS.TScrpt34_2 {
 			IStringList parts = line.Split(whitespace, StringSplitOptions.RemoveEmptyEntries);
 			DoCommand(parts);
 		}
+		
+		protected static Regex URIishPattern = new Regex(@"^([A-Za-z][A-Za-z0-9+.-]*):");
 
 		protected delegate void ReaderHandler(TextReader s);
 		protected void StreamFile(string filename, ReaderHandler h) {
 			if( filename == "-" ) {
 				h( Console.In );
-			} else if( filename.Contains(":") ) {
+			} else if( URIishPattern.Match(filename).Success ) {
 				h( new System.IO.StringReader(((IUriResolver)this).Resolve(filename).ToString()) );
 			} else {
 				StreamReader sr = new StreamReader(filename);
@@ -943,6 +946,9 @@ namespace TOGoS.TScrpt34_2 {
 			for( int i=0; i<args.Length; ++i ) {
 				if( mainScriptIndicated ) {
 					scriptArgs.Add(args[i]);
+				} else if( args[i] == "-e" ) {
+					scriptFiles.Add("data:,"+System.Uri.EscapeDataString(args[i+1]));
+					++i;
 				} else if( args[i] == "-f" ) {
 					if( args.Length <= i+1 ) {
 						throw new Exception("-f requires an additional [script file] argument");
@@ -960,7 +966,15 @@ namespace TOGoS.TScrpt34_2 {
 			}
 
 			if( helpRequested ) {
-				System.Console.WriteLine("Usage: TS34Interpreter.exe [-f <script file>] [--|<main script file>] [<script arguments>...]");
+				System.Console.WriteLine("Usage: TS34Interpreter.exe [<options>] [--|<main script file>] [<script arguments>...]");
+				System.Console.WriteLine("Usage: --help ; print this help text");
+				System.Console.WriteLine("");
+				System.Console.WriteLine("Options:");
+				System.Console.WriteLine("  -e <program text>  ; evaluate program text directly");
+				System.Console.WriteLine("  -f <program file>  ; load program from file or URI");
+				System.Console.WriteLine("");
+				System.Console.WriteLine("Script files can be URIs of any supported scheme,");
+				System.Console.WriteLine("but will be treated as local files if they don't match URI syntax (i.e. /^\\w:/)");
 				return;
 			}
 			
