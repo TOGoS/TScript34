@@ -650,8 +650,12 @@ namespace TOGoS.TScrpt34_2 {
 	class WriteResourceOp : Op {
 		System.IO.Stream OpenWriteStream(string uri) {
 			if( uri.StartsWith("file:///") ) {
-				// This might be wrong, idklol
+				// Special case for absolute local path
 				string path = Uri.UnescapeDataString(uri.Substring(7));
+				return System.IO.File.OpenWrite(path);
+			} else if( uri.StartsWith("file:") ) {
+				// Anything else; relative or //host/stuff; hope for the best
+				string path = Uri.UnescapeDataString(uri.Substring(5));
 				return System.IO.File.OpenWrite(path);
 			} else {
 				// Warning: Calling 'close' on these hangs forever???
@@ -943,6 +947,7 @@ namespace TOGoS.TScrpt34_2 {
 			
 			bool helpRequested = false;
 			bool mainScriptIndicated = false;
+			bool allowWrite = false;
 			for( int i=0; i<args.Length; ++i ) {
 				if( mainScriptIndicated ) {
 					scriptArgs.Add(args[i]);
@@ -955,6 +960,8 @@ namespace TOGoS.TScrpt34_2 {
 					}
 					scriptFiles.Add(args[i+1]);
 					++i;
+				} else if( args[i] == "--allow-write" ) {
+					allowWrite = true;
 				} else if( args[i] == "-?" || args[i] == "--help" ) {
 					helpRequested = true;
 				} else if( !args[i].StartsWith("-") ) {
@@ -980,6 +987,10 @@ namespace TOGoS.TScrpt34_2 {
 			
 			if( scriptFiles.Count == 0 ) {
 				scriptFiles.Add("-");
+			}
+
+			if( allowWrite ) {
+				this.DefineAll(WriteOps.Definitions);
 			}
 			
 			string line;
