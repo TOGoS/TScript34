@@ -155,7 +155,7 @@ namespace TOGoS.TScrpt34_2 {
 			} else if( uri.StartsWith("http:") || uri.StartsWith("https:") ) {
 				using (HttpClient client = new HttpClient()) {
 					// For now just strings
-					string s = client.GetStringAsync(uri).Result;
+					byte[] s = client.GetByteArrayAsync(uri).Result;
 					return s;
 				}
 			} else {
