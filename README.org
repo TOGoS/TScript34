@@ -6,6 +6,7 @@
 - [[./P0002/][P0002]] :: C# even-more-simplified interpreter
 - [[./P0003/][P0003]] :: Test cases
 - P0004 :: Some compiler written in Janet, or something
+- [[./P0005/][P0005]] :: A minimal lisp, implemented in Java
 
 ** Language
 
