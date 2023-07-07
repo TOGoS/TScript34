@@ -1,5 +1,7 @@
 package net.nuke24.jcr36;
 
+import java.util.Map;
+
 import junit.framework.TestCase;
 
 public class SimpleCommandParserTest extends TestCase
@@ -33,5 +35,17 @@ public class SimpleCommandParserTest extends TestCase
 		JCRAction action = SimpleCommandParser.parse(new String[] { "--help", "foo", "bar" } );
 		
 		assertEquals2(new PrintAction(SimpleCommandParser.HELP_TEXT), action);
+	}
+	
+	public void testParseLetCommand() {
+		JCRAction action = SimpleCommandParser.parse(new String[] { "foo=bar", "foo", "bar" } );
+		
+		assertEquals2(
+			new LetEnv(
+				Map.of("foo","bar"),
+				new ShellCommand(new String[] {"foo", "bar"}, ShellCommand.DEFAULT_ON_EXIT)
+			),
+			action
+		);		
 	}
 }
