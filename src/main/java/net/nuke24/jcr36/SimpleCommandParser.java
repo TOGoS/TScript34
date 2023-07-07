@@ -54,6 +54,6 @@ public class SimpleCommandParser {
 	}
 	
 	public static JCRAction parse(String[] args) {
-		return parse(args, code -> code == 0 ? NullAction.INSTANCE : new QuitAction(code));
+		return parse(args, ShellCommand.DEFAULT_ON_EXIT);
 	}
 }
