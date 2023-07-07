@@ -1,10 +1,13 @@
 package net.nuke24.jcr36;
 
 import java.util.Arrays;
-import java.util.function.Function;
 
 public class ShellCommand implements JCRAction {
-	public static final Function<Integer, JCRAction> DEFAULT_ON_EXIT = code -> code == 0 ? NullAction.INSTANCE : new QuitAction(code);
+	public static final Function<Integer, JCRAction> DEFAULT_ON_EXIT = new Function<Integer,JCRAction>() {
+		@Override public JCRAction apply(Integer code) {
+			return code.intValue() == 0 ? NullAction.INSTANCE : new QuitAction(code);
+		}
+	};
 	
 	public final String[] argv;
 	public final Function<Integer, JCRAction> onExit;

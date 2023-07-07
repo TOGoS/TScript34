@@ -1,7 +1,6 @@
 package net.nuke24.jcr36;
 
 import java.util.HashMap;
-import java.util.function.Function;
 
 /**
  * Parses commands of the form
