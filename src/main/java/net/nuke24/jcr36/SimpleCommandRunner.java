@@ -83,7 +83,7 @@ public class SimpleCommandRunner {
 			);			
 		case PRINT_VERSION:
 			return new PrintAction(
-				Versions.JCR_VERSION,
+				Versions.JCR_NAME_AND_VERSION,
 				Streams.STDOUT_FD
 			);
 		default:
