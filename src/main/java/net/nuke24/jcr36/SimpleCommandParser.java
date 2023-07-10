@@ -8,7 +8,7 @@ import java.util.HashMap;
  *   [option|bindings]* [--] command ...args
  * 
  * option = one of
- *   --help
+ *   --help                 ; Show this help text and exit
  * binding =  
  *   <varname> 
  * 
@@ -49,6 +49,7 @@ public class SimpleCommandParser {
 		for( int i=0; i<command.length; ++i ) {
 			command[i] = args[commandIndex++];
 		}
+		
 		return LetEnv.of(envVars, new ShellCommand(command, onExit));
 	}
 	
