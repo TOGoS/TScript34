@@ -1,10 +1,13 @@
 package net.nuke24.jcr36;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import java.util.regex.Pattern;
 
 public class ActionRunner {
 	class Context {
@@ -45,6 +48,7 @@ public class ActionRunner {
 	}
 	
 	Queue<ActionAndContext> queue = new LinkedList<ActionAndContext>();
+	public boolean programPathResolutionEnabled = false;
 	
 	public Context createContextFromEnv() {
 		return new Context(
@@ -53,6 +57,39 @@ public class ActionRunner {
 			Redirect.INHERIT,
 			Redirect.INHERIT
 		);
+	}
+	
+	Function<String,String> programPathResolver;
+	
+	protected String resolveProgram(String name) {
+		if( !programPathResolutionEnabled ) return name;
+		
+		String pathSepRegex = Pattern.quote(File.pathSeparator);
+		
+		String pathsStr = System.getenv("PATH");
+		if( pathsStr == null ) pathsStr = "";
+		String[] pathParts = pathsStr.length() == 0 ? new String[0] : pathsStr.split(pathSepRegex);
+		String pathExtStr = System.getenv("PATHEXT");
+		String[] pathExts = pathExtStr == null || pathExtStr.length() == 0 ? new String[] {""} : pathExtStr.split(pathSepRegex);
+		
+		for( String path : pathParts ) {
+			for( String pathExt : pathExts ) {
+				File candidate = new File(path + File.separator + name + pathExt);
+				// System.err.println("Checking for "+candidate.getPath()+"...");
+				if( candidate.exists() ) return candidate.getPath();
+			}
+		}
+		return name;
+	}
+	
+	protected PrintStream getPrintStream(int fd, Context ctx) {
+		// TODO: Mind redirects
+		switch( fd ) {
+		case 1: return System.out;
+		case 2: return System.err;
+		default:
+			throw new RuntimeException("Don't know how to print to stream #"+fd);
+		}
 	}
 	
 	// Note: This currently assumes each action runs in series.
@@ -64,7 +101,14 @@ public class ActionRunner {
 			throw new QuitException( ((QuitException)action).exitCode );
 		} else if( action instanceof ShellCommand ) {
 			ShellCommand sc = (ShellCommand)action;
-			ProcessBuilder pb = new ProcessBuilder( sc.argv );
+			
+			if( sc.argv.length == 0 ) throw new RuntimeException("Don't know how to run shell command with zero arguments");
+			
+			String[] resolvedArgv = new String[sc.argv.length];
+			resolvedArgv[0] = resolveProgram(sc.argv[0]);
+			for( int i=1; i<sc.argv.length; ++i ) resolvedArgv[i] = sc.argv[i];
+			
+			ProcessBuilder pb = new ProcessBuilder( resolvedArgv );
 			pb.environment().clear();
 			pb.environment().putAll(ctx.env);
 			pb.redirectInput(ctx.stdinRedirect);
@@ -85,8 +129,7 @@ public class ActionRunner {
 			// Do nothing!
 		} else if( action instanceof PrintAction ) {
 			PrintAction printAct = (PrintAction)action;
-			// TODO: Print to ctx.stdout
-			System.out.print(printAct.text);
+			getPrintStream(printAct.fd, ctx).print(printAct.text);
 		} else if( action instanceof SerialAction ) {
 			for( JCRAction sub : ((SerialAction)action).children ) {
 				this.queue.add(new ActionAndContext(sub, ctx));

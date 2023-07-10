@@ -18,7 +18,7 @@ import java.util.HashMap;
  */
 public class SimpleCommandParser {
 	public static final String HELP_TEXT =
-		"Simple command syntx: [--help] [<var>=<value> ...] [--] <command> [<arg> ...]\n";
+		"Simple command syntax: [--version|--help] [<var>=<value> ...] [--] <command> [<arg> ...]\n";
 	
 	public static JCRAction parse(String[] args, Function<Integer,JCRAction> onExit) {
 		HashMap<String,String> envVars = new HashMap<String,String>();
@@ -33,7 +33,7 @@ public class SimpleCommandParser {
 			
 			if( arg.startsWith("-") ) {
 				if( "--help".equals(arg) || "-?".equals(arg) || "-h".equals(arg) ) {
-					return new PrintAction(HELP_TEXT);
+					return new PrintAction(HELP_TEXT, Streams.STDOUT_FD);
 				} else {
 					throw new IllegalArgumentException("Unrecognized option: "+arg);
 				}

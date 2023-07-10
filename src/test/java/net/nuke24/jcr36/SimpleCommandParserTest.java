@@ -1,5 +1,6 @@
 package net.nuke24.jcr36;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import junit.framework.TestCase;
@@ -34,15 +35,18 @@ public class SimpleCommandParserTest extends TestCase
 	public void testParseHelpCommand() {
 		JCRAction action = SimpleCommandParser.parse(new String[] { "--help", "foo", "bar" } );
 		
-		assertEquals2(new PrintAction(SimpleCommandParser.HELP_TEXT), action);
+		assertEquals2(new PrintAction(SimpleCommandParser.HELP_TEXT, Streams.STDOUT_FD), action);
 	}
 	
 	public void testParseLetCommand() {
 		JCRAction action = SimpleCommandParser.parse(new String[] { "foo=bar", "foo", "bar" } );
 		
+		Map<String,String> envVars = new HashMap<String,String>();
+		envVars.put("foo", "bar");
+		
 		assertEquals2(
 			new LetEnv(
-				Map.of("foo","bar"),
+				envVars,
 				new ShellCommand(new String[] {"foo", "bar"}, ShellCommand.DEFAULT_ON_EXIT)
 			),
 			action
