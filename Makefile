@@ -1,7 +1,7 @@
 # Eventually this tool should be able to build itself.
 # This Makefile is here for bootstrapping.
 
-target/JCR36-latest.jar: target/classes src/main/meta/META-INF/MANIFEST.MF
+target/JCR36-dev.jar: target/classes src/main/meta/META-INF/MANIFEST.MF
 	jar -cmf src/main/meta/META-INF/MANIFEST.MF "$@" -C target/classes .
 
 target/classes: $(shell find src/main/java) Makefile
