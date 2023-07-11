@@ -24,6 +24,6 @@ public class LetEnv implements JCRAction {
 	}
 	
 	@Override public int hashCode() {
-		return Objects.hash("LetEnv", bindings, action);
+		return Objects.hash(getClass().getSimpleName(), bindings, action);
 	}
 }

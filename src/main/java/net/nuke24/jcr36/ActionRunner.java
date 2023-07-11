@@ -99,8 +99,8 @@ public class ActionRunner {
 		Context ctx = aac.context;
 		if( action instanceof QuitException ) {
 			throw new QuitException( ((QuitException)action).exitCode );
-		} else if( action instanceof ShellCommand ) {
-			ShellCommand sc = (ShellCommand)action;
+		} else if( action instanceof RunExternalProgram ) {
+			RunExternalProgram sc = (RunExternalProgram)action;
 			
 			if( sc.argv.length == 0 ) throw new RuntimeException("Don't know how to run shell command with zero arguments");
 			

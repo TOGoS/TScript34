@@ -36,7 +36,7 @@ public class SimpleCommandParser {
 		} else if( CommandNames.CMD_PRINT.equals(arg0) ) {
 			return parsePrint(args, offset+1);
 		} else {
-			return new ShellCommand(ArrayUtils.slice(args, offset, String.class), onExit);
+			return new RunExternalProgram(ArrayUtils.slice(args, offset, String.class), onExit);
 		}
 	}
 	
@@ -98,6 +98,6 @@ public class SimpleCommandParser {
 	}
 	
 	public static JCRAction parseDoCmd(String[] args) {
-		return parseDoCmd(args, ShellCommand.DEFAULT_ON_EXIT);
+		return parseDoCmd(args, RunExternalProgram.DEFAULT_ON_EXIT);
 	}
 }

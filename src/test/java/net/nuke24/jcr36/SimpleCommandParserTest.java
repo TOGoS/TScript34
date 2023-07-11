@@ -28,12 +28,12 @@ public class SimpleCommandParserTest extends TestCase
 	public void testParseBareCommand() {
 		JCRAction action = SimpleCommandParser.parseDoCmd(new String[] { "echo", "foo", "bar" } );
 		
-		assertSame( ShellCommand.class, action.getClass() );
+		assertSame( RunExternalProgram.class, action.getClass() );
 		
-		ShellCommand cmd = (ShellCommand)action;
+		RunExternalProgram cmd = (RunExternalProgram)action;
 		assertArrayEquals( new String[] { "echo", "foo", "bar" }, cmd.argv );
 		
-		assertEquals2(new ShellCommand(new String[]{"echo", "foo", "bar"}, ShellCommand.DEFAULT_ON_EXIT), action);
+		assertEquals2(new RunExternalProgram(new String[]{"echo", "foo", "bar"}, RunExternalProgram.DEFAULT_ON_EXIT), action);
 	}
 	
 	public void testParseHelpCommand() {
@@ -48,7 +48,7 @@ public class SimpleCommandParserTest extends TestCase
 		assertEquals2(
 			new LetEnv(
 				FOOBAR,
-				new ShellCommand(new String[] {"foo", "bar"}, ShellCommand.DEFAULT_ON_EXIT)
+				new RunExternalProgram(new String[] {"foo", "bar"}, RunExternalProgram.DEFAULT_ON_EXIT)
 			),
 			action
 		);
@@ -58,7 +58,7 @@ public class SimpleCommandParserTest extends TestCase
 		JCRAction action = SimpleCommandParser.parseDoCmd(new String[] { "jcr:docmd", "some-program", "foo" } );
 		
 		assertEquals(
-			new ShellCommand(new String[] { "some-program", "foo" }, ShellCommand.DEFAULT_ON_EXIT),
+			new RunExternalProgram(new String[] { "some-program", "foo" }, RunExternalProgram.DEFAULT_ON_EXIT),
 			action
 		);
 	}
@@ -69,7 +69,7 @@ public class SimpleCommandParserTest extends TestCase
 		assertEquals(
 			new LetEnv(
 				FOOBAR,
-				new ShellCommand(new String[] { "some-program", "foo" }, ShellCommand.DEFAULT_ON_EXIT)
+				new RunExternalProgram(new String[] { "some-program", "foo" }, RunExternalProgram.DEFAULT_ON_EXIT)
 			),
 			action
 		);
@@ -81,7 +81,7 @@ public class SimpleCommandParserTest extends TestCase
 		assertEquals(
 			new LetEnv(
 				FOOBAR,
-				new ShellCommand(new String[] { "some-program", "foo" }, ShellCommand.DEFAULT_ON_EXIT)
+				new RunExternalProgram(new String[] { "some-program", "foo" }, RunExternalProgram.DEFAULT_ON_EXIT)
 			),
 			action
 		);

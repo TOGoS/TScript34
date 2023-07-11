@@ -5,4 +5,7 @@ public class QuitAction implements JCRAction {
 	public QuitAction(int exitCode) {
 		this.exitCode = exitCode;
 	}
+	@Override public String toString() {
+		return getClass().getSimpleName()+"("+exitCode+")";
+	}
 }

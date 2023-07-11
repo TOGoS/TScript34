@@ -18,10 +18,10 @@ public class PrintAction implements JCRAction {
 	}
 	
 	@Override public int hashCode() {
-		return Objects.hash("PrintAction", this.text, this.fd);
+		return Objects.hash(getClass().getSimpleName(), this.text, this.fd);
 	}
 	
 	@Override public String toString() {
-		return "PrintAction("+StringUtils.quote(text)+", "+fd+")";
+		return getClass().getSimpleName()+"("+StringUtils.quote(text)+", "+fd+")";
 	}
 }
