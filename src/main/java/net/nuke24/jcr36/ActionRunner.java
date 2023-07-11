@@ -35,6 +35,12 @@ public class ActionRunner {
 			this.stdoutRedirect = stdoutRedirect;
 			this.stderrRedirect = stderrRedirect;
 		}
+		
+		public boolean isProgramPathResolutionEnabled() {
+			String pprStr = env.get("JCR_PROGRAM_PATH_RESOLUTION");
+			if( pprStr == null ) return true;
+			return StringUtils.parseBool(pprStr, "JCR_PROGRAM_PATH_RESOLUTION");
+		}
 	}
 	
 	class ActionAndContext {
@@ -54,7 +60,6 @@ public class ActionRunner {
 	}
 	
 	Queue<ActionAndContext> queue = new LinkedList<ActionAndContext>();
-	public boolean programPathResolutionEnabled = false;
 	
 	public Context createContextFromEnv() {
 		return new Context(
@@ -67,8 +72,8 @@ public class ActionRunner {
 	
 	Function<String,String> programPathResolver;
 	
-	protected String resolveProgram(String name) {
-		if( !programPathResolutionEnabled ) return name;
+	protected String resolveProgram(String name, Context ctx) {
+		if( !ctx.isProgramPathResolutionEnabled() ) return name;
 		
 		String pathSepRegex = Pattern.quote(File.pathSeparator);
 		
@@ -111,7 +116,7 @@ public class ActionRunner {
 			if( sc.argv.length == 0 ) throw new RuntimeException("Don't know how to run shell command with zero arguments");
 			
 			String[] resolvedArgv = new String[sc.argv.length];
-			resolvedArgv[0] = resolveProgram(sc.argv[0]);
+			resolvedArgv[0] = resolveProgram(sc.argv[0], ctx);
 			for( int i=1; i<sc.argv.length; ++i ) resolvedArgv[i] = sc.argv[i];
 			
 			ProcessBuilder pb = new ProcessBuilder( resolvedArgv );

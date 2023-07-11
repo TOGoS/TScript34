@@ -123,4 +123,11 @@ public class SimpleCommandParserTest extends TestCase
 			action
 		);
 	}
+	
+	public void testParseVersion() {
+		assertEquals(
+			new Print(Versions.JCR_NAME_AND_VERSION+"\n", Streams.STDOUT_FD),
+			SimpleCommandParser.parseDoCmd(new String[] { "--version" } )
+		);
+	}
 }

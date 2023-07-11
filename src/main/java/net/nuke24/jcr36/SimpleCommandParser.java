@@ -82,6 +82,8 @@ public class SimpleCommandParser {
 			if( arg.startsWith("-") ) {
 				if( "--help".equals(arg) || "-?".equals(arg) || "-h".equals(arg) ) {
 					return new Print(HELP_TEXT, Streams.STDOUT_FD);
+				} else if( "--version".equals(arg) ) {
+					return new Print(Versions.JCR_NAME_AND_VERSION+"\n", Streams.STDOUT_FD);
 				} else {
 					throw new IllegalArgumentException("Unrecognized option: "+arg);
 				}
