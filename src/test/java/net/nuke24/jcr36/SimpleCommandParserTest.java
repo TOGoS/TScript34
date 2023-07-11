@@ -3,6 +3,10 @@ package net.nuke24.jcr36;
 import java.util.LinkedHashMap;
 
 import junit.framework.TestCase;
+import net.nuke24.jcr36.action.JCRAction;
+import net.nuke24.jcr36.action.LetEnv;
+import net.nuke24.jcr36.action.Print;
+import net.nuke24.jcr36.action.RunExternalProgram;
 
 public class SimpleCommandParserTest extends TestCase
 {
@@ -39,7 +43,7 @@ public class SimpleCommandParserTest extends TestCase
 	public void testParseHelpCommand() {
 		JCRAction action = SimpleCommandParser.parseDoCmd(new String[] { "--help", "foo", "bar" } );
 		
-		assertEquals2(new PrintAction(SimpleCommandParser.HELP_TEXT, Streams.STDOUT_FD), action);
+		assertEquals2(new Print(SimpleCommandParser.HELP_TEXT, Streams.STDOUT_FD), action);
 	}
 	
 	public void testParseLetCommand() {
@@ -89,21 +93,21 @@ public class SimpleCommandParserTest extends TestCase
 	
 	public void testParseJcrPrint() {
 		assertEquals(
-			new PrintAction("foo bar\n", Streams.STDOUT_FD),
+			new Print("foo bar\n", Streams.STDOUT_FD),
 			SimpleCommandParser.parseDoCmd(new String[] { "jcr:print", "foo", "bar" } )
 		);
 	}
 	
 	public void testParseJcrPrintN() {
 		assertEquals(
-			new PrintAction("foo bar", Streams.STDOUT_FD),
+			new Print("foo bar", Streams.STDOUT_FD),
 			SimpleCommandParser.parseDoCmd(new String[] { "jcr:print", "-n", "foo", "bar" } )
 		);
 	}
 	
 	public void testParseJcrPrintMinusMinus() {
 		assertEquals(
-			new PrintAction("-n foo bar\n", Streams.STDOUT_FD),
+			new Print("-n foo bar\n", Streams.STDOUT_FD),
 			SimpleCommandParser.parseDoCmd(new String[] { "jcr:print", "--", "-n", "foo", "bar" } )
 		);
 	}
@@ -114,7 +118,7 @@ public class SimpleCommandParserTest extends TestCase
 		assertEquals(
 			new LetEnv(
 				FOOBAR,
-				new PrintAction("jcr:docmd some-program foo\n", Streams.STDOUT_FD)
+				new Print("jcr:docmd some-program foo\n", Streams.STDOUT_FD)
 			),
 			action
 		);

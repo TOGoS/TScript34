@@ -2,6 +2,11 @@ package net.nuke24.jcr36;
 
 import java.util.HashMap;
 
+import net.nuke24.jcr36.action.JCRAction;
+import net.nuke24.jcr36.action.LetEnv;
+import net.nuke24.jcr36.action.Print;
+import net.nuke24.jcr36.action.RunExternalProgram;
+
 /**
  * Parses commands of the form
  * 
@@ -61,7 +66,7 @@ public class SimpleCommandParser {
 			sep = " ";
 		}
 		toPrint.append(suffix);
-		return new PrintAction(toPrint.toString(), Streams.STDOUT_FD);
+		return new Print(toPrint.toString(), Streams.STDOUT_FD);
 	}
 	
 	public static JCRAction parseDoCmd(String[] args, int offset, Function<Integer,JCRAction> onExit) {
@@ -76,7 +81,7 @@ public class SimpleCommandParser {
 			
 			if( arg.startsWith("-") ) {
 				if( "--help".equals(arg) || "-?".equals(arg) || "-h".equals(arg) ) {
-					return new PrintAction(HELP_TEXT, Streams.STDOUT_FD);
+					return new Print(HELP_TEXT, Streams.STDOUT_FD);
 				} else {
 					throw new IllegalArgumentException("Unrecognized option: "+arg);
 				}

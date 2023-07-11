@@ -1,8 +1,8 @@
-package net.nuke24.jcr36;
+package net.nuke24.jcr36.action;
 
-public class QuitAction implements JCRAction {
+public class Quit implements JCRAction {
 	public final int exitCode;
-	public QuitAction(int exitCode) {
+	public Quit(int exitCode) {
 		this.exitCode = exitCode;
 	}
 	@Override public String toString() {

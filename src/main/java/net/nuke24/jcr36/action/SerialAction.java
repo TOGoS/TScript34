@@ -1,4 +1,4 @@
-package net.nuke24.jcr36;
+package net.nuke24.jcr36.action;
 
 import java.util.Arrays;
 import java.util.List;

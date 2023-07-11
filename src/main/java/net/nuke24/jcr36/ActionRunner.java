@@ -9,6 +9,12 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.regex.Pattern;
 
+import net.nuke24.jcr36.action.JCRAction;
+import net.nuke24.jcr36.action.Null;
+import net.nuke24.jcr36.action.Print;
+import net.nuke24.jcr36.action.RunExternalProgram;
+import net.nuke24.jcr36.action.SerialAction;
+
 public class ActionRunner {
 	class Context {
 		public final Map<String,String> env;
@@ -125,10 +131,10 @@ public class ActionRunner {
 			} catch (InterruptedException e) {
 				throw new RuntimeException(e);
 			}
-		} else if( action instanceof NullAction ) {
+		} else if( action instanceof Null ) {
 			// Do nothing!
-		} else if( action instanceof PrintAction ) {
-			PrintAction printAct = (PrintAction)action;
+		} else if( action instanceof Print ) {
+			Print printAct = (Print)action;
 			getPrintStream(printAct.fd, ctx).print(printAct.text);
 		} else if( action instanceof SerialAction ) {
 			for( JCRAction sub : ((SerialAction)action).children ) {

@@ -1,19 +1,21 @@
-package net.nuke24.jcr36;
+package net.nuke24.jcr36.action;
 
 import java.util.Objects;
 
-public class PrintAction implements JCRAction {
+import net.nuke24.jcr36.StringUtils;
+
+public class Print implements JCRAction {
 	public final String text;
 	public final int fd;
-	public PrintAction(String text, int fd) {
+	public Print(String text, int fd) {
 		this.text = text;
 		this.fd = fd;
 	}
 	
 	@Override public boolean equals(Object other) {
-		if( !(other instanceof PrintAction) ) return false;
+		if( !(other instanceof Print) ) return false;
 		
-		PrintAction opa = (PrintAction)other;
+		Print opa = (Print)other;
 		return this.text.equals(opa.text) && this.fd == opa.fd;
 	}
 	

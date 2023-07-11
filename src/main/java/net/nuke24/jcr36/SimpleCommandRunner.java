@@ -6,6 +6,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import net.nuke24.jcr36.ActionRunner.QuitException;
+import net.nuke24.jcr36.action.JCRAction;
+import net.nuke24.jcr36.action.Null;
+import net.nuke24.jcr36.action.Print;
+import net.nuke24.jcr36.action.Quit;
+import net.nuke24.jcr36.action.SerialAction;
 
 public class SimpleCommandRunner {
 	protected static final Pattern RESOLVE_PROGRAM_PATHS_OPTION_PATTERN = Pattern.compile("^--resolve-program-paths=(.*)$");
@@ -67,31 +72,31 @@ public class SimpleCommandRunner {
 		case RUN:
 			return SimpleCommandParser.parseDoCmd(opts.argv, new Function<Integer,JCRAction>() {
 				@Override public JCRAction apply(Integer code) {
-					if( code.intValue() == 0 ) return NullAction.INSTANCE;
+					if( code.intValue() == 0 ) return Null.INSTANCE;
 					
 					return new SerialAction(
 						// TODO: To stdout, and include command, env, etc 
-						new PrintAction("Command failed with code "+code, Streams.STDERR_FD),
-						new QuitAction(code.intValue())
+						new Print("Command failed with code "+code, Streams.STDERR_FD),
+						new Quit(code.intValue())
 					);
 				}
 			});
 		case PRINT_HELP:
-			return new PrintAction(
+			return new Print(
 				// TODO: Our own help text, unless I unify this stuff.
 				SimpleCommandParser.HELP_TEXT,
 				Streams.STDOUT_FD
 			);			
 		case PRINT_VERSION:
-			return new PrintAction(
+			return new Print(
 				Versions.JCR_NAME_AND_VERSION,
 				Streams.STDOUT_FD
 			);
 		default:
 			return new SerialAction(
 				// TODO: To stderr 
-				new PrintAction("Oops, mode="+opts.mode+" not implemented", Streams.STDERR_FD),
-				new QuitAction(1)
+				new Print("Oops, mode="+opts.mode+" not implemented", Streams.STDERR_FD),
+				new Quit(1)
 			);
 		}
 	}
