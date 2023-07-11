@@ -61,10 +61,11 @@ public class SimpleCommandRunner {
 		}
 	}
 	
+	// TODO: Let the regular action runner thing do this!
 	protected static JCRAction optsToAction(SCROptions opts) {
 		switch( opts.mode ) {
 		case RUN:
-			return SimpleCommandParser.parse(opts.argv, new Function<Integer,JCRAction>() {
+			return SimpleCommandParser.parseDoCmd(opts.argv, new Function<Integer,JCRAction>() {
 				@Override public JCRAction apply(Integer code) {
 					if( code.intValue() == 0 ) return NullAction.INSTANCE;
 					

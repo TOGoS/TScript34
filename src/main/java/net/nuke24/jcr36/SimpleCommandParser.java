@@ -20,14 +20,57 @@ public class SimpleCommandParser {
 	public static final String HELP_TEXT =
 		"Simple command syntax: [--version|--help] [<var>=<value> ...] [--] <command> [<arg> ...]\n";
 	
-	public static JCRAction parse(String[] args, Function<Integer,JCRAction> onExit) {
+	/**
+	 * Parse command, assuming args[offset] is the command name;
+	 * i.e. <Var>=<value> and options have been parsed.
+	 */
+	public static JCRAction parse2(String[] args, int offset, Function<Integer,JCRAction> onExit) {
+		assert(args.length > offset);
+		String arg0 = args[offset];
+		String aliased;
+		while( (aliased = CommandNames.DEFAULT_ALIASES.get(arg0)) != null ) {
+			arg0 = aliased;
+		}
+		if( CommandNames.CMD_DOCMD.equals(arg0) ) {
+			return parseDoCmd(args, offset+1, onExit);
+		} else if( CommandNames.CMD_PRINT.equals(arg0) ) {
+			return parsePrint(args, offset+1);
+		} else {
+			return new ShellCommand(ArrayUtils.slice(args, offset, String.class), onExit);
+		}
+	}
+	
+	public static JCRAction parsePrint(String[] args, int offset) {
+		String suffix = "\n";
+		for( ; offset < args.length ; ++offset ) {
+			if( "-n".equals(args[offset]) ) {
+				suffix = "";
+			} else if( "--".equals(args[offset]) ) {
+				++offset;
+				break;
+			} else if( args[offset].startsWith("-") ) {
+				throw new IllegalArgumentException("Unrecognized option to jcr:print: "+StringUtils.quote(args[offset]));
+			} else {
+				break;
+			}
+		}
+		StringBuilder toPrint = new StringBuilder();
+		String sep = "";
+		for( ; offset < args.length ; ++offset ) {
+			toPrint.append(sep).append(args[offset]);
+			sep = " ";
+		}
+		toPrint.append(suffix);
+		return new PrintAction(toPrint.toString(), Streams.STDOUT_FD);
+	}
+	
+	public static JCRAction parseDoCmd(String[] args, int offset, Function<Integer,JCRAction> onExit) {
 		HashMap<String,String> envVars = new HashMap<String,String>();
-		int commandIndex = 0;
-		for( ; commandIndex < args.length ; ++commandIndex ) {
-			String arg = args[commandIndex];
+		for( ; offset < args.length ; ++offset ) {
+			String arg = args[offset];
 			
 			if( "--".equals(arg) ) {
-				++commandIndex;
+				++offset;
 				break;
 			}
 			
@@ -45,15 +88,16 @@ public class SimpleCommandParser {
 			envVars.put(arg.substring(0, equalIndex), arg.substring(equalIndex+1));
 		}
 		
-		String[] command = new String[args.length - commandIndex];
-		for( int i=0; i<command.length; ++i ) {
-			command[i] = args[commandIndex++];
-		}
+		JCRAction rest = parse2(args, offset, onExit);
 		
-		return LetEnv.of(envVars, new ShellCommand(command, onExit));
+		return LetEnv.of(envVars, rest);
 	}
 	
-	public static JCRAction parse(String[] args) {
-		return parse(args, ShellCommand.DEFAULT_ON_EXIT);
+	public static JCRAction parseDoCmd(String[] args, Function<Integer,JCRAction> onExit) {
+		return parseDoCmd(args, 0, onExit);
+	}
+	
+	public static JCRAction parseDoCmd(String[] args) {
+		return parseDoCmd(args, ShellCommand.DEFAULT_ON_EXIT);
 	}
 }

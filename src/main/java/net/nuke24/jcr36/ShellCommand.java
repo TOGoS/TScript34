@@ -2,6 +2,7 @@ package net.nuke24.jcr36;
 
 import java.util.Arrays;
 
+// TODO: Rename to 'run external program' or somesuch
 public class ShellCommand implements JCRAction {
 	public static final Function<Integer, JCRAction> DEFAULT_ON_EXIT = new Function<Integer,JCRAction>() {
 		@Override public JCRAction apply(Integer code) {
@@ -26,5 +27,19 @@ public class ShellCommand implements JCRAction {
 	
 	@Override public int hashCode() {
 		return "ShellCommand".hashCode() +  31*Arrays.hashCode(argv) + 31*31*onExit.hashCode();
+	}
+	
+	@Override public String toString() {
+		StringBuilder sb = new StringBuilder("ShellCommand([");
+		String sep = "";
+		for( String arg : this.argv ) {
+			sb.append(sep).append(StringUtils.quote(arg));
+			sep = ", ";
+		}
+		sb.append("])");
+		if( this.onExit != DEFAULT_ON_EXIT ) {
+			sb.append(" >>= ").append(onExit);
+		}
+		return sb.toString();
 	}
 }
