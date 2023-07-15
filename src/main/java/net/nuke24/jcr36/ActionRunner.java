@@ -77,10 +77,10 @@ public class ActionRunner {
 		
 		String pathSepRegex = Pattern.quote(File.pathSeparator);
 		
-		String pathsStr = System.getenv("PATH");
+		String pathsStr = System.getenv("PATH"); // TODO: Shouldn't this be ctx.env.get
 		if( pathsStr == null ) pathsStr = "";
 		String[] pathParts = pathsStr.length() == 0 ? new String[0] : pathsStr.split(pathSepRegex);
-		String pathExtStr = System.getenv("PATHEXT");
+		String pathExtStr = System.getenv("PATHEXT"); // TODO: Shouldn't this be ctx.env.get
 		String[] pathExts = pathExtStr == null || pathExtStr.length() == 0 ? new String[] {""} : pathExtStr.split(pathSepRegex);
 		
 		for( String path : pathParts ) {
