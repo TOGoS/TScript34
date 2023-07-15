@@ -105,7 +105,9 @@ public class SimplerCommandRunner {
 			proc = pb.start();
 			int exitCode = proc.waitFor();
 			System.exit(exitCode);
-		} catch (IOException | InterruptedException e) {
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to run process "+quoteArr(resolvedArgs), e);
+		} catch (InterruptedException e) {
 			throw new RuntimeException("Failed to run process "+quoteArr(resolvedArgs), e);
 		}
 	}
