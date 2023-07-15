@@ -1,3 +1,3 @@
 Manifest-Version: 1.0
-Created-By: TOGoS (in Emacs, 2023-07-11)
-Main-Class: net.nuke24.jcr36.SimpleCommandRunner
+Created-By: TOGoS (in Emacs, 2023-07-14)
+Main-Class: net.nuke24.jcr36.SimplerCommandRunner
