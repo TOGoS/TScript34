@@ -17,3 +17,6 @@ if errorlevel 1 exit /B 1
 
 jar --create --file=target/JCR36-dev.jar --main-class=net.nuke24.jcr36.SimpleCommandRunner -C target\classes .
 if errorlevel 1 exit /B 1
+
+jar --create --file=target/JCR36-simpler-dev.jar --main-class=net.nuke24.jcr36.SimplerCommandRunner -C target\classes net\nuke24\jcr36\SimplerCommandRunner.class
+if errorlevel 1 exit /B 1
