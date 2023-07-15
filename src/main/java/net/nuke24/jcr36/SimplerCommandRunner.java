@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import net.nuke24.jcr36.ActionRunner.Context;
-
 public class SimplerCommandRunner {
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
