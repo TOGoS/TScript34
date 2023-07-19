@@ -7,6 +7,7 @@
 - [[./P0003/][P0003]] :: Test cases
 - P0004 :: Some compiler written in Janet, or something
 - [[./P0005/][P0005]] :: A minimal lisp, implemented in Java
+- [[./P0006/][P0006]] :: Tiny single-class VM challenge
 
 ** Language
 
