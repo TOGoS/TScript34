@@ -12,20 +12,28 @@ public class P0006 {
 	public static String PSEUDO_OP_END_PROC = "end-proc:0:0:0";
 	
 	// <name>:<op constructor arg count>:<pop count>:<push count>
-	public static String OP_PUSH_STRING_1 = "push-string:1"; 
+	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
 	public static String OP_CONCAT = "concat:0:n:1";
 	public static String OP_PRINT = "print:0:1:0";
 	public static String OP_QUIT = "quit-process:0:1:never";
 	public static String OP_RETURN = "return:0:0:0";
 	
 	protected static final Pattern dataUriPat = Pattern.compile("^data:,(.*)");
+	protected static final Pattern decimalIntegerPat = Pattern.compile("^(\\d+)$");
+	protected static final Pattern hexIntegerPat = Pattern.compile("^0x([\\da-fA-F]+)$");
 	
-	protected static void decodeToken(String token, List<String> dest) {
+	protected static int decodeToken(String token, Object[] into, int offset) {
 		Matcher m;
 		if( "{".equals(token) ) {
-			dest.add(PSEUDO_OP_BEGIN_PROC);
+			into[offset++] = PSEUDO_OP_BEGIN_PROC;
 		} else if( "}".equals(token) ) {
-			dest.add(PSEUDO_OP_END_PROC);
+			into[offset++] = PSEUDO_OP_END_PROC;
+		} else if( (m = decimalIntegerPat.matcher(token)).matches() ) {
+			into[offset++] = OP_PUSH_LITERAL_1;
+			into[offset++] = Integer.parseInt(m.group(1));
+		} else if( (m = hexIntegerPat.matcher(token)).matches() ) {
+			into[offset++] = OP_PUSH_LITERAL_1;
+			into[offset++] = Integer.parseInt(m.group(1), 16);
 		} else if( (m = dataUriPat.matcher(token)).matches() ) {
 			String data;
 			try {
@@ -33,27 +41,30 @@ public class P0006 {
 			} catch (UnsupportedEncodingException e) {
 				throw new RuntimeException(e);
 			}
-			dest.add(OP_PUSH_STRING_1);
-			dest.add(data);
+			into[offset++] = OP_PUSH_LITERAL_1;
+			into[offset++] = data;
 		} else if( "concat".equals(token) ) {
-			dest.add(OP_CONCAT);
+			into[offset++] = OP_CONCAT;
 		} else if( "println".equals(token) ) {
-			dest.add(OP_PRINT);
-			dest.add(OP_PUSH_STRING_1); dest.add("\n");
-			dest.add(OP_PRINT);
+			into[offset++] = OP_PRINT;
+			into[offset++] = OP_PUSH_LITERAL_1;
+			into[offset++] = "\n";
+			into[offset++] = OP_PRINT;
 		} else {
 			throw new RuntimeException("Don't know how to decode token: "+token);
 		}
+		return offset;
 	}
 	
-	ArrayList<String> program = new ArrayList<String>();
+	Object[] program = new Object[1024];
+	int programLength = 0;
 	int ip = 0;
-	ArrayList<Object> stack = new ArrayList<Object>();
-	int[] returnStack = new int[1024];
-	int sp;
+	ArrayList<Object> dataStack = new ArrayList<Object>();
+	private int[] returnStack = new int[1024];
+	private int rsp;
 	
 	public Object pop() {
-		return stack.remove(stack.size()-1);
+		return dataStack.remove(dataStack.size()-1);
 	}
 	
 	public static int toInt(Object obj) {
@@ -69,45 +80,47 @@ public class P0006 {
 	public void doConcat() {
 		// Overly fancy implementation to avoid creating anything new
 		// if only zero or one items are non-empty
-		int count = toInt(stack.remove(stack.size()-1));
-		int argTop = stack.size();
+		int count = toInt(dataStack.remove(dataStack.size()-1));
+		int argTop = dataStack.size();
 		int argBottom = argTop-count;
 		String result = "";
 		int p = argBottom;
 		while( p < argTop ) {
-			String item = stack.get(p++).toString();
+			String item = dataStack.get(p++).toString();
 			if( item.length() > 0 ) {
 				result = item;
 				break;
 			}
 		}
 		while( p < argTop ) {
-			String item = stack.get(p++).toString();
+			String item = dataStack.get(p++).toString();
 			if( item.length() > 0 ) {
 				StringBuilder sb = new StringBuilder(result);
 				sb.append(item);
 				while( p < argTop ) {
-					sb.append(stack.get(p++));
+					sb.append(dataStack.get(p++));
 				}
 				result = sb.toString();
 			}
 		}
-		stack.set(argBottom, result);
-		trimTo(stack, argBottom+1);
+		dataStack.set(argBottom, result);
+		trimTo(dataStack, argBottom+1);
 	}
 	
 	public void step() {
-		String op = program.get(ip++);
+		Object op = program[ip++];
 		if( op == OP_QUIT ) {
 			System.exit(toInt(pop()));
 			throw new RuntimeException("Can't get here");
-		} else if( op == OP_PUSH_STRING_1 ) {
-			stack.add(program.get(ip++));
+		} else if( op == OP_PUSH_LITERAL_1 ) {
+			dataStack.add(program[ip++]);
 		} else if( op == OP_CONCAT ) {
 			doConcat();
 		} else if( op == OP_PRINT ) {
-			Object item = stack.remove(stack.size()-1);
+			Object item = dataStack.remove(dataStack.size()-1);
 			System.out.print(item);
+		} else if( op == OP_RETURN ) {
+			ip = popR();
 		} else {
 			throw new RuntimeException("Invalid op at index "+(ip-1)+": "+op);
 		}
@@ -123,20 +136,24 @@ public class P0006 {
 	}
 	
 	public void pushR(int ip) {
-		returnStack[sp++] = ip;
+		if( ++rsp >= returnStack.length ) throw new RuntimeException("Return stack overflow; do less recursion!");
+		returnStack[rsp-1] = ip;
 	}
 	public int popR() {
-		return returnStack[--sp];
+		if( rsp <= 0 ) throw new RuntimeException("Return stack underflow");
+		return returnStack[--rsp];
 	}
 	
 	public void run() {
-		while( this.ip >= 0 && ip < program.size() ) step();
+		while( this.ip >= 0 && ip < programLength ) step();
 	}
 	
 	public void doToken(String token) {
-		int opIndex = program.size();
-		decodeToken(token, program);
-		String op = program.get(opIndex);
+		// Append decoded token to program,
+		// but leave program length
+		final int decodedBegin = programLength;
+		final int decodedEnd = decodeToken(token, program, decodedBegin);
+		Object op = program[decodedBegin];
 		if( op == PSEUDO_OP_BEGIN_PROC ) {
 			++procDepth;
 		} else if( op == PSEUDO_OP_END_PROC ) {
@@ -144,18 +161,15 @@ public class P0006 {
 			if( procDepth < 0 ) {
 				throw new RuntimeException("Procedure underflow");
 			}
-			program.set(opIndex, OP_RETURN);
-			return;
+			program[programLength++] = OP_RETURN;
 		} else if( procDepth == 0 ) {
-			this.ip = opIndex;
+			// Run the decoded ops, but don't append them to the program
+			this.ip = decodedBegin;
 			run();
 		} else {
-			return;
+			// Append decoded op to program
+			programLength = decodedEnd;
 		}
-		
-		// Unless intentionally compiling, in which case should have returned,
-		// trim program back to what it was before continuing
-		trimTo(program, opIndex);
 	}
 	
 	public static void main(String[] args) {
