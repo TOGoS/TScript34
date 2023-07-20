@@ -42,8 +42,10 @@ public class P0006 {
 			}
 			into[offset++] = OP_PUSH_LITERAL_1;
 			into[offset++] = data;
-		} else if( "concat".equals(token) ) {
+		} else if( "concat-n".equals(token) ) {
 			into[offset++] = OP_CONCAT;
+		} else if( "print".equals(token) ) {
+			into[offset++] = OP_PRINT;
 		} else if( "println".equals(token) ) {
 			into[offset++] = OP_PRINT;
 			into[offset++] = OP_PUSH_LITERAL_1;
@@ -162,9 +164,13 @@ public class P0006 {
 			}
 			program[programLength++] = OP_RETURN;
 		} else if( procDepth == 0 ) {
-			// Run the decoded ops, but don't append them to the program
+			// Temporarily extend the program to immediately run the decoded ops
+			// (this might not be the best way to do things!  Maybe instead there should be
+			// special negative instruction pointers to mean 'interpret next token', etc)
+			programLength = decodedEnd;
 			this.ip = decodedBegin;
 			run();
+			programLength = decodedBegin;
 		} else {
 			// Append decoded op to program
 			programLength = decodedEnd;
