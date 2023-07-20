@@ -10,6 +10,19 @@ public class P0006Test extends TestCase {
 		}
 	}
 	
+	public void testConcat() {
+		P0006 interp = new P0006();
+		interp.doToken("data:,foo");
+		interp.doToken("data:,bar");
+		interp.doToken("2");
+		interp.doToken("concat-n");
+		
+		assertSubArrayEquals(
+			new Object[] { "foobar" }, 0, 1,
+			interp.dataStack, 0, 1
+		);
+	}
+	
 	public void testCompileDecimalNumber() {
 		P0006 interp = new P0006();
 		interp.doToken("{");
