@@ -2,7 +2,6 @@ package net.nuke24.tscript34.p0006;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,12 +58,13 @@ public class P0006 {
 	Object[] program = new Object[1024];
 	int programLength = 0;
 	int ip = 0;
-	ArrayList<Object> dataStack = new ArrayList<Object>();
+	Object[] dataStack = new Object[1024];
+	int dsp = 0;
 	private int[] returnStack = new int[1024];
-	private int rsp;
+	private int rsp = 0;
 	
 	public Object pop() {
-		return dataStack.remove(dataStack.size()-1);
+		return dataStack[--dsp];
 	}
 	
 	public static int toInt(Object obj) {
@@ -80,31 +80,31 @@ public class P0006 {
 	public void doConcat() {
 		// Overly fancy implementation to avoid creating anything new
 		// if only zero or one items are non-empty
-		int count = toInt(dataStack.remove(dataStack.size()-1));
-		int argTop = dataStack.size();
+		int count = toInt(dataStack[--dsp]);
+		int argTop = dsp;
 		int argBottom = argTop-count;
 		String result = "";
 		int p = argBottom;
 		while( p < argTop ) {
-			String item = dataStack.get(p++).toString();
+			String item = dataStack[p++].toString();
 			if( item.length() > 0 ) {
 				result = item;
 				break;
 			}
 		}
 		while( p < argTop ) {
-			String item = dataStack.get(p++).toString();
+			String item = dataStack[p++].toString();
 			if( item.length() > 0 ) {
 				StringBuilder sb = new StringBuilder(result);
 				sb.append(item);
 				while( p < argTop ) {
-					sb.append(dataStack.get(p++));
+					sb.append(dataStack[p++]);
 				}
 				result = sb.toString();
 			}
 		}
-		dataStack.set(argBottom, result);
-		trimTo(dataStack, argBottom+1);
+		dataStack[argBottom] = result;
+		dsp = argBottom+1;
 	}
 	
 	public void step() {
@@ -113,12 +113,11 @@ public class P0006 {
 			System.exit(toInt(pop()));
 			throw new RuntimeException("Can't get here");
 		} else if( op == OP_PUSH_LITERAL_1 ) {
-			dataStack.add(program[ip++]);
+			dataStack[dsp++] = program[ip++];
 		} else if( op == OP_CONCAT ) {
 			doConcat();
 		} else if( op == OP_PRINT ) {
-			Object item = dataStack.remove(dataStack.size()-1);
-			System.out.print(item);
+			System.out.print(dataStack[--dsp]);
 		} else if( op == OP_RETURN ) {
 			ip = popR();
 		} else {

@@ -1,7 +1,5 @@
 package net.nuke24.tscript34.p0006;
 
-import java.util.Arrays;
-
 import junit.framework.TestCase;
 
 public class P0006Test extends TestCase {
@@ -24,6 +22,9 @@ public class P0006Test extends TestCase {
 		
 		interp.pushR(-1);
 		interp.run();
-		assertEquals(Arrays.asList(Integer.valueOf(0x401)), interp.dataStack);
+		assertSubArrayEquals(
+			new Object[] { Integer.valueOf(1025) }, 0, 1,
+			interp.dataStack, 0, interp.dsp
+		);
 	}
 }
