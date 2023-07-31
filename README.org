@@ -3,11 +3,19 @@
 ** Sub-projects
 
 - [[./P0001/][P0001]] :: Java...tokenizer, thing
+  - Status: Some unit tests that pass
 - [[./P0002/][P0002]] :: C# even-more-simplified interpreter
+  - Status: Works; used to implement parts of MapTranslator35
 - [[./P0003/][P0003]] :: Test cases
 - P0004 :: Some compiler written in Janet, or something
+  - Status: ???
 - [[./P0005/][P0005]] :: A minimal lisp, implemented in Java
+  - Status: incomplete
 - [[./P0006/][P0006]] :: Tiny single-class VM challenge
+  - Status: Works, but minimally useful
+  - A forthlike VM using String[] to store the program
+- [[./P0007/][P0007]] :: Demonstration of dynamically generated/loaded class files
+  - Status: planned
 
 ** Language
 
