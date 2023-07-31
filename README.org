@@ -15,7 +15,7 @@
   - Status: Works, but minimally useful
   - A forthlike VM using String[] to store the program
 - [[./P0007/][P0007]] :: Demonstration of dynamically generated/loaded class files
-  - Status: planned
+  - Status: Concept proved to work.
 
 ** Language
 
