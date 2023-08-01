@@ -7,9 +7,30 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Random;
 
 public class DynamicClassGenerator {
+	static String cmdToString(String[] argv) {
+		StringBuilder sb = new StringBuilder();
+		String sep = "";
+		for( String arg : argv ) {
+			sb.append(sep).append(arg);
+			sep =" ";
+		}
+		return sb.toString();
+	}
+	
 	public static void main(String[] args) throws IOException, InterruptedException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException, ClassNotFoundException {
+		final String selfName = DynamicClassGenerator.class.getSimpleName();
+		boolean verbosity = false;
+		for( int i=0; i<args.length; ++i ) {
+			if( "--verbose".equals(args[i]) || "-v".equals(args[i]) ) {
+				verbosity = true;
+			} else {
+				System.err.println(selfName+": Error: Unrecognized argument: "+args[i]);
+				System.exit(1);
+			}
+		}
+		
 		Random r = new Random();
-		String idStr = String.valueOf(r.nextInt());
+		String idStr = String.valueOf(r.nextInt() & 0x7FFFFFFF);
 		
 		String dynClassPackageName = "net.nuke24.tscript34.p0007.dyn";
 		String dynClassSimpleName = "DynClass"+idStr;
@@ -33,18 +54,28 @@ public class DynamicClassGenerator {
 			fw.close();
 		}
 		
-		ProcessBuilder javacPb = new ProcessBuilder(new String[] { "javac", "-d", "target/classes", dynClassSourceFile.getPath()});
+		String[] javacCmd = new String[] { "javac", "-d", "target/classes", dynClassSourceFile.getPath()};
+		ProcessBuilder javacPb = new ProcessBuilder(javacCmd);
+		javacPb.redirectError(ProcessBuilder.Redirect.INHERIT);
+		javacPb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+		if(verbosity) {
+			System.out.println("# "+selfName+"$ "+cmdToString(javacCmd));
+		}
 		Process javacProc = javacPb.start();
 		int javacExitCode = javacProc.waitFor();
 		if( javacExitCode != 0 ) {
-			System.err.println("Javac exited with code: "+javacExitCode);
+			System.err.println(selfName+": Error: Javac exited with code: "+javacExitCode);
 			System.exit(1);
 		}
 		
 		String actualStringValue = Class.forName(dynClassFullName).getConstructor(new Class<?>[0]).newInstance().toString();
 		if( !actualStringValue.equals(idStr) ) {
-			System.err.println("Expected \""+idStr+"\" but got \""+actualStringValue+"\" from "+dynClassFullName+"#toString()");
+			System.err.println(selfName+": Error: Expected \""+idStr+"\" but got \""+actualStringValue+"\" from "+dynClassFullName+"#toString()");
 			System.exit(1);
+		}
+		
+		if( verbosity ) {
+			System.out.println("# "+selfName+": Correct value returned by "+dynClassFullName+"#toString()");
 		}
 	}
 }
