@@ -18,6 +18,9 @@
   - Status: Concept proved to work.
 - [[./P0008/][P0008]] :: Formerly 'Java Command Runner', but its purpose overlaps
   enough with this project, and I already have enough stray Java repos around.
+  - Status: does some basic stuff
+- [[./P0009/][P0009]] :: Single-class Java implementation of TScript34.2 interpreter
+  - Status: Proposed
 
 ** Language
 
