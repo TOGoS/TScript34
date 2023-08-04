@@ -1,3 +1,4 @@
-*~
-/Interpreter.exe
+*.dll
+*.exe
 *.pdb
+*.png

@@ -4,14 +4,16 @@ using ArgumentException = System.ArgumentException;
 using Console = System.Console;
 using DefDict = System.Collections.Generic.Dictionary<string, object>;
 using Exception = System.Exception;
+using Float32 = System.Single;
 using Float64 = System.Double;
 using HttpClient = System.Net.Http.HttpClient;
 using IEnumerable = System.Collections.IEnumerable;
 using Int32 = System.Int32;
-using IList = System.Collections.IList;
+using Int64 = System.Int64;
 using IStringList = System.Collections.Generic.IList<string>;
 using Object = System.Object;
 using SCG = System.Collections.Generic;
+using Regex = System.Text.RegularExpressions.Regex;
 using Stack = System.Collections.Generic.List<object>;
 using Stream = System.IO.Stream;
 using StreamReader = System.IO.StreamReader;
@@ -21,21 +23,19 @@ using StringSplitOptions = System.StringSplitOptions;
 using TextReader = System.IO.TextReader;
 using Uri = System.Uri;
 
-using TOGoS.TScrpt34_2.MapStuff;
-
 namespace TOGoS.TScrpt34_2 {
-	interface Op {
+	public interface Op {
 		void Do(Interpreter interp);
 	}
-	interface OpConstructor {
+	public interface OpConstructor {
 		Op Parse(IStringList args, IUriResolver resolver);
 	}
-	class Procedure : Op {
+	public class Procedure : Op {
 		SCG.IList<Op> Operations;
 		public Procedure(SCG.IList<Op> ops) {
 			this.Operations = ops;
 		}
-		void Op.Do(Interpreter interp) {
+		public void Do(Interpreter interp) {
 			foreach(Op op in this.Operations) {
 				// Maybe some way to return idk
 				op.Do(interp);
@@ -43,35 +43,108 @@ namespace TOGoS.TScrpt34_2 {
 		}
 	}
 	
-	interface IEncoding {
-		object Encode(object v);
-		object Decode(object l);
+	public interface ICodec<V,L> {
+		L Encode(V v);
+		V Decode(L l);
+	}
+	
+	public interface IEncoding : ICodec<object,object> {
+		string Uri { get; }
 	}
 
-	class DecimalEncoding : IEncoding {
+	public class DecimalEncoding : IEncoding {
+		public string Uri { get { return "http://www.w3.org/2001/XMLSchema#decimal"; } }
 		// TODO: Make sure this is actually following http://www.w3.org/2001/XMLSchema#decimal
-		object IEncoding.Encode(object v) {
+		public object Encode(object v) {
 			return ((double)v).ToString();
 		}
-		object IEncoding.Decode(object l) {
+		public object Decode(object l) {
 			return Float64.Parse(l.ToString());
 		}
 	}
-	class SymbolEncoding : IEncoding {
-		// Treating symbols as strings for now
-		object IEncoding.Encode(object v) {
-			return v.ToString();
+	public class SymbolEncoding : IEncoding {
+		public string Uri { get { return "http://ns.nuke24.net/TScript34/Datatypes/Symbol"; } }
+		public object Encode(object v) {
+			return v;
 		}
-		object IEncoding.Decode(object l) {
-			return l.ToString();
+		public object Decode(object l) {
+			return l;
 		}
 	}
 
-	class QuitException : Exception {}
+	/** Since this encoder doesn't have access to the interpreter,
+	 * it can only do very basic decoding, like data:,... */
+	public class UriReferenceEncoding : IEncoding {
+		public string Uri { get { return "http://ns.nuke24.net/TOGVM/Datatypes/URIResource"; } }
+
+		protected IUriResolver Resolver;
+
+		public UriReferenceEncoding(IUriResolver resolver) {
+			this.Resolver = resolver;
+		}
+
+		public object Encode(object v) {
+			if( v is string ) {
+				return "data:,"+System.Uri.EscapeDataString((string)v);
+			}
+			throw new Exception("UriReferenceEncoding cannot encode a "+v.GetType());
+		}
+		public object Decode(object l) {
+			if( l is string ) {
+				object value = Resolver.Resolve((string)l);
+				if( value == null ) {
+					throw new Exception($"{this.GetType()}: Unable to decode '{l}' using {this.Resolver.GetType()} as IUriResolver");
+				}
+				return value;
+			}
+			throw new Exception("UriReferenceEncoding cannot decode a "+l.GetType()+" because it is not a string");
+		}
+	}
+
+	public class ThunkedValueCollectionEncoding : IEncoding {
+		public string Uri { get { return "http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"; } }
+		
+		protected ICodec<object,TS34Thunk> ThunkCodec;
+		public ThunkedValueCollectionEncoding(ICodec<object,TS34Thunk> thunkCodec) {
+			this.ThunkCodec = thunkCodec;
+		}
+		
+		public object Encode(object v) {
+			throw new Exception(GetType()+"#Encode not yet implemented (usually they are created directly by e.g. createArray ops)");
+		}
+		public object Decode(object collection) {
+			if( collection is SCG.IDictionary<object,TS34Thunk> ) {
+				SCG.Dictionary<object,object> decoded = new SCG.Dictionary<object,object>();
+				foreach( var entry in (SCG.IDictionary<object,TS34Thunk>)collection ) {
+					decoded[entry.Key] = this.ThunkCodec.Decode(entry.Value);
+				}
+				return decoded;
+			} else if( collection is SCG.IDictionary<object,object> ) {
+				throw new Exception("Object is a regular dictionary; can't thunk-decode elements");
+			} else if( collection is SCG.IList<TS34Thunk> ) {
+				SCG.List<object> decoded = new SCG.List<object>();
+				foreach( var item in (SCG.IList<TS34Thunk>)collection ) {
+					decoded.Add(this.ThunkCodec.Decode(item));
+				}
+				return decoded;
+			} else if( collection is SCG.IList<object> ) {
+				throw new Exception("Object is a regular list; can't thunk-decode elements");
+			} else {
+				throw new Exception("Don't know how to ThunkedValueCollection-decode a "+collection.GetType());
+			}
+		}
+	}
+
+	public class QuitException : Exception {}
 	
-	class Mark {}
+	public class Mark {
+		private Mark() { }
+		// Mark and other purely symbolic things don't need instances
+		//public static Mark Instance = new Mark();
+		public static TS34Thunk Thunk = TS34Thunk.ForUri("http://ns.nuke24.net/TScript34/Values/Mark");
+	}
 	
-	interface IUriResolver {
+	public interface IUriResolver {
 		object Resolve(string uri);
 	}
 
@@ -79,12 +152,14 @@ namespace TOGoS.TScrpt34_2 {
 		object IUriResolver.Resolve(string uri) {
 			if( uri.StartsWith("data:,") ) {
 				return Uri.UnescapeDataString(uri.Substring(6));
-			} else {
+			} else if( uri.StartsWith("http:") || uri.StartsWith("https:") ) {
 				using (HttpClient client = new HttpClient()) {
 					// For now just strings
-					string s = client.GetStringAsync(uri).Result;
+					byte[] s = client.GetByteArrayAsync(uri).Result;
 					return s;
 				}
+			} else {
+				return null;
 			}
 		}
 	}
@@ -131,7 +206,7 @@ namespace TOGoS.TScrpt34_2 {
 			if( value == null ) {
 				throw new Exception("alias: '"+this.targetName+"' not defined");
 			}
-			interp.definitions[this.name] = value;
+			interp.Definitions[this.name] = value;
 		}
 	}
 	class AliasOpConstructor : OpConstructor {
@@ -142,36 +217,43 @@ namespace TOGoS.TScrpt34_2 {
 			return new AliasOp(args[0], args[1]);
 		}
 	}
+
 	class CountToMarkOp : Op {
 		void Op.Do(Interpreter interp) {
-			interp.Push(interp.CountToMark());
+			interp.PushValue(interp.CountToMark());
 		}
 	}
 
 	/** (item1 item2 ... itemN n ArrayFromStack -- array) */
 	class ArrayFromStackOp : Op {
 		void Op.Do(Interpreter interp) {
-			int length = (int)interp.Pop();
+			int length = interp.ThunkToValue<int>(interp.PopThunk());
 			int stackOffset = interp.DataStack.Count - length;
 			if( stackOffset < 0 ) {
 				throw new Exception("Can't create array of "+length+" elements; only "+interp.DataStack.Count+" on stack!");
 			}
-			Stack arr = new Stack();
+			SCG.List<TS34Thunk> arr = new SCG.List<TS34Thunk>();
 			arr.AddRange(interp.DataStack.GetRange(stackOffset, length));
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.Push(arr);
+			interp.PushThunk(interp.ThunkedValueCollectionToThunk(arr));
+
+			//SCG.IList<object> decoded = new SCG.List<object>(arr.Count);
+			//foreach( TS34Thunk thunk in arr ) {
+			//	decoded.Add(interp.ThunkToValue<object>(thunk));
+			//}
+			//interp.PushValue(decoded);
 		}
 	}
 	class DefineOp : Op {
 		void Op.Do(Interpreter interp) {
-			object value = interp.Pop();
-			object key = interp.Pop();
-			interp.definitions.Add(key.ToString(), value);
+			TS34Thunk value = interp.PopThunk();
+			string key = interp.ThunkToValue<string>(interp.PopThunk());
+			interp.Definitions.Add(key.ToString(), interp.ThunkToValue<object>(value));
 		}
 	}
 	class DictFromStackOp : Op {
 		void Op.Do(Interpreter interp) {
-			int length = (int)interp.Pop();
+			int length = interp.ThunkToValue<int>(interp.PopThunk());
 			if( (length & 1) != 0 ) {
 				throw new Exception("DictFromStackOp requires an even number of stack elements; "+length+" were indicated");
 			}
@@ -179,57 +261,123 @@ namespace TOGoS.TScrpt34_2 {
 			if( stackOffset < 0 ) {
 				throw new Exception("Can't create array of "+length+" elements; only "+interp.DataStack.Count+" on stack!");
 			}
-			System.Collections.Generic.Dictionary<object,object> dict = new System.Collections.Generic.Dictionary<object,object>();
+			System.Collections.Generic.Dictionary<object,TS34Thunk> dict = new System.Collections.Generic.Dictionary<object,TS34Thunk>();
 			for( int i=stackOffset; i<interp.DataStack.Count; i += 2 ) {
 				// TODO: Translate strings to name objects as per postscript spec
-				dict[interp.DataStack[i]] = interp.DataStack[i+1];
+				object key = interp.ThunkToValue<object>(interp.DataStack[i]);
+				dict[key] = interp.DataStack[i+1];
 			}
 			interp.DataStack.RemoveRange(stackOffset, length);
-			interp.Push(dict);
+			interp.PushThunk(interp.ThunkedValueCollectionToThunk(dict));
 		}
 	}
 	class DupOp : Op {
 		void Op.Do(Interpreter interp) {
 			if( interp.DataStack.Count < 1 ) throw new Exception("Can't dup; stack empty!");
-			interp.Push(interp.Peek());
+			interp.PushThunk(interp.Peek());
 		}
 	}
+	class EncodeOpConstructor : OpConstructor {
+		public static SCG.IList<IEncoding> ParseEncodings(IStringList encodingRefs, IUriResolver resolver) {
+			SCG.IList<IEncoding> encodings = new SCG.List<IEncoding>();
+			foreach( string encodingRef in encodingRefs ) {
+				object maybeAnEncoding = resolver.Resolve(encodingRef);
+				if( !(maybeAnEncoding is IEncoding) ) {
+					throw new Exception(encodingRef+" does not name an encoding; is "+ValueUtil.Describe(maybeAnEncoding));
+				}
+				encodings.Add((IEncoding)maybeAnEncoding);
+			}
+			return encodings;
+		}
+
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+			return new EncodeOp(ParseEncodings(args, resolver));
+		}
+	}
+	class DecodeOpConstructor : OpConstructor {
+		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
+			return new DecodeOp(EncodeOpConstructor.ParseEncodings(args, resolver));
+		}
+	}
+	class EncodeOp : Op {
+		protected SCG.IList<IEncoding> Encodings;
+		public EncodeOp(SCG.IList<IEncoding> encodings) {
+			this.Encodings = encodings;
+		}
+		public void Do(Interpreter interp) {
+			// Theoretically some encodings could work on thunks.
+			// e.g. if value is a think whose last encoding applied is the one to be re-applied,
+			// simply make a new thunk dropping that encoding.
+			object value = interp.PopValue();
+			foreach( IEncoding encoding in this.Encodings ) {
+				object encodedValue = encoding.Encode(value);
+				// Null may be valid in some cases,
+				// but for figuring out my current problem...
+				if( encodedValue == null ) throw new Exception($"{encoding.Uri}-encoded {ValueUtil.Describe(value)} is null!");
+				value = encodedValue;
+			}
+			interp.PushValue(value);
+		}
+	}
+	class DecodeOp : Op {
+		protected SCG.IList<IEncoding> Encodings;
+		public DecodeOp(SCG.IList<IEncoding> encodings) {
+			this.Encodings = encodings;
+		}
+		public void Do(Interpreter interp) {
+			// Theoretically some decodings could work on thunks.
+			// Just add the named encoding to the list of decode steps to be done!
+			object value = interp.PopValue();
+
+			foreach( IEncoding encoding in this.Encodings ) {
+				object decodedValue = encoding.Decode(value);
+				// Null may be valid in some cases,
+				// but for figuring out my current problem...
+				if( decodedValue == null ) throw new Exception($"{encoding.Uri}-decoded {ValueUtil.Describe(value)} is null!");
+				value = decodedValue;
+			}
+			interp.PushValue(value);
+		}
+	}
+
 	class ExchOp : Op {
 		void Op.Do(Interpreter interp) {
-			object a = interp.Pop();
-			object b = interp.Pop();
-			interp.Push(a);
-			interp.Push(b);
+			TS34Thunk a = interp.PopThunk();
+			TS34Thunk b = interp.PopThunk();
+			interp.PushThunk(a);
+			interp.PushThunk(b);
 		}
 	}
 	class ExecOp : Op {
 		void Op.Do(Interpreter interp) {
-			((Op)interp.Pop()).Do(interp);
+			interp.ThunkToValue<Op>(interp.PopThunk()).Do(interp);
 		}
 	}
 	class FetchUriOp : Op {
 		void Op.Do(Interpreter interp) {
-			string uri = (string)interp.Pop();
-			interp.Push(new UriResource(uri, interp));
+			string uri = interp.ThunkToValue<string>(interp.PopThunk());
+			interp.PushThunk(TS34Thunk.ForUri(uri));
 		}
 	}
 	/** i.e. take all the strings in an array and concatenate them together */
 	class FlattenStringListOp : Op {
 		void Op.Do(Interpreter interp) {
-			IEnumerable list = (IEnumerable)interp.Pop();
+			IEnumerable list = interp.ThunkToValue<IEnumerable>(interp.PopThunk());
 			StringBuilder sb = new StringBuilder();
 			foreach( var item in list ) sb.Append(item.ToString());
-			interp.Push(sb.ToString());
+			interp.PushThunk(interp.ValueToThunk(sb.ToString()));
 		}
 	}
 
 	/** Equivalent to postscript's forall (list proc -- ...) */
 	class ForEachOp : Op {
 		void Op.Do(Interpreter interp) {
-			Op proc = (Op)interp.Pop();
-			IEnumerable list = (IEnumerable)interp.Pop();
-			foreach( object item in list ) {
-				interp.Push(item);
+			Op proc = interp.ThunkToValue<Op>(interp.PopThunk());
+			SCG.IEnumerable<TS34Thunk> list = interp.ThunkToValueShallow<SCG.IEnumerable<TS34Thunk>>(interp.PopThunk());
+			// TODO: Oh dear, hold up; we probably should have a separate
+			// method that returns an IEnumerable of thunks!
+			foreach( TS34Thunk item in list ) {
+				interp.PushThunk(item);
 				proc.Do(interp);
 			}
 		}
@@ -240,12 +388,22 @@ namespace TOGoS.TScrpt34_2 {
 	*/
 	class GetElementOp : Op {
 		void Op.Do(Interpreter interp) {
-			object key = interp.Pop();
-			object collection = interp.Pop();
-			if( collection is SCG.IDictionary<object,object> ) {
-				interp.Push( ((SCG.IDictionary<object,object>)collection)[key]);
-			} else if( collection is IList ) {
-				interp.Push( ((IList)collection)[(int)key] );
+			TS34Thunk keyThunk = interp.PopThunk();
+			object collection = interp.ThunkToValueShallow<object>(interp.PopThunk());
+			// TODO: For now assuming that any Collection<TS34Thunk> represents
+			// a collection of things-by-thunk, not a collection of thunks!
+			if( collection is SCG.IDictionary<object,TS34Thunk> ) {
+				object key = interp.ThunkToValue<object>(keyThunk);
+				interp.PushThunk( ((SCG.IDictionary<object,TS34Thunk>)collection)[key] );
+			} else if( collection is SCG.IDictionary<object,object> ) {
+				object key = interp.ThunkToValue<object>(keyThunk);
+				interp.PushThunk( interp.ValueToThunk(((SCG.IDictionary<object,object>)collection)[key]) );
+			} else if( collection is SCG.IList<TS34Thunk> ) {
+				int index = interp.ThunkToValue<int>(keyThunk);
+				interp.PushThunk( ((SCG.IList<TS34Thunk>)collection)[index] );
+			} else if( collection is SCG.IList<object> ) {
+				int index = interp.ThunkToValue<int>(keyThunk);
+				interp.PushThunk( interp.ValueToThunk(((SCG.IList<object>)collection)[index]) );
 			} else {
 				throw new Exception("Don't know how to get element of "+collection.GetType());
 			}
@@ -253,96 +411,150 @@ namespace TOGoS.TScrpt34_2 {
 	}
 	class PopOp : Op {
 		void Op.Do(Interpreter interp) {
-			interp.Pop();
+			interp.PopThunk();
 		}
 	}
 	class PushOp : Op {
-		object toPush;
-		public PushOp(object toPush) {
+		TS34Thunk toPush;
+		public PushOp(TS34Thunk toPush) {
 			this.toPush = toPush;
 		}
 		void Op.Do(Interpreter interp) {
-			interp.Push(toPush);
+			interp.PushThunk(toPush);
 		}
 	}
 	
 	class PushValueOpConstructor : OpConstructor {
+		// TODO: Could have eager/lazy variants;
+		// eager ones would resolve/decode immediately.
+		// Possibly eager/lazy based on encoding!
+
 		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
 			if( args.Count < 1 ) {
 				throw new ArgumentException("'push-value' expects one or more arguments (value, encoding1, encoding2...)");
 			}
-			object value = resolver.Resolve(args[0]);
-			for( int i=1; i<args.Count; ++i ) {
-				IEncoding e = (IEncoding)resolver.Resolve(args[i]);
-				//Console.WriteLine("# Decoding "+value)
-				value = e.Decode(value);
+			
+			// Since our args[0] is always at least URI-encoded
+			TS34EncodingList encodingList = null;
+			for( int i=args.Count-1; i>0; --i ) {
+				// Even if not eagerly decoding, we want to get the canonical
+				// URI of the encoding.  Don't want to store some alias!
+				// Also, no sense in creating thunks with invalid encodings.
+				var encoding = resolver.Resolve(args[i]);
+				if( !(encoding is IEncoding) ) {
+					throw new Exception(args[i]+" does not name an encoding");
+				}
+				encodingList = new TS34EncodingList(((IEncoding)encoding).Uri, encodingList);
 			}
-			return new PushOp(value);
-		}
-	}
-	class PushStringOpConstructor : OpConstructor {		
-		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
-			if( args.Count != 1 ) {
-				throw new ArgumentException("'push-string' requires exactly one argument");
-			}
-			return new PushOp(resolver.Resolve(args[0]).ToString());
-		}
-	}
-	class PushFloat64OpConstructor : OpConstructor {
-		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
-			if( args.Count != 1 ) {
-				throw new ArgumentException("'push-string' requires exactly one argument");
-			}
-			return new PushOp(Float64.Parse(resolver.Resolve(args[0]).ToString()));
-		}
-	}
-	class PushInt32OpConstructor : OpConstructor {
-		Op OpConstructor.Parse(IStringList args, IUriResolver resolver) {
-			if( args.Count != 1 ) {
-				throw new ArgumentException("'push-string' requires exactly one argument");
-			}
-			return new PushOp(Int32.Parse(resolver.Resolve(args[0]).ToString()));
+			encodingList = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource", encodingList);
+			return new PushOp(new TS34Thunk(args[0], encodingList));
 		}
 	}
 
-	interface IFormatter {
-		string Format(object val);
+	/**
+	 * Simplified interface for a stream-to-be-written-to
+	 * allowing both strings and byte arrays to be written.
+	 */
+	public interface ISimpleOutput {
+		void Write(byte[] data);
+		void Write(char[] data);
+	}
+
+	public class ConsoleOutput : ISimpleOutput {
+		public void Write(byte[] data) {
+			throw new Exception("ConsoleOutput can't write raw bytes");
+		}
+		public void Write(char[] data) {
+			Console.Out.Write(data);
+		}
+	}
+	public class StreamOutput : ISimpleOutput {
+		Stream OutStream;
+		public StreamOutput(Stream outstre) {
+			this.OutStream = outstre;
+		}
+		public void Write(byte[] data) {
+			// this.OutStream.Write(data); //  Could not load type 'System.ReadOnlySpan`1'
+			this.OutStream.Write(data, 0, data.Length); // Works better
+		}
+		public void Write(char[] chars) {
+			this.Write(System.Text.Encoding.ASCII.GetBytes(chars));
+		}
+	}
+	public class ErroringOutput : ISimpleOutput {
+		public void Write(byte[] data) {
+			throw new Exception("No output configured");
+		}
+		public void Write(char[] chars) {
+			throw new Exception("No output configured");
+		}
+	}
+
+	public static class SimpleOutputHelper {
+		public static void Write(this ISimpleOutput outputter, string data) {
+			outputter.Write(data.ToCharArray());
+		}
+	}
+
+	public interface ISerializable {
+		public void WriteTo(ISimpleOutput dest);
+		public void WriteTo(System.IO.Stream dest);
+	}
+	
+	public interface IFormatter {
+		void Format(object val, ISimpleOutput dest);
 	}
 	class ToStringFormatter : IFormatter {
 		public static ToStringFormatter Instance = new ToStringFormatter();
 		
-		string IFormatter.Format(object val) {
-			return val.ToString();
-		}		
+		void IFormatter.Format(object val, ISimpleOutput dest) {
+			if( val is ISerializable ) {
+				((ISerializable)val).WriteTo(dest);
+			} else if( val is System.Byte[] ) {
+				dest.Write((byte[])val);
+			} else {
+				dest.Write(val.ToString());
+			}
+		}
 	}
 	class PostScriptSourceFormatter : IFormatter {
 		public static PostScriptSourceFormatter Instance = new PostScriptSourceFormatter();
 		
-		string IFormatter.Format(object val) {
-			if( val is Int32 || val is Float64 ) {
-				return val.ToString();
-			} else if( val is SCG.IEnumerable<object> ) {
-				string r = "[";
-				foreach( object item in (SCG.IEnumerable<object>)val ) {
-					r += " ";
-					r += ((IFormatter)this).Format(item);
+		void FormatString(string v, ISimpleOutput dest) {
+			dest.Write("("+v.Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")");
+		}
+		
+		public void Format(object val, ISimpleOutput dest) {
+			if( val is Int32 || val is Int64 || val is Float32 || val is Float64 ) {
+				dest.Write(val.ToString());
+			} else if( val is string ) {
+				FormatString((string)val, dest);
+			} else if( val is SCG.IDictionary<object,object> ) {
+				string sep = " ";
+				dest.Write("<<");
+				foreach( System.Collections.Generic.KeyValuePair<object, object> pair in (SCG.IDictionary<object,object>)val ) {
+					dest.Write(sep);
+					((IFormatter)this).Format(pair.Key, dest);
+					dest.Write(" ");
+					((IFormatter)this).Format(pair.Value, dest);
+					sep = " ";
 				}
-				return r + " ]";
-			} else if( val is SCG.Dictionary<object,object> ) {
-				string r = "<<";
-				foreach( SCG.KeyValuePair<object,object> pair in (SCG.Dictionary<object,object>)val ) {
-					r += " ";
-					r += ((IFormatter)this).Format(pair.Key);
-					r += " ";
-					r += ((IFormatter)this).Format(pair.Value);
+				dest.Write(" >>");
+			} else if( val is IEnumerable ) {
+				dest.Write("[");
+				string sep = "";
+				foreach( object item in (IEnumerable)val ) {
+					dest.Write(sep);
+					((IFormatter)this).Format(item, dest);
+					sep = " ";
 				}
-				return r + " >>";
+				dest.Write("]");
 			} else {
-				return "("+val.ToString().Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)")+")";
+				FormatString(val.ToString(), dest);
 			}
 		}
 	}
-
+	
 	class PrintOp : Op {
 		IFormatter formatter;
 		string postfix;
@@ -351,22 +563,27 @@ namespace TOGoS.TScrpt34_2 {
 			this.postfix = postfix;
 		}
 		void Op.Do(Interpreter interp) {
-			System.Console.Write(this.formatter.Format(interp.Pop()));
-			System.Console.Write(postfix);
+			object value = interp.ThunkToValue<object>(interp.PopThunk());
+			this.formatter.Format(value, interp.OutputStream);
+			interp.OutputStream.Write(postfix);
 		}
 	}
 
-	#region Map Ops
-	// These should not be in Interpreter.cs
-
-	/**
-	 * json -- List<PointInfo<?>>
-	*/
-	class DecodePointListOp : Op {
+	/** For debugging */
+	class PrintStackThunksOp : Op {
+		IFormatter formatter;
+		string postfix;
+		public PrintStackThunksOp(IFormatter formatter, string postfix="") {
+			this.formatter = formatter;
+			this.postfix = postfix;
+		}
 		void Op.Do(Interpreter interp) {
-			string json = interp.Pop().ToString();
-			var pointList = new MapStuff.JsonDecoder<MapStuff.LatLongPosition, MapStuff.VegData>().Decode(json);
-			interp.Push(pointList);
+			for( int i=interp.DataStack.Count; i>0; ) {
+				--i;
+				TS34Thunk thunk = interp.DataStack[i];
+				this.formatter.Format(thunk, interp.OutputStream);
+				interp.OutputStream.Write(this.postfix);
+			}
 		}
 	}
 
@@ -386,105 +603,294 @@ namespace TOGoS.TScrpt34_2 {
 			throw new Exception(this.GetType()+" can't be executed directly");
 		}
 	}
-	
-	/**
-	 * List<PointInfo<LatLongPosition,?>> centerlat centerlong diameter -- List<PointInfo<XYPosition,?>>
-	 * lat/long are in degrees
-	 */
-	class LatLongToXYPointListOp : Op {
-		void Op.Do(Interpreter interp) {
-			double diameter = (double)interp.Pop();
-			double centerLong = (double)interp.Pop();
-			double centerLat = (double)interp.Pop();
-			IEnumerable inputList = (IEnumerable)interp.Pop();
-			// TODO: Should be Dat-agnostic!  How to do that?
-			SCG.List<PointInfo<XYPosition,VegData>> outputList = new SCG.List<PointInfo<XYPosition,VegData>>();
-			PointInfoConverter<LatLongPosition,XYPosition,VegData> plc =
-				new PointInfoConverter<LatLongPosition,XYPosition,VegData>(
-					new LatLongToXYConverter(diameter, new LatLongPosition(centerLong,centerLat)).LatLongToXY
-				);
-			foreach( object item in inputList ) {
-				PointInfo<LatLongPosition,VegData> point = (PointInfo<LatLongPosition,VegData>)item;
-				outputList.Add(plc.ConvertPointPosition(point));
+
+	static class DictUtil {
+		public static void AddAll(DefDict target, DefDict toBeAdded) {
+			foreach( var pair in toBeAdded ) {
+				target.Add(pair.Key, pair.Value);
 			}
-			interp.Push(outputList);
 		}
 	}
-	#endregion
 
-	class Interpreter : IUriResolver {
-		static char[] whitespace = new char[] { ' ', '\t', '\r' };
+	public static class StandardOps {
+		public static DefDict Definitions = new DefDict();
+		static StandardOps() {
+			// Parameterized ops
+			Definitions["http://ns.nuke24.net/TScript34/Op/Alias"] = new AliasOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/Encode"] = new EncodeOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/Decode"] = new DecodeOpConstructor();
+			Definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
+			// Regular ops
+			Definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Define"] = new DefineOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PrintStackThunks"] = new PrintStackThunksOp(ToStringFormatter.Instance, "\n");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringList"] = new FlattenStringListOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/ForEach"] = new ForEachOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/OpenProcedure"] = new OpenProcedureOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Pop"] = new PopOp();
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp(ToStringFormatter.Instance, "");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource"] = new PrintOp(PostScriptSourceFormatter.Instance, "\n");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
+			Definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(Mark.Thunk);
+			Definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
+			// Datatypes
+			Definitions["http://www.w3.org/2001/XMLSchema#decimal"] = new DecimalEncoding();
+			Definitions["http://ns.nuke24.net/TScript34/Datatypes/Symbol"] = new SymbolEncoding();
+		}
+	}
 
-		public DefDict definitions = new DefDict();
-		public Stack DataStack = new Stack();
-		protected readonly AUriResolver UriResolver = new AUriResolver();
-
-		object IUriResolver.Resolve(string uri) {
-			if( this.definitions.ContainsKey(uri) ) {
-				return this.definitions[uri];
+	class WriteResourceOp : Op {
+		System.IO.Stream OpenWriteStream(string uri) {
+			if( uri.StartsWith("file:///") ) {
+				// Special case for absolute local path
+				string path = Uri.UnescapeDataString(uri.Substring(7));
+				return System.IO.File.OpenWrite(path);
+			} else if( uri.StartsWith("file:") ) {
+				// Anything else; relative or //host/stuff; hope for the best
+				string path = Uri.UnescapeDataString(uri.Substring(5));
+				return System.IO.File.OpenWrite(path);
 			} else {
-				return ((IUriResolver)this.UriResolver).Resolve(uri);
+				// Warning: Calling 'close' on these hangs forever???
+				return new System.Net.WebClient().OpenWrite(uri);
 			}
 		}
 
-		public Interpreter() {
-			// Parameterized ops
-			definitions["alias"] = new AliasOpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushValue"] = new PushValueOpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushString"] = new PushStringOpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushInt32"] = new PushInt32OpConstructor();
-			definitions["http://ns.nuke24.net/TScript34/Op/PushFloat64"] = new PushFloat64OpConstructor();
-			// Regular ops
-			definitions["http://ns.nuke24.net/TScript34/Ops/CloseProcedure"] = new CloseProcedureOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/CountToMark"] = new CountToMarkOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/ArrayFromStack"] = new ArrayFromStackOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/DictFromStack"] = new DictFromStackOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Define"] = new DefineOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Dup"] = new DupOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Exch"] = new ExchOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Exec"] = new ExecOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/FetchUri"] = new FetchUriOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/FlattenStringListOp"] = new FlattenStringListOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/ForEach"] = new ForEachOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/GetElement"] = new GetElementOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/OpenProcedure"] = new OpenProcedureOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Pop"] = new PopOp();
-			definitions["http://ns.nuke24.net/TScript34/Ops/Print"] = new PrintOp(ToStringFormatter.Instance, "");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource"] = new PrintOp(PostScriptSourceFormatter.Instance, "\n");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PrintLine"] = new PrintOp(ToStringFormatter.Instance, "\n");
-			definitions["http://ns.nuke24.net/TScript34/Ops/PushMark"] = new PushOp(new Mark());
-			definitions["http://ns.nuke24.net/TScript34/Ops/Quit"] = new QuitOp();
-			// Datatypes
-			definitions["http://www.w3.org/2001/XMLSchema#decimal"] = new DecimalEncoding();
-			definitions["http://ns.nuke24.net/TScript34/Datatypes/Symbol"] = new SymbolEncoding();
-			
-			// Map stuff
-			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/DecodePointList"] = new DecodePointListOp();
-			definitions["http://ns.nuke24.net/TScript34/MapStuff/Ops/LatLongToXYPointList"] = new LatLongToXYPointListOp();
+		public void Do(Interpreter interp) {
+			ISerializable toBeWritten = interp.PopValue<ISerializable>();
+			TS34Thunk resourceThunk = interp.PopThunk();
+			if(
+				resourceThunk.Encodings.EncodingUri.Equals("http://ns.nuke24.net/TOGVM/Datatypes/URIResource") &&
+				resourceThunk.Encodings.PreviousEncodings == null
+			) {
+				string uri = resourceThunk.EncodedValue.ToString();
+				System.IO.Stream stream = OpenWriteStream(uri);
+				toBeWritten.WriteTo(stream);
+				stream.Close();
+			} else {
+				throw new Exception($"First argument to WriteResource should be an URI resource reference, but got {resourceThunk}");
+			}
+		}
+	}
+
+	public static class WriteOps {
+		public static DefDict Definitions = new DefDict();
+		static WriteOps() {
+			Definitions["http://ns.nuke24.net/TScript34/Ops/WriteResource"] = new WriteResourceOp();
+		}
+	}
+
+	#nullable enable
+	public record TS34EncodingList {
+		public string EncodingUri; 
+		public TS34EncodingList? PreviousEncodings;
+
+		public TS34EncodingList(string uri, TS34EncodingList? previousEncodings) {
+			this.EncodingUri = uri;
+			this.PreviousEncodings = previousEncodings;
+		}
+		public TS34EncodingList(string uri) {
+			this.EncodingUri = uri;
+			this.PreviousEncodings = null;
 		}
 
-		public object Peek() {
-			if( DataStack.Count == 0 ) return null;
+		public override string ToString() {
+			return this.EncodingUri + (this.PreviousEncodings == null ? "" : " " + this.PreviousEncodings);
+		}
+
+		public static TS34EncodingList Uri = new TS34EncodingList("http://ns.nuke24.net/TOGVM/Datatypes/URIResource");
+		public static TS34EncodingList ThunkedValueCollection = new TS34EncodingList("http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection");
+	}
+	public record TS34Thunk {
+		public object EncodedValue;
+		public TS34EncodingList? Encodings;
+
+		public TS34Thunk(object value, TS34EncodingList? encodings) {
+			this.EncodedValue = value;
+			this.Encodings = encodings;
+		}
+		public TS34Thunk(object value) {
+			this.EncodedValue = value;
+			this.Encodings = null;
+		}
+		
+		public override string ToString() {
+			return this.EncodedValue + (this.Encodings == null ? "" : " " + this.Encodings);
+		}
+		
+		public static TS34Thunk ForUri(string uri) {
+			return new TS34Thunk(uri, TS34EncodingList.Uri);
+		}
+	}
+	#nullable disable
+
+	static class ValueUtil {
+		public static string Describe(object o) {
+			if( o == null ) return "null";
+			if( o is string ) {
+				string s = (string)o;
+				bool truncated = false;
+				if( s.Length > 15 ) {
+					s = s.Substring(0,12);
+					truncated = true;
+				}
+				int index = s.IndexOf((char)0);
+				if( index != -1 ) {
+					s = s.Substring(0, index);
+				}
+				return "a string, \""+Regex.Escape(s)+"\""+(truncated ? "..." : "");
+			}
+			// TODO: always include type, but for simple values (numbers, short strings, thunks, etc)
+			// also include the data
+			return DescribeValueOfType(o.GetType());
+		}
+		public static string DescribeValueOfType(System.Type type) {
+			return "a "+type;
+		}
+		public static bool IsFloatingPointType(System.Type type) {
+			return (type == typeof(System.Single) || type == typeof(System.Double));
+		}
+		public static T Convert<T>(object value, bool lossyConversionAllowed) {
+			if( value is T ) return (T)value;
+
+			if( value is System.IConvertible && typeof(System.IConvertible).IsAssignableFrom(typeof(T)) ) {
+				T converted = (T)System.Convert.ChangeType( (System.IConvertible)value, System.Type.GetTypeCode(typeof(T)) );
+				object convertedBack = System.Convert.ChangeType( converted, ((System.IConvertible)value).GetTypeCode() );
+				if( lossyConversionAllowed || value.Equals(convertedBack) ) {
+					return converted;
+				} else {
+					throw new Exception( $"{Describe(value)} cannot be losslessly converted to {DescribeValueOfType(typeof(T))}" );
+				}
+			}
+
+			throw new Exception($"Don't know how to convert {Describe(value)} to {DescribeValueOfType(typeof(T))}");
+		}
+		
+		public static T Convert<T>(object value) {
+			return Convert<T>(value, IsFloatingPointType(typeof(T)) && IsFloatingPointType(value.GetType()));
+		}
+		
+		public static T LosslesslyConvert<T>(object value) {
+			return Convert<T>(value, false);
+		}
+	}
+	
+	public class Interpreter : IUriResolver {
+		static char[] whitespace = new char[] { ' ', '\t', '\r' };
+		
+		public DefDict Definitions = new DefDict();
+		public SCG.List<TS34Thunk> DataStack = new SCG.List<TS34Thunk>();
+		public IUriResolver UriResolver = new AUriResolver();
+		
+		protected class InterpreterThunkCodec : ICodec<object,TS34Thunk> {
+			Interpreter Interp;
+			public InterpreterThunkCodec(Interpreter interp) {
+				this.Interp = interp;
+			}
+			public TS34Thunk Encode(object obj) {
+				return Interp.ValueToThunk(obj);
+			}
+			public object Decode(TS34Thunk thunk) {
+				return Interp.ThunkToValue<object>(thunk);
+			}
+		}
+
+		protected InterpreterThunkCodec ThunkCodec;
+		
+		public Interpreter() {
+			this.ThunkCodec = new InterpreterThunkCodec(this);
+			// Pretty basic and necessary for functioning!
+			this.Definitions["http://ns.nuke24.net/TOGVM/Datatypes/URIResource"] = new UriReferenceEncoding(this);
+			this.Definitions["http://ns.nuke24.net/TScript34/Datatypes/ThunkedValueCollection"] = new ThunkedValueCollectionEncoding(this.ThunkCodec);
+		}
+
+		public object Resolve(string uri) {
+			if( this.Definitions.ContainsKey(uri) ) {
+				return this.Definitions[uri];
+			} else {
+				return this.UriResolver.Resolve(uri);
+			}
+		}
+		
+		public ISimpleOutput OutputStream = new ErroringOutput();
+		
+		public void DefineAll(DefDict defs) {
+			DictUtil.AddAll(this.Definitions, defs);
+		}
+
+		public TS34Thunk Peek() {
+			if( DataStack.Count == 0 ) throw new Exception("Stack underflow!");
 			return DataStack[DataStack.Count - 1];
 		}
 
-		public object Pop() {
+		public TS34Thunk PopThunk() {
+			// System.Console.WriteLine("Popping from stack, which has "+DataStack.Count+" items...");
 			var index = DataStack.Count-1;
-			object value = DataStack[index];
+			TS34Thunk value = DataStack[index];
 			DataStack.RemoveAt(index);
 			return value;
 		}
-		public void Push(object value) {
+		public void PushThunk(TS34Thunk value) {
 			DataStack.Add(value);
+			//System.Console.WriteLine("Pushing "+value+"; stack now has "+this.DataStack.Count+" items");
 		}
+		public void PushValue(object value) {
+			this.PushThunk(this.ValueToThunk(value));
+		}
+		public T PopValue<T>() {
+			return this.ThunkToValue<T>(this.PopThunk());
+		}
+		public object PopValue() {
+			return this.PopValue<object>();
+		}
+
 		public int CountToMark() {
 			var count = 0;
 			for( var index = DataStack.Count - 1; index >= 0; --index, ++count ) {
-				if( DataStack[index] is Mark ) {
+				if( DataStack[index] == Mark.Thunk ) {
 					return count;
 				}
 			}
 			throw new Exception("No mark on stack!");			
+		}
+
+		public TS34Thunk ValueToThunk(object val) {
+			return new TS34Thunk(val); // No encodings => EncodedValue is the entity
+		}
+		public T ThunkToValue<T>(TS34Thunk thunk) {
+			object val = thunk.EncodedValue;
+			if( val == null ) throw new Exception("Encoded value is null!");
+			for( TS34EncodingList el = thunk.Encodings; el != null; el = el.PreviousEncodings ) {
+				object encodingVal = ((IUriResolver)this).Resolve(el.EncodingUri);
+				if( !(encodingVal is IEncoding) ) {
+					throw new Exception("Uh oh; "+el.EncodingUri+" does not name an encoding; got a "+encodingVal.GetType());
+				}
+				IEncoding encoding = (IEncoding)encodingVal;
+				object decodedVal = encoding.Decode(val);
+				if( decodedVal == null ) throw new Exception($"Decoded value after {encoding.Uri}-decoding {ValueUtil.Describe(decodedVal)} is null!");
+				val = decodedVal;
+			}
+			return ValueUtil.Convert<T>(val);
+		}
+		public T ThunkToValueShallow<T>(TS34Thunk thunk) {
+			if( thunk.Encodings == TS34EncodingList.ThunkedValueCollection ) {
+				return (T)thunk.EncodedValue;
+			} else {
+				return ThunkToValue<T>(thunk);
+			}
+		}
+		public TS34Thunk ThunkedValueCollectionToThunk(SCG.IDictionary<object,TS34Thunk> collection) {
+			return new TS34Thunk(collection, TS34EncodingList.ThunkedValueCollection);
+		}
+		public TS34Thunk ThunkedValueCollectionToThunk(SCG.IList<TS34Thunk> collection) {
+			return new TS34Thunk(collection, TS34EncodingList.ThunkedValueCollection);
 		}
 		
 		SCG.List<SCG.List<Op>> procedureDefinitionStack = new SCG.List<SCG.List<Op>>();
@@ -492,16 +898,17 @@ namespace TOGoS.TScrpt34_2 {
 		public void DoCommand(IStringList args) {
 			if( args.Count == 0 ) throw new ArgumentException("DoCommand requires at least one thing in the args array");
 			
-			if( !definitions.ContainsKey(args[0]) ) {
+			object def = ((IUriResolver)this).Resolve(args[0]);
+			if( def == null ) {
 				throw new ArgumentException("'"+args[0]+"' not defined");
 			}
-			object def = definitions[args[0]];
 			if( def is OpConstructor ) {
 				// WHY IS THERE NO SLICE IN DOTNET
 				StringList opArgs = new StringList();
 				for( int i=1; i<args.Count; ++i ) opArgs.Add(args[i]);
 				def = ((OpConstructor)def).Parse(opArgs, this);
 			}
+			// TODO: Some ops can be compile time ops
 			if( def is OpenProcedureOp ) {
 				procedureDefinitionStack.Add(new SCG.List<Op>());
 				return;
@@ -509,7 +916,7 @@ namespace TOGoS.TScrpt34_2 {
 				if( procedureDefinitionStack.Count == 0 ) {
 					throw new Exception("Can't close procedure; not currently defining one!");
 				}
-				def = new PushOp(new Procedure(procedureDefinitionStack[procedureDefinitionStack.Count-1]));
+				def = new PushOp(this.ValueToThunk(new Procedure(procedureDefinitionStack[procedureDefinitionStack.Count-1])));
 				procedureDefinitionStack.RemoveAt(procedureDefinitionStack.Count-1);
 			}
 			if( def is Op ) {
@@ -518,22 +925,26 @@ namespace TOGoS.TScrpt34_2 {
 				} else {
 					procedureDefinitionStack[procedureDefinitionStack.Count-1].Add((Op)def);
 				}
+			} else {
+				throw new Exception(args[0]+" does not name an op, but a "+def.GetType());
 			}
 		}
 		
-		public void HandleLine(string line, int lineNumber) {
+		public void HandleLine(string line) {
 			line = line.Trim();
 			if( line.Length == 0 ) return;
 			if( line[0] == '#' ) return;
 			IStringList parts = line.Split(whitespace, StringSplitOptions.RemoveEmptyEntries);
 			DoCommand(parts);
 		}
+		
+		protected static Regex URIishPattern = new Regex(@"^([A-Za-z][A-Za-z0-9+.-]*):");
 
 		protected delegate void ReaderHandler(TextReader s);
 		protected void StreamFile(string filename, ReaderHandler h) {
 			if( filename == "-" ) {
 				h( Console.In );
-			} else if( filename.Contains(":") ) {
+			} else if( URIishPattern.Match(filename).Success ) {
 				h( new System.IO.StringReader(((IUriResolver)this).Resolve(filename).ToString()) );
 			} else {
 				StreamReader sr = new StreamReader(filename);
@@ -543,21 +954,29 @@ namespace TOGoS.TScrpt34_2 {
 			}
 		}
 		
-		public static void Main(string[] args) {
-			NoCheckCertificatePolicy.Init();
+		public void DoMain(string[] args) {
 			StringList scriptFiles = new StringList();
 			StringList scriptArgs = new StringList();
-
+			
+			bool helpRequested = false;
 			bool mainScriptIndicated = false;
+			bool allowWrite = false;
 			for( int i=0; i<args.Length; ++i ) {
 				if( mainScriptIndicated ) {
 					scriptArgs.Add(args[i]);
+				} else if( args[i] == "-e" ) {
+					scriptFiles.Add("data:,"+System.Uri.EscapeDataString(args[i+1]));
+					++i;
 				} else if( args[i] == "-f" ) {
 					if( args.Length <= i+1 ) {
 						throw new Exception("-f requires an additional [script file] argument");
 					}
 					scriptFiles.Add(args[i+1]);
 					++i;
+				} else if( args[i] == "--allow-write" ) {
+					allowWrite = true;
+				} else if( args[i] == "-?" || args[i] == "--help" ) {
+					helpRequested = true;
 				} else if( !args[i].StartsWith("-") ) {
 					scriptFiles.Add(args[i]);
 					mainScriptIndicated = true;
@@ -566,24 +985,58 @@ namespace TOGoS.TScrpt34_2 {
 				}
 			}
 
+			if( helpRequested ) {
+				System.Console.WriteLine("Usage: TS34Interpreter.exe [<options>] [--|<main script file>] [<script arguments>...]");
+				System.Console.WriteLine("Usage: --help ; print this help text");
+				System.Console.WriteLine("");
+				System.Console.WriteLine("Options:");
+				System.Console.WriteLine("  -e <program text>  ; evaluate program text directly");
+				System.Console.WriteLine("  -f <program file>  ; load program from file or URI");
+				System.Console.WriteLine("");
+				System.Console.WriteLine("Script files can be URIs of any supported scheme,");
+				System.Console.WriteLine("but will be treated as local files if they don't match URI syntax (i.e. /^\\w:/)");
+				return;
+			}
+			
 			if( scriptFiles.Count == 0 ) {
 				scriptFiles.Add("-");
 			}
+
+			if( allowWrite ) {
+				this.DefineAll(WriteOps.Definitions);
+			}
 			
-			int lineNumber = 1;
 			string line;
-			Interpreter interp = new Interpreter();
+			string sourceFilename = "(not yet initialized)";
+			int sourceLineNumber = 0;
+			bool okay = false;
 			try {
 				foreach( string path in scriptFiles ) {
-					interp.StreamFile(path, delegate(TextReader r) {
+					sourceFilename = path;
+					sourceLineNumber = 1;
+					this.StreamFile(path, delegate(TextReader r) {
 						while( (line = r.ReadLine()) != null ) {
-							interp.HandleLine(line, lineNumber);
-							++lineNumber;
+							this.HandleLine(line);
+							++sourceLineNumber;
 						}
 					});
 				}
+				okay = true;
 			} catch( QuitException ) {
+			} finally {
+				if( !okay ) {
+					System.Console.Error.Write($"Error encountered at {sourceFilename}:{sourceLineNumber}");
+				}
 			}
+		}
+
+		public static void Main(string[] args) {
+			NoCheckCertificatePolicy.Init();
+			Interpreter interp = new Interpreter();
+			
+			interp.OutputStream = new StreamOutput(System.Console.OpenStandardOutput());
+			interp.DefineAll(StandardOps.Definitions);
+			interp.DoMain(args);
 		}
 	}
 }
