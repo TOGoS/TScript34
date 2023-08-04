@@ -16,6 +16,8 @@
   - A forthlike VM using String[] to store the program
 - [[./P0007/][P0007]] :: Demonstration of dynamically generated/loaded class files
   - Status: Concept proved to work.
+- [[./P0008/][P0008]] :: Formerly 'Java Command Runner', but its purpose overlaps
+  enough with this project, and I already have enough stray Java repos around.
 
 ** Language
 
