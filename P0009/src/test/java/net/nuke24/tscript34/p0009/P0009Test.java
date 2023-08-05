@@ -32,6 +32,13 @@ public class P0009Test {
 			assertEquals(expected[offE+i], actual[offA+i]);
 		}
 	}
+	
+	protected void assertDataStackEquals(Object[] expected, P0009 interp) {
+		assertSubArrayEquals(
+			expected, 0, expected.length,
+			interp.dataStack, 0, interp.dsp
+		);
+	}
 
 	public void testConcat() {
 		P0009 interp = new P0009();
@@ -126,14 +133,21 @@ public class P0009Test {
 	
 	public void testExch() {
 		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,abc");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,def");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,ghi");
 		interp.doTs34Line(P0009.OP_EXCH);
 		assertSubArrayEquals(
 			new Object[] { "abc", "ghi", "def" }, 0, 3,
 			interp.dataStack, 0, interp.dsp
 		);
+	}
+	
+	public void testAlias() {
+		P0009 interp = mkInterp();
+		interp.doTs34Line(P0009.OPC_ALIAS,"push",P0009.OPC_PUSH_VALUE);
+		interp.doTs34Line("push","data:,abc");
+		assertDataStackEquals(new Object[] { "abc" }, interp);
 	}
 	
 	public void run() {
@@ -145,6 +159,7 @@ public class P0009Test {
 		testDup();
 		testPop();
 		testExch();
+		testAlias();
 	}
 	
 	public static void main(String[] args) {

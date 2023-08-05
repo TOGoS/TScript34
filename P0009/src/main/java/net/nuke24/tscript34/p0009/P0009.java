@@ -30,8 +30,9 @@ public class P0009 {
 	public static String PSEUDO_OP_BEGIN_PROC = "begin-proc:0:0:0";
 	public static String PSEUDO_OP_END_PROC = "end-proc:0:0:0";
 	
+	public static String OPC_ALIAS = "http://ns.nuke24.net/TScript34/Op/Alias";
 	public static String OPC_PUSH_VALUE = "http://ns.nuke24.net/TScript34/Op/PushValue";
-		
+	
 	// <name>:<op constructor arg count>:<pop count>:<push count>
 	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
 	public static String OP_CONCAT = "concat:0:n:1";
@@ -378,7 +379,13 @@ public class P0009 {
 				}
 				return offset;
 			} else if( opDef[1] == ST_INTRINSIC_OP_CONSTRUCTOR ) {
-				if( opDef[2] == OPC_PUSH_VALUE ) {
+				if( opDef[2] == OPC_ALIAS ) {
+					if( words.length != 3 ) {
+						throw new RuntimeException(OPC_ALIAS+" requires exactly two arguments");
+					}
+					definitions.put(words[1], get(words[2]));
+					return offset;
+				} else if( opDef[2] == OPC_PUSH_VALUE ) {
 					if( words.length < 2 ) {
 						throw new RuntimeException(OPC_PUSH_VALUE+" requires at least one argument");
 					}
@@ -430,6 +437,7 @@ public class P0009 {
 	}
 
 	protected static Map<String,?> STANDARD_DEFINITIONS = mapOf(
+		OPC_ALIAS          , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_ALIAS),
 		OPC_PUSH_VALUE     , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
 		OP_ARRAY_FROM_STACK, mkIntrinsic(OP_ARRAY_FROM_STACK),
 		OP_COUNT_TO_MARK   , mkIntrinsic(OP_COUNT_TO_MARK),
