@@ -18,6 +18,8 @@ public class P0009 {
 	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
 	private static final Object SPECIAL_MARK = new Object();
 	
+	// { SPECIAL_MARK, ST_MARK, ... }
+	public static String ST_MARK = "st:mark";
 	// [ SPECIAL_MARK, ST_INTRINSIC_OP, opName, ...opArgs }
 	public static String ST_INTRINSIC_OP = "st:intrinsic-op";
 	// [ SPECIAL_MARK, ST_INTRINSIC_OP_CONSTRUCTOR, opConstructorName }
@@ -31,10 +33,14 @@ public class P0009 {
 	public static String OPC_PUSH_VALUE = "http://ns.nuke24.net/TScript34/Op/PushValue";
 		
 	// <name>:<op constructor arg count>:<pop count>:<push count>
-	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
+	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
 	public static String OP_CONCAT = "concat:0:n:1";
+	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
+	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
+	public static String OP_PUSH_MARK = "http://ns.nuke24.net/TScript34/Ops/PushMark";
 	public static String OP_PRINT = "http://ns.nuke24.net/TScript34/Ops/Print";
 	public static String OP_PRINT_LINE = "http://ns.nuke24.net/TScript34/Ops/PrintLine";
+	public static String OP_PRINT_STACK_THUNKS = "http://ns.nuke24.net/TScript34/Ops/PrintStackThunks";
 	public static String OP_QUIT = "http://ns.nuke24.net/TScript34/Ops/Quit";
 	public static String OP_QUIT_WITH_CODE = "http://ns.nuke24.net/TScript34/Ops/QuitWithCode";
 	public static String OP_RETURN = "return:0:0:0";
@@ -75,7 +81,13 @@ public class P0009 {
 	public static Object[] mkConcatenation(List<Object> items) {
 		return mkSpecialFromList(ST_CONCATENATION, items);
 	}
+
+	protected static Object[] mkIntrinsic(Object op0, Object...moreOps) {
+		return mkSpecial(ST_INTRINSIC_OP, op0, moreOps);
+	}
 	
+	public static Object[] MARK = mkSpecial(ST_MARK);
+
 	public static void append(Object obj, Appendable dest) throws IOException {
 		if( isSpecial(obj) ) {
 			Object[] spec = (Object[])obj;
@@ -101,6 +113,29 @@ public class P0009 {
 			return sb.toString();
 		} else {
 			return obj.toString();
+		}
+	}
+	public static String toThunkString(Object obj) {
+		// TODO: Use same logic as 'append', but with some formatting flag, maybe
+		if( obj == SPECIAL_MARK ) {
+			return "MARK";
+		} else if( obj == SPECIAL_MARK ) {
+			return "SPECIAL_MARK";
+		} else if( obj instanceof Object[] ) {
+			Object[] list = (Object[])obj;
+			StringBuilder sb = new StringBuilder("[");
+			String sep = "";
+			for( int i=0; i<list.length; ++i ) {
+				sb.append(sep);
+				sb.append(toThunkString(list[i]));
+				sep = " ";
+			}
+			sb.append("]");
+			return sb.toString();
+		} else if( obj instanceof Integer ) {
+			return obj.toString();
+		} else {
+			return "(" + obj.toString() + ")";
 		}
 	}
 	
@@ -204,20 +239,49 @@ public class P0009 {
 	
 	public void step() {
 		Object op = program[ip++];
-		if( op == OP_QUIT ) {
+		if( false ) {
+		} else if( op == OP_ARRAY_FROM_STACK ) {
+			int count = toInt(dataStack[--dsp]);
+			if( count > dsp ) throw new RuntimeException("ArrayFromStack: underflow; can't make "+count+"-length array when only "+dsp+" items on stack!");
+			dsp -= count;
+			Object[] arr = new Object[count];
+			for( int i=0; i<count; ++i ) {
+				arr[i] = dataStack[dsp+i];
+			}
+			dataStack[dsp++] = arr;
+		} else if( op == OP_CONCAT ) {
+			doConcat();
+		} else if( op == OP_COUNT_TO_MARK ) {
+			// System.out.println("# CountToMark: dsp="+dsp);
+			for( int i=dsp; i-->0; ) {
+				if( dataStack[i] == MARK ) {
+					int count = dsp-i-1;
+					dataStack[dsp++] = Integer.valueOf(count);
+					return;
+				}
+			}
+			throw new RuntimeException("CountToMark: No mark found anywhere in stack!");
+		} else if( op == OP_PRINT ) {
+			if(true) throw new RuntimeException("Who called print?");
+			System.out.print(dataStack[--dsp]);
+		} else if( op == OP_PUSH_LITERAL_1 ) {
+			dataStack[dsp++] = program[ip++];
+		} else if( op == OP_PUSH_MARK ) {
+			dataStack[dsp++] = MARK;
+		} else if( op == OP_QUIT ) {
 			System.exit(0);
 			throw new RuntimeException("Can't get here");
 		} else if( op == OP_QUIT_WITH_CODE ) {
 			System.exit(toInt(pop()));
 			throw new RuntimeException("Can't get here");
-		} else if( op == OP_PUSH_LITERAL_1 ) {
-			dataStack[dsp++] = program[ip++];
-		} else if( op == OP_CONCAT ) {
-			doConcat();
-		} else if( op == OP_PRINT ) {
-			System.out.print(dataStack[--dsp]);
 		} else if( op == OP_RETURN ) {
 			ip = popR();
+
+		} else if( op == OP_PRINT_STACK_THUNKS ) {
+			System.out.println("# Stack ("+dsp+" items):");
+			for( int i=dsp; i-->0; ) {
+				System.out.println(toThunkString(dataStack[i]));
+			}
 		} else {
 			throw new RuntimeException("Invalid op at index "+(ip-1)+": "+op);
 		}
@@ -349,13 +413,17 @@ public class P0009 {
 		}
 		return map;
 	}
-	
-	protected static Map<String,Object> STANDARD_DEFINITIONS = mapOf(
-		OPC_PUSH_VALUE, mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
-		OP_PRINT, mkSpecial(ST_INTRINSIC_OP, OP_PRINT),
-		OP_PRINT_LINE, mkSpecial(ST_INTRINSIC_OP, OP_PRINT, OP_PUSH_LITERAL_1, "\n", OP_PRINT),
-		OP_QUIT, mkSpecial(ST_INTRINSIC_OP, OP_QUIT),
-		OP_QUIT_WITH_CODE, mkSpecial(ST_INTRINSIC_OP, OP_QUIT_WITH_CODE)
+
+	protected static Map<String,?> STANDARD_DEFINITIONS = mapOf(
+		OPC_PUSH_VALUE     , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
+		OP_ARRAY_FROM_STACK, mkIntrinsic(OP_ARRAY_FROM_STACK),
+		OP_COUNT_TO_MARK   , mkIntrinsic(OP_COUNT_TO_MARK),
+		OP_PUSH_MARK       , mkIntrinsic(OP_PUSH_MARK),
+		OP_PRINT           , mkIntrinsic(OP_PRINT),
+		OP_PRINT_LINE      , mkIntrinsic(OP_PRINT, OP_PUSH_LITERAL_1, "\n", OP_PRINT),
+		OP_PRINT_STACK_THUNKS, mkIntrinsic(OP_PRINT_STACK_THUNKS),
+		OP_QUIT            , mkIntrinsic(OP_QUIT),
+		OP_QUIT_WITH_CODE  , mkIntrinsic(OP_QUIT_WITH_CODE)
 	);
 	
 	public static void main(String[] args) throws Exception {

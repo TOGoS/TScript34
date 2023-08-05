@@ -1,5 +1,7 @@
 package net.nuke24.tscript34.p0009;
 
+import java.util.Arrays;
+
 public class P0009Test {
 	protected static <T> void assertEqualsArr(T[] a, T[] b) {
 		if( a.length != b.length ) throw new RuntimeException("assertEqualsArr fails: Length not same: "+a.length+" != "+b.length);
@@ -82,12 +84,29 @@ public class P0009Test {
 			interp.dataStack, 0, 1
 		);
 	}
+
+	public void testMakeArray() {
+		P0009 interp = mkInterp();
+		interp.doTs34_2Line(P0009.OP_PUSH_MARK);
+		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34_2Line(P0009.OP_COUNT_TO_MARK);
+		//interp.doTs34_2Line(P0009.OP_PRINT_STACK_THUNKS);
+		interp.doTs34_2Line(P0009.OP_ARRAY_FROM_STACK);
+		//interp.doTs34_2Line(P0009.OP_PRINT_STACK_THUNKS);
+		assertSubArrayEquals(
+			new Object[] { new Object[] { "abc","def","ghi" } }, 0, 1,
+			interp.dataStack, 1, 1 // Mark's still under it!
+		);
+	}
 	
 	public void run() {
 		testConcat();
 		testCompileDecimalNumber();
 		testParsePushValue();
 		testDoPushValue();
+		testMakeArray();
 	}
 	
 	public static void main(String[] args) {
