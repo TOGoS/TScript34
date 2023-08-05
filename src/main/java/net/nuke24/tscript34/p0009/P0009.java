@@ -3,6 +3,7 @@ package net.nuke24.tscript34.p0009;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -28,12 +29,14 @@ public class P0009 {
 	public static String PSEUDO_OP_END_PROC = "end-proc:0:0:0";
 	
 	public static String OPC_PUSH_VALUE = "http://ns.nuke24.net/TScript34/Op/PushValue";
-	
+		
 	// <name>:<op constructor arg count>:<pop count>:<push count>
 	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
 	public static String OP_CONCAT = "concat:0:n:1";
-	public static String OP_PRINT = "print:0:1:0";
-	public static String OP_QUIT = "quit-process:0:1:never";
+	public static String OP_PRINT = "http://ns.nuke24.net/TScript34/Ops/Print";
+	public static String OP_PRINT_LINE = "http://ns.nuke24.net/TScript34/Ops/PrintLine";
+	public static String OP_QUIT = "http://ns.nuke24.net/TScript34/Ops/Quit";
+	public static String OP_QUIT_WITH_CODE = "http://ns.nuke24.net/TScript34/Ops/QuitWithCode";
 	public static String OP_RETURN = "return:0:0:0";
 	
 	protected static final Pattern dataUriPat = Pattern.compile("^data:,(.*)");
@@ -202,6 +205,9 @@ public class P0009 {
 	public void step() {
 		Object op = program[ip++];
 		if( op == OP_QUIT ) {
+			System.exit(0);
+			throw new RuntimeException("Can't get here");
+		} else if( op == OP_QUIT_WITH_CODE ) {
 			System.exit(toInt(pop()));
 			throw new RuntimeException("Can't get here");
 		} else if( op == OP_PUSH_LITERAL_1 ) {
@@ -238,12 +244,9 @@ public class P0009 {
 	public void run() {
 		while( this.ip >= 0 && ip < programLength ) step();
 	}
-
-	public void doToken(String token) {
-		// Append decoded token to program,
-		// but leave program length
+	
+	protected void doDecodedOps(int decodedEnd) {
 		final int decodedBegin = programLength;
-		final int decodedEnd = decodeToken(token, program, decodedBegin);
 		Object op = program[decodedBegin];
 		if( op == PSEUDO_OP_BEGIN_PROC ) {
 			++procDepth;
@@ -266,12 +269,14 @@ public class P0009 {
 			programLength = decodedEnd;
 		}
 	}
-
-	public void execute(Object ex) {
-		if( isSpecial(ex) ) {
-		}
+	
+	public void doToken(String token) {
+		// Append decoded token to program,
+		// but leave program length
+		final int decodedEnd = decodeToken(token, program, programLength);
+		doDecodedOps(decodedEnd);
 	}
-
+	
 	protected Object get(String name) {
 		Object d = definitions.get(name);
 		if( d != null ) return d;
@@ -286,12 +291,17 @@ public class P0009 {
 		throw new RuntimeException("Don't know about "+name);
 	}
 
-	protected Object parseTs34_2Op(String[] words) {
+	protected int parseTs34_2Op(String[] words, Object[] into, int offset) {
 		String opName = words[0];
 		Object op = get(opName);
 		if( isSpecial(op) ) {
 			Object[] opDef = (Object[])op;
-			if( opDef[1] == ST_INTRINSIC_OP_CONSTRUCTOR ) {
+			if( opDef[1] == ST_INTRINSIC_OP ) {
+				for( int i=2; i<opDef.length; ++i ) {
+					into[offset++] = opDef[i];
+				}
+				return offset;
+			} else if( opDef[1] == ST_INTRINSIC_OP_CONSTRUCTOR ) {
 				if( opDef[2] == OPC_PUSH_VALUE ) {
 					if( words.length < 2 ) {
 						throw new RuntimeException(OPC_PUSH_VALUE+" requires at least one argument");
@@ -301,7 +311,10 @@ public class P0009 {
 					if( words.length > 2 ) {
 						throw new RuntimeException(OPC_PUSH_VALUE+": encoded values not yet supported!");
 					}
-					return mkSpecial(ST_INTRINSIC_OP, OP_PUSH_LITERAL_1, toString(value));
+					into[offset] = OP_PUSH_LITERAL_1;
+					into[offset+1] = toString(value);
+					return offset+2;
+					//return mkSpecial(ST_INTRINSIC_OP, OP_PUSH_LITERAL_1, toString(value));
 				} else {
 					throw new RuntimeException("Unrecognized intrinsic op constructor: "+opDef[2]);
 				}
@@ -309,26 +322,52 @@ public class P0009 {
 		}
 		throw new RuntimeException("TODO");
 	}
+	protected Object parseTs34_2Op(String[] words) {
+		int decodedEnd = parseTs34_2Op(words, program, programLength);
+		Object[] codes = initSpecial(ST_INTRINSIC_OP, decodedEnd-programLength);
+		for( int i=programLength, j=2; i<decodedEnd; ++i, ++j ) {
+			codes[j] = program[i];
+		}
+		return codes;
+	}
+
 
 	public void doTs34_2Line(String line) {
 		line = line.trim();
 		if( line.length() == 0 || line.startsWith("#") ) return;
 		
 		String[] words = line.split("\\s+");
-		Object op = parseTs34_2Op(words);
-		throw new RuntimeException("TODO");
+		int decodedEnd = parseTs34_2Op(words, program, programLength);
+		doDecodedOps(decodedEnd);
 	}
+
+	protected static <A,B> Map<A,B> mapOf(A a, B b, Object...rest) {
+		Map<A,B> map = new HashMap<A,B>();
+		map.put(a, b);
+		for( int i=0; i<rest.length; i += 2 ) {
+			map.put((A)rest[i], (B)rest[i+1]);
+		}
+		return map;
+	}
+	
+	protected static Map<String,Object> STANDARD_DEFINITIONS = mapOf(
+		OPC_PUSH_VALUE, mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
+		OP_PRINT, mkSpecial(ST_INTRINSIC_OP, OP_PRINT),
+		OP_PRINT_LINE, mkSpecial(ST_INTRINSIC_OP, OP_PRINT, OP_PUSH_LITERAL_1, "\n", OP_PRINT),
+		OP_QUIT, mkSpecial(ST_INTRINSIC_OP, OP_QUIT),
+		OP_QUIT_WITH_CODE, mkSpecial(ST_INTRINSIC_OP, OP_QUIT_WITH_CODE)
+	);
 	
 	public static void main(String[] args) throws Exception {
 		P0009 interpreter = new P0009();
-		interpreter.definitions.put(OPC_PUSH_VALUE, mkSpecial(ST_INTRINSIC_OP, OPC_PUSH_VALUE));
+		interpreter.definitions.putAll(STANDARD_DEFINITIONS);
 		
 		for( int i=0; i<args.length; ++i ) {
 			if( "-t".equals(args[i]) ) {
 				for( ++i; i<args.length; ++i ) {
 					interpreter.doToken(args[i]);;
 				}
-			} else if( args[i].startsWith("-") ) {
+			} else if( args[i].startsWith("-") && !"-".equals(args[i]) ) {
 				System.err.println("Bad arg: "+args[i]);
 				System.exit(1);
 			} else {
@@ -339,7 +378,7 @@ public class P0009 {
 				}
 				interpreter.definitions.put("argv", argv);
 				interpreter.definitions.put("scriptFilePath", scriptFilePath);
-				BufferedReader fr = new BufferedReader(new FileReader(scriptFilePath));
+				BufferedReader fr = new BufferedReader("-".equals(scriptFilePath) ? new InputStreamReader(System.in) : new FileReader(scriptFilePath));
 				String line;
 				int lineIndex = 0;
 				while( (line = fr.readLine()) != null ) {
