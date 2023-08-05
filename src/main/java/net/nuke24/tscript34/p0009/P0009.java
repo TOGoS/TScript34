@@ -36,6 +36,9 @@ public class P0009 {
 	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
 	public static String OP_CONCAT = "concat:0:n:1";
 	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
+	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
+	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
+	public static String OP_POP = "http://ns.nuke24.net/TScript34/Ops/Pop";
 	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
 	public static String OP_PUSH_MARK = "http://ns.nuke24.net/TScript34/Ops/PushMark";
 	public static String OP_PRINT = "http://ns.nuke24.net/TScript34/Ops/Print";
@@ -261,6 +264,15 @@ public class P0009 {
 				}
 			}
 			throw new RuntimeException("CountToMark: No mark found anywhere in stack!");
+		} else if( op == OP_DUP ) {
+			dataStack[dsp] = dataStack[dsp-1];
+			++dsp;
+		} else if( op == OP_EXCH ) {
+			Object top = dataStack[dsp-1];
+			dataStack[dsp-1] = dataStack[dsp-2];
+			dataStack[dsp-2] = top;
+		} else if( op == OP_POP ) {
+			--dsp;
 		} else if( op == OP_PRINT ) {
 			if(true) throw new RuntimeException("Who called print?");
 			System.out.print(dataStack[--dsp]);
@@ -418,6 +430,9 @@ public class P0009 {
 		OPC_PUSH_VALUE     , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
 		OP_ARRAY_FROM_STACK, mkIntrinsic(OP_ARRAY_FROM_STACK),
 		OP_COUNT_TO_MARK   , mkIntrinsic(OP_COUNT_TO_MARK),
+		OP_DUP             , mkIntrinsic(OP_DUP),
+		OP_EXCH            , mkIntrinsic(OP_EXCH),
+		OP_POP             , mkIntrinsic(OP_POP),
 		OP_PUSH_MARK       , mkIntrinsic(OP_PUSH_MARK),
 		OP_PRINT           , mkIntrinsic(OP_PRINT),
 		OP_PRINT_LINE      , mkIntrinsic(OP_PRINT, OP_PUSH_LITERAL_1, "\n", OP_PRINT),
