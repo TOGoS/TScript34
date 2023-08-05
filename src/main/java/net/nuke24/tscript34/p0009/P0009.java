@@ -1,4 +1,4 @@
-package net.nuke24.tscript34.p0006;
+package net.nuke24.tscript34.p0009;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class P0006 {
+public class P0009 {
 	public static String PSEUDO_OP_BEGIN_PROC = "begin-proc:0:0:0";
 	public static String PSEUDO_OP_END_PROC = "end-proc:0:0:0";
 	
@@ -178,7 +178,7 @@ public class P0006 {
 	}
 	
 	public static void main(String[] args) {
-		P0006 interpreter = new P0006();
+		P0009 interpreter = new P0009();
 		
 		for( int i=0; i<args.length; ++i ) {
 			if( "-t".equals(args[i]) ) {
