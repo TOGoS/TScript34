@@ -3,6 +3,11 @@ package net.nuke24.tscript34.p0009;
 public class P0009Test {
 	protected static void assertEquals(Object a, Object b) {
 		if( a == null && b == null ) return;
+		
+		if( a instanceof String && P0009.isSpecial(b) ) {
+			b = P0009.toString(b);
+		}
+		
 		if( a == null || b == null || !a.equals(b) ) {
 			throw new RuntimeException("assertEquals fails: "+a+" != "+b);
 		}
