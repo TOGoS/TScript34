@@ -367,7 +367,7 @@ public class P0009 {
 		throw new RuntimeException("Don't know about "+name);
 	}
 
-	protected int parseTs34_2Op(String[] words, Object[] into, int offset) {
+	protected int parseTs34Op(String[] words, Object[] into, int offset) {
 		String opName = words[0];
 		Object op = get(opName);
 		if( isSpecial(op) ) {
@@ -398,8 +398,8 @@ public class P0009 {
 		}
 		throw new RuntimeException("TODO");
 	}
-	protected Object parseTs34_2Op(String[] words) {
-		int decodedEnd = parseTs34_2Op(words, program, programLength);
+	protected Object parseTs34Op(String[] words) {
+		int decodedEnd = parseTs34Op(words, program, programLength);
 		Object[] codes = initSpecial(ST_INTRINSIC_OP, decodedEnd-programLength);
 		for( int i=programLength, j=2; i<decodedEnd; ++i, ++j ) {
 			codes[j] = program[i];
@@ -408,12 +408,12 @@ public class P0009 {
 	}
 
 
-	public void doTs34_2Line(String line) {
+	public void doTs34Line(String line) {
 		line = line.trim();
 		if( line.length() == 0 || line.startsWith("#") ) return;
 		
 		String[] words = line.split("\\s+");
-		int decodedEnd = parseTs34_2Op(words, program, programLength);
+		int decodedEnd = parseTs34Op(words, program, programLength);
 		doDecodedOps(decodedEnd);
 	}
 
@@ -465,7 +465,7 @@ public class P0009 {
 				String line;
 				int lineIndex = 0;
 				while( (line = fr.readLine()) != null ) {
-					interpreter.doTs34_2Line(line);
+					interpreter.doTs34Line(line);
 					++lineIndex;
 				}
 			}

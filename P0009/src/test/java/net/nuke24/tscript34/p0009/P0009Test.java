@@ -72,13 +72,13 @@ public class P0009Test {
 	
 	public void testParsePushValue() {
 		P0009 interp = mkInterp();
-		Object parsed = interp.parseTs34_2Op(new String[] { P0009.OPC_PUSH_VALUE, "data:,hi%20there" });
+		Object parsed = interp.parseTs34Op(new String[] { P0009.OPC_PUSH_VALUE, "data:,hi%20there" });
 		assertEquals(parsed, P0009.mkSpecial(P0009.ST_INTRINSIC_OP, P0009.OP_PUSH_LITERAL_1, "hi there"));
 	}
 	
 	public void testDoPushValue() {
 		P0009 interp = mkInterp();
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,hi%20there");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,hi%20there");
 		assertSubArrayEquals(
 			new Object[] { "hi there" }, 0, 1,
 			interp.dataStack, 0, 1
@@ -87,14 +87,14 @@ public class P0009Test {
 
 	public void testMakeArray() {
 		P0009 interp = mkInterp();
-		interp.doTs34_2Line(P0009.OP_PUSH_MARK);
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
-		interp.doTs34_2Line(P0009.OP_COUNT_TO_MARK);
-		//interp.doTs34_2Line(P0009.OP_PRINT_STACK_THUNKS);
-		interp.doTs34_2Line(P0009.OP_ARRAY_FROM_STACK);
-		//interp.doTs34_2Line(P0009.OP_PRINT_STACK_THUNKS);
+		interp.doTs34Line(P0009.OP_PUSH_MARK);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34Line(P0009.OP_COUNT_TO_MARK);
+		//interp.doTs34Line(P0009.OP_PRINT_STACK_THUNKS);
+		interp.doTs34Line(P0009.OP_ARRAY_FROM_STACK);
+		//interp.doTs34Line(P0009.OP_PRINT_STACK_THUNKS);
 		assertSubArrayEquals(
 			new Object[] { new Object[] { "abc","def","ghi" } }, 0, 1,
 			interp.dataStack, 1, 1 // Mark's still under it!
@@ -103,9 +103,9 @@ public class P0009Test {
 	
 	public void testDup() {
 		P0009 interp = mkInterp();
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34_2Line(P0009.OP_DUP);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0009.OP_DUP);
 		assertSubArrayEquals(
 			new Object[] { "abc","def","def" }, 0, 3,
 			interp.dataStack, 0, interp.dsp
@@ -114,10 +114,10 @@ public class P0009Test {
 	
 	public void testPop() {
 		P0009 interp = mkInterp();
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
-		interp.doTs34_2Line(P0009.OP_POP);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34Line(P0009.OP_POP);
 		assertSubArrayEquals(
 			new Object[] { "abc","def" }, 0, 2,
 			interp.dataStack, 0, interp.dsp
@@ -126,10 +126,10 @@ public class P0009Test {
 	
 	public void testExch() {
 		P0009 interp = mkInterp();
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
-		interp.doTs34_2Line(P0009.OP_EXCH);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34Line(P0009.OP_EXCH);
 		assertSubArrayEquals(
 			new Object[] { "abc", "ghi", "def" }, 0, 3,
 			interp.dataStack, 0, interp.dsp
