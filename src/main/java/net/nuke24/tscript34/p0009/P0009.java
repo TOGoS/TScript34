@@ -407,14 +407,17 @@ public class P0009 {
 		return codes;
 	}
 
+	public void doTs34Line(String...words) {
+		int decodedEnd = parseTs34Op(words, program, programLength);
+		doDecodedOps(decodedEnd);
+	}
 
 	public void doTs34Line(String line) {
 		line = line.trim();
 		if( line.length() == 0 || line.startsWith("#") ) return;
 		
 		String[] words = line.split("\\s+");
-		int decodedEnd = parseTs34Op(words, program, programLength);
-		doDecodedOps(decodedEnd);
+		doTs34Line(words);
 	}
 
 	protected static <A,B> Map<A,B> mapOf(A a, B b, Object...rest) {
