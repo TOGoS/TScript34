@@ -17,7 +17,7 @@ public class P0009 {
 	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
 	private static final Object SPECIAL_MARK = new Object();
 	
-	// [ SPECIAL_MARK, ST_INTRINSIC_OP, opName }
+	// [ SPECIAL_MARK, ST_INTRINSIC_OP, opName, ...opArgs }
 	public static String ST_INTRINSIC_OP = "st:intrinsic-op";
 	// [ SPECIAL_MARK, ST_INTRINSIC_OP_CONSTRUCTOR, opConstructorName }
 	public static String ST_INTRINSIC_OP_CONSTRUCTOR = "st:intrinsic-op-constructor";
@@ -272,13 +272,39 @@ public class P0009 {
 		}
 	}
 
+	protected Object get(String name) {
+		Object d = definitions.get(name);
+		if( d != null ) return d;
+		Matcher m;
+		if( (m = dataUriPat.matcher(name)).matches() ) {
+			try {
+				return URLDecoder.decode(m.group(1), "utf-8");
+			} catch( UnsupportedEncodingException e ) {
+				throw new RuntimeException(e);
+			}
+		}
+		throw new RuntimeException("Don't know about "+name);
+	}
+
 	protected Object parseTs34_2Op(String[] words) {
 		String opName = words[0];
-		Object op = definitions.get(opName);
+		Object op = get(opName);
 		if( isSpecial(op) ) {
 			Object[] opDef = (Object[])op;
-			if( opDef[1] == ST_INTRINSIC_OP ) {
-				
+			if( opDef[1] == ST_INTRINSIC_OP_CONSTRUCTOR ) {
+				if( opDef[2] == OPC_PUSH_VALUE ) {
+					if( words.length < 2 ) {
+						throw new RuntimeException(OPC_PUSH_VALUE+" requires at least one argument");
+					}
+					String name = words[1];
+					Object value = get(name);
+					if( words.length > 2 ) {
+						throw new RuntimeException(OPC_PUSH_VALUE+": encoded values not yet supported!");
+					}
+					return mkSpecial(ST_INTRINSIC_OP, OP_PUSH_LITERAL_1, toString(value));
+				} else {
+					throw new RuntimeException("Unrecognized intrinsic op constructor: "+opDef[2]);
+				}
 			}
 		}
 		throw new RuntimeException("TODO");
