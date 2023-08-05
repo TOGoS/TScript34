@@ -1,0 +1,14 @@
+#+TITLE: TScript34 P0009
+
+Based on P0006.  P0006 was nice and simple and I didn't want to pollute it.
+This one I can pollute.
+
+First goal: Become self-hosting.
+As in able to run a script that makes directories,
+runs processes, and checks that they return with code 0.
+
+In the meantime, to run tests on Windows:
+
+#+begin_src bat
+mkdir target\classes & javac -d target\classes src\main\java\net\nuke24\tscript34\p0009\P0009.java src\test\java\net\nuke24\tscript34\p0009\P0009Test.java && java -cp target\classes net.nuke24.tscript34.p0009.P0009Test
+#+end_src
