@@ -182,8 +182,16 @@ Pushes 'the mark' (as used by CountToMark) onto the stack.
 
 
 =op http://ns.nuke24.net/TScript34/Ops/Quit
+signature: --
 
 Quit the program.
+In practice this is probably a 'throw QuitException'.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/QuitWithCode
+signature: code --
+
+Quit the program with the specified status code.
 In practice this is probably a 'throw QuitException'.
 
 

@@ -69,10 +69,21 @@ public class P0009Test {
 		assertEquals(parsed, P0009.mkSpecial(P0009.ST_INTRINSIC_OP, P0009.OP_PUSH_LITERAL_1, "hi there"));
 	}
 	
+	public void testDoPushValue() {
+		P0009 interp = new P0009();
+		interp.definitions.put(P0009.OPC_PUSH_VALUE, P0009.mkSpecial(P0009.ST_INTRINSIC_OP_CONSTRUCTOR, P0009.OPC_PUSH_VALUE));
+		interp.doTs34_2Line(P0009.OPC_PUSH_VALUE+" data:,hi%20there");
+		assertSubArrayEquals(
+			new Object[] { "hi there" }, 0, 1,
+			interp.dataStack, 0, 1
+		);
+	}
+	
 	public void run() {
 		testConcat();
 		testCompileDecimalNumber();
 		testParsePushValue();
+		testDoPushValue();
 	}
 	
 	public static void main(String[] args) {
