@@ -1,14 +1,33 @@
 package net.nuke24.tscript34.p0009;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class P0009 {
+	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
+	private static final Object SPECIAL_MARK = new Object();
+	
+	// [ SPECIAL_MARK, ST_INTRINSIC_OP, opName }
+	public static String ST_INTRINSIC_OP = "st:intrinsic-op";
+	// [ SPECIAL_MARK, ST_INTRINSIC_OP_CONSTRUCTOR, opConstructorName }
+	public static String ST_INTRINSIC_OP_CONSTRUCTOR = "st:intrinsic-op-constructor";
+	// { SPECIAL_MARK, ST_INTRINSIC_OP, ...stuff }
+	public static String ST_CONCATENATION = "st:concatenation";
+
 	public static String PSEUDO_OP_BEGIN_PROC = "begin-proc:0:0:0";
 	public static String PSEUDO_OP_END_PROC = "end-proc:0:0:0";
+	
+	public static String OPC_PUSH_VALUE = "http://ns.nuke24.net/TScript34/Op/PushValue";
 	
 	// <name>:<op constructor arg count>:<pop count>:<push count>
 	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
@@ -20,6 +39,69 @@ public class P0009 {
 	protected static final Pattern dataUriPat = Pattern.compile("^data:,(.*)");
 	protected static final Pattern decimalIntegerPat = Pattern.compile("^(\\d+)$");
 	protected static final Pattern hexIntegerPat = Pattern.compile("^0x([\\da-fA-F]+)$");
+	
+	public static boolean isSpecial(Object obj) {
+		return obj instanceof Object[] && ((Object[])obj).length >= 1 && ((Object[])obj)[0] == SPECIAL_MARK;
+	}
+	protected static Object[] initSpecial(String tag, int argCount) {
+		Object[] special = new Object[argCount+2];
+		special[0] = SPECIAL_MARK;
+		special[1] = tag;
+		return special;
+	}
+	protected static Object[] mkSpecial(String tag) {
+		return initSpecial(tag, 0);
+	}
+	protected static Object[] mkSpecial(String tag, Object arg) {
+		Object[] special = initSpecial(tag, 1);
+		special[2] = arg;
+		return special;
+	}
+	protected static Object[] mkSpecial(String tag, Object arg, Object...rest) {
+		Object[] special = initSpecial(tag, rest.length+1);
+		special[2] = arg;
+		for( int i=0; i<rest.length; ++i ) special[i+3] = rest[i];
+		return special;
+	}
+	protected static Object[] mkSpecialFromList(String tag, List<Object> rest) {
+		Object[] special = initSpecial(tag, rest.size());
+		for( int i=0; i<rest.size(); ++i ) special[i+2] = rest.get(i);
+		return special;
+	}
+	
+	public static Object[] mkConcatenation(List<Object> items) {
+		return mkSpecialFromList(ST_CONCATENATION, items);
+	}
+	
+	public static void append(Object obj, Appendable dest) throws IOException {
+		if( isSpecial(obj) ) {
+			Object[] spec = (Object[])obj;
+			if( spec[1] == ST_CONCATENATION ) {
+				for( int i=2; i<spec.length; ++i ) {
+					append(spec[i], dest);
+				}
+			} else {
+				throw new RuntimeException("Don't know how to append "+spec[1]);
+			}
+		} else {
+			dest.append(obj.toString());
+		}
+	}
+	public static String toString(Object obj) {
+		if( isSpecial(obj) ) {
+			StringBuilder sb = new StringBuilder();
+			try {
+				append(obj, sb);
+			} catch( IOException e ) {
+				throw new RuntimeException("Unexpected IOException when appending to StringBuilder", e);
+			}
+			return sb.toString();
+		} else {
+			return obj.toString();
+		}
+	}
+	
+	Map<String,Object> definitions = new HashMap<String,Object>();
 	
 	protected static int decodeToken(String token, Object[] into, int offset) {
 		Matcher m;
@@ -78,6 +160,11 @@ public class P0009 {
 			throw new RuntimeException("Don't know how to get integer from a "+obj.getClass());
 		}
 	}
+
+	protected boolean isEmpty(Object obj) {
+		if( obj instanceof String && ((String)obj).length() == 0 ) return true;
+		return false;
+	}
 	
 	public void doConcat() {
 		// Overly fancy implementation to avoid creating anything new
@@ -85,24 +172,27 @@ public class P0009 {
 		int count = toInt(dataStack[--dsp]);
 		int argTop = dsp;
 		int argBottom = argTop-count;
-		String result = "";
+		Object result = "";
 		int p = argBottom;
 		while( p < argTop ) {
-			String item = dataStack[p++].toString();
-			if( item.length() > 0 ) {
+			Object item = dataStack[p++];
+			if( !isEmpty(item) ) {
 				result = item;
 				break;
 			}
 		}
 		while( p < argTop ) {
-			String item = dataStack[p++].toString();
-			if( item.length() > 0 ) {
-				StringBuilder sb = new StringBuilder(result);
-				sb.append(item);
+			Object item = dataStack[p++];
+			if( !isEmpty(item) ) {
+				// If get here, there's at least two things,
+				// so we have to concatenate!
+				List<Object> catted = new ArrayList<Object>();
+				catted.add(result);
+				catted.add(item);
 				while( p < argTop ) {
-					sb.append(dataStack[p++]);
+					catted.add(dataStack[p++]);
 				}
-				result = sb.toString();
+				result = mkConcatenation(catted);
 			}
 		}
 		dataStack[argBottom] = result;
@@ -148,7 +238,7 @@ public class P0009 {
 	public void run() {
 		while( this.ip >= 0 && ip < programLength ) step();
 	}
-	
+
 	public void doToken(String token) {
 		// Append decoded token to program,
 		// but leave program length
@@ -176,18 +266,60 @@ public class P0009 {
 			programLength = decodedEnd;
 		}
 	}
+
+	public void execute(Object ex) {
+		if( isSpecial(ex) ) {
+		}
+	}
+
+	protected Object parseTs34_2Op(String[] words) {
+		String opName = words[0];
+		Object op = definitions.get(opName);
+		if( isSpecial(op) ) {
+			Object[] opDef = (Object[])op;
+			if( opDef[1] == ST_INTRINSIC_OP ) {
+				
+			}
+		}
+		throw new RuntimeException("TODO");
+	}
+
+	public void doTs34_2Line(String line) {
+		line = line.trim();
+		if( line.length() == 0 || line.startsWith("#") ) return;
+		
+		String[] words = line.split("\\s+");
+		Object op = parseTs34_2Op(words);
+		throw new RuntimeException("TODO");
+	}
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		P0009 interpreter = new P0009();
+		interpreter.definitions.put(OPC_PUSH_VALUE, mkSpecial(ST_INTRINSIC_OP, OPC_PUSH_VALUE));
 		
 		for( int i=0; i<args.length; ++i ) {
 			if( "-t".equals(args[i]) ) {
 				for( ++i; i<args.length; ++i ) {
 					interpreter.doToken(args[i]);;
 				}
-			} else {
+			} else if( args[i].startsWith("-") ) {
 				System.err.println("Bad arg: "+args[i]);
 				System.exit(1);
+			} else {
+				String scriptFilePath = args[i++];
+				List<String> argv = new ArrayList<String>();
+				while( i < args.length ) {
+					argv.add(args[i]);
+				}
+				interpreter.definitions.put("argv", argv);
+				interpreter.definitions.put("scriptFilePath", scriptFilePath);
+				BufferedReader fr = new BufferedReader(new FileReader(scriptFilePath));
+				String line;
+				int lineIndex = 0;
+				while( (line = fr.readLine()) != null ) {
+					interpreter.doTs34_2Line(line);
+					++lineIndex;
+				}
 			}
 		}
 	}
