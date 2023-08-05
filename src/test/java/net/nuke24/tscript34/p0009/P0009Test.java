@@ -1,15 +1,26 @@
 package net.nuke24.tscript34.p0009;
 
 public class P0009Test {
+	protected static <T> void assertEqualsArr(T[] a, T[] b) {
+		if( a.length != b.length ) throw new RuntimeException("assertEqualsArr fails: Length not same: "+a.length+" != "+b.length);
+		for( int i=0; i<a.length; ++i ) assertEquals(a[i], b[i]);
+	}
 	protected static void assertEquals(Object a, Object b) {
 		if( a == null && b == null ) return;
-		
+		if( a == null || b == null ) {
+			throw new RuntimeException("assertEquals fails: "+a+" != "+b);
+		}
+				
 		if( a instanceof String && P0009.isSpecial(b) ) {
 			b = P0009.toString(b);
 		}
 		
-		if( a == null || b == null || !a.equals(b) ) {
-			throw new RuntimeException("assertEquals fails: "+a+" != "+b);
+		if( (a instanceof Object[]) && (b instanceof Object[]) ) {
+			assertEqualsArr((Object[])a, (Object[])b);
+		} else {
+			if( !a.equals(b) ) {
+				throw new RuntimeException("assertEquals fails: "+a+" != "+b);
+			}
 		}
 	}
 	
@@ -19,7 +30,7 @@ public class P0009Test {
 			assertEquals(expected[offE+i], actual[offA+i]);
 		}
 	}
-	
+
 	public void testConcat() {
 		P0009 interp = new P0009();
 		interp.doToken("data:,foo");
@@ -51,9 +62,17 @@ public class P0009Test {
 		);
 	}
 	
+	public void testParsePushValue() {
+		P0009 interpreter = new P0009();
+		interpreter.definitions.put(P0009.OPC_PUSH_VALUE, P0009.mkSpecial(P0009.ST_INTRINSIC_OP_CONSTRUCTOR, P0009.OPC_PUSH_VALUE));
+		Object parsed = interpreter.parseTs34_2Op(new String[] { P0009.OPC_PUSH_VALUE, "data:,hi%20there" });
+		assertEquals(parsed, P0009.mkSpecial(P0009.ST_INTRINSIC_OP, P0009.OP_PUSH_LITERAL_1, "hi there"));
+	}
+	
 	public void run() {
 		testConcat();
 		testCompileDecimalNumber();
+		testParsePushValue();
 	}
 	
 	public static void main(String[] args) {
