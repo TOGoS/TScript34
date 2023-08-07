@@ -1,16 +1,15 @@
 package net.nuke24.tscript34.p0009;
 
+import java.io.IOException;
+import java.lang.Appendable;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 public class P0009Test {
-	protected static <T> void assertEqualsArr(T[] a, T[] b) {
-		if( a.length != b.length ) throw new RuntimeException("assertEqualsArr fails: Length not same: "+a.length+" != "+b.length);
-		for( int i=0; i<a.length; ++i ) assertEquals(a[i], b[i]);
-	}
-	protected static void assertEquals(Object a, Object b) {
-		if( a == null && b == null ) return;
+	protected static boolean equals(Object a, Object b) {
+		if( a == null && b == null ) return true;
 		if( a == null || b == null ) {
-			throw new RuntimeException("assertEquals fails: "+a+" != "+b);
+			return false;
 		}
 				
 		if( a instanceof String && P0009.isSpecial(b) ) {
@@ -21,16 +20,80 @@ public class P0009Test {
 			assertEqualsArr((Object[])a, (Object[])b);
 		} else {
 			if( !a.equals(b) ) {
-				throw new RuntimeException("assertEquals fails: "+a+" != "+b);
+				return false;
 			}
 		}
+		
+		return true;
 	}
 	
-	protected <T> void assertSubArrayEquals(T[] expected, int offE, int lenE, T[] actual, int offA, int lenA) {
-		assertEquals( lenE, lenA );
-		for( int i=0; i<lenE; ++i ) {
-			assertEquals(expected[offE+i], actual[offA+i]);
+	protected static void assertEquals(Object a, Object b) {
+		if( !equals(a,b) ) throw new RuntimeException("assertEquals fails: "+a+" != "+b);
+	}
+	
+	protected static <T> void toString(T[] arr, int off, int len, Appendable dest) throws IOException {
+		dest.append("[");
+		String sep = "";
+		for( int i=0; i<len; ++i ) {
+			dest.append(sep);
+			toString( arr[i], dest );
+			sep = ", ";
 		}
+		dest.append("]");
+	}
+	protected static void toString(Object obj, Appendable dest) throws IOException {
+		if( obj == null ) {
+			dest.append("null");
+		} else if( obj == P0009.SPECIAL_MARK ) {
+			dest.append("SPECIAL_MARK");
+		} else if( obj instanceof Object[] ) {
+			toString((Object[])obj, 0, ((Object[])obj).length, dest);
+		} else if( obj instanceof String ) {
+			dest.append("\"" + obj.toString().replace("\\","\\\\").replace("\"","\\\"") + "\"");
+		} else {
+			dest.append(obj.toString());
+		}
+	}
+	protected static String toString(Object obj) {
+		StringBuilder sb = new StringBuilder();
+		try { toString(obj, sb); } catch( IOException e ) { }
+		return sb.toString();
+	}
+	
+	protected static <T> void assertSubArrayEquals(T[] expected, int offE, int lenE, T[] actual, int offA, int lenA) {
+		ArrayList<String> failures = new ArrayList<String>();
+		if( lenE != lenA ) {
+			failures.add("length: "+lenE+" != "+lenA);
+		}
+		int checkLen = lenE < lenA ? lenE : lenA;
+		for( int i=0; i<checkLen; ++i ) {
+			if( !equals(expected[offE+i], actual[offA+i]) ) {
+				failures.add("["+i+"]: "+toString(expected[offE+i])+" != "+toString(actual[offA+i]));
+			}
+		}
+		if( failures.size() > 0 ) try {
+			StringBuilder sb = new StringBuilder();
+			sb.append("Arrays not equal:");
+			//for( String failure : failures ) {
+			//	sb.append("\n- "+failure);
+			//}
+			toString(expected, offE, lenE, sb);
+			sb.append(" != ");
+			toString(actual, offA, lenA, sb);
+			throw new RuntimeException(sb.toString());
+		} catch( IOException e ) {
+			throw new RuntimeException(e);
+		}
+	}
+	protected static <T> void assertEqualsArr(T[] a, T[] b) {
+		assertSubArrayEquals(a, 0, a.length, b, 0, b.length);
+	}
+	
+	protected void assertProgramEquals(Object[] expected, P0009 interp) {
+		assertSubArrayEquals(
+			expected, 0, expected.length,
+			interp.program, 0, interp.programLength
+		);
 	}
 	
 	protected void assertDataStackEquals(Object[] expected, P0009 interp) {
@@ -58,17 +121,14 @@ public class P0009Test {
 		interp.doToken("{");
 		interp.doToken("1025");
 		interp.doToken("}");
-		assertSubArrayEquals(
-			new Object[] { P0009.OP_PUSH_LITERAL_1, Integer.valueOf(1025), P0009.OP_RETURN }, 0, 3,
-			interp.program, 0, interp.programLength
+		assertProgramEquals(
+			new Object[] { P0009.OP_PUSH_LITERAL_1, Integer.valueOf(1025), P0009.OP_RETURN },
+			interp
 		);
-		
+		interp.pop();
 		interp.pushR(-1);
 		interp.run();
-		assertSubArrayEquals(
-			new Object[] { Integer.valueOf(1025) }, 0, 1,
-			interp.dataStack, 0, interp.dsp
-		);
+		assertDataStackEquals(new Object[] { Integer.valueOf(1025) }, interp);
 	}
 
 	protected P0009 mkInterp() {
@@ -150,6 +210,43 @@ public class P0009Test {
 		assertDataStackEquals(new Object[] { "abc" }, interp);
 	}
 	
+	public void testProc() {
+		P0009 interp = mkInterp();
+		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		interp.doTs34Line(P0009.OP_CLOSE_PROC);
+		assertProgramEquals(new Object[] { P0009.OP_RETURN }, interp);
+		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(0) }, interp);
+	}
+	
+	public void testMoreProc() {
+		P0009 interp = mkInterp();
+		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,Henry");
+		interp.doTs34Line(P0009.OP_CLOSE_PROC);
+		assertProgramEquals(new Object[] { P0009.OP_PUSH_LITERAL_1, "Henry", P0009.OP_RETURN }, interp);
+		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(0) }, interp);
+
+		interp.doTs34Line(P0009.OP_EXECUTE);
+		assertDataStackEquals(new Object[] { "Henry" }, interp);
+	}
+	public void testNestedProc() {
+		P0009 interp = mkInterp();
+		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		int outerProcAddress = interp.programLength;
+		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		int innerProcAddress = interp.programLength;
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,Henry");
+		interp.doTs34Line(P0009.OP_CLOSE_PROC);
+		interp.doTs34Line(P0009.OP_CLOSE_PROC);
+		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(outerProcAddress) }, interp);
+
+		interp.doTs34Line(P0009.OP_EXECUTE);
+		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(innerProcAddress) }, interp);
+
+		interp.doTs34Line(P0009.OP_EXECUTE);
+		assertDataStackEquals(new Object[] { "Henry" }, interp);
+	}
+	
 	public void run() {
 		testConcat();
 		testCompileDecimalNumber();
@@ -160,6 +257,9 @@ public class P0009Test {
 		testPop();
 		testExch();
 		testAlias();
+		testProc();
+		testMoreProc();
+		testNestedProc();
 	}
 	
 	public static void main(String[] args) {
