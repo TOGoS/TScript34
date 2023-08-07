@@ -16,10 +16,10 @@ import java.util.regex.Pattern;
 
 public class P0009 {
 	public static String NAME = "TS34.9";
-	public static String VERSION = "0.0.1";
+	public static String VERSION = "0.0.2";
 
 	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
-	private static final Object SPECIAL_MARK = new Object();
+	public static final Object SPECIAL_MARK = new Object();
 	
 	// { SPECIAL_MARK, ST_MARK, ... }
 	public static String ST_MARK = "st:mark";
@@ -29,9 +29,11 @@ public class P0009 {
 	public static String ST_INTRINSIC_OP_CONSTRUCTOR = "st:intrinsic-op-constructor";
 	// { SPECIAL_MARK, ST_INTRINSIC_OP, ...stuff }
 	public static String ST_CONCATENATION = "st:concatenation";
+	// { SPECIAL_MARK, ST_PROCEDURE_ADDRESS, indexOfFirstOpOfProcedure }
+	public static String ST_PROCEDURE_ADDRESS = "st:procedure-address";
 
-	public static String PSEUDO_OP_BEGIN_PROC = "begin-proc:0:0:0";
-	public static String PSEUDO_OP_END_PROC = "end-proc:0:0:0";
+	public static String OP_OPEN_PROC = "http://ns.nuke24.net/TScript34/Ops/OpenProcedure";
+	public static String OP_CLOSE_PROC = "http://ns.nuke24.net/TScript34/Ops/CloseProcedure";
 	
 	public static String OPC_ALIAS = "http://ns.nuke24.net/TScript34/Op/Alias";
 	public static String OPC_PUSH_VALUE = "http://ns.nuke24.net/TScript34/Op/PushValue";
@@ -42,7 +44,9 @@ public class P0009 {
 	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
 	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
 	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
+	public static String OP_EXECUTE = "http://ns.nuke24.net/TScript34/Ops/Execute";
 	public static String OP_GET_INTERPRETER_INFO = "http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo";
+	public static String OP_JUMP = "http://ns.nuke24.net/TScript34/P0009/Ops/Jump";
 	public static String OP_POP = "http://ns.nuke24.net/TScript34/Ops/Pop";
 	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
 	public static String OP_PUSH_MARK = "http://ns.nuke24.net/TScript34/Ops/PushMark";
@@ -90,8 +94,11 @@ public class P0009 {
 		return mkSpecialFromList(ST_CONCATENATION, items);
 	}
 
-	protected static Object[] mkIntrinsic(Object op0, Object...moreOps) {
+	public static Object[] mkIntrinsic(Object op0, Object...moreOps) {
 		return mkSpecial(ST_INTRINSIC_OP, op0, moreOps);
+	}
+	public static Object[] mkProcByAddress(int address) {
+		return mkSpecial(ST_PROCEDURE_ADDRESS, address);
 	}
 	
 	public static Object[] MARK = mkSpecial(ST_MARK);
@@ -152,9 +159,9 @@ public class P0009 {
 	protected static int decodeToken(String token, Object[] into, int offset) {
 		Matcher m;
 		if( "{".equals(token) ) {
-			into[offset++] = PSEUDO_OP_BEGIN_PROC;
+			into[offset++] = OP_OPEN_PROC;
 		} else if( "}".equals(token) ) {
-			into[offset++] = PSEUDO_OP_END_PROC;
+			into[offset++] = OP_CLOSE_PROC;
 		} else if( (m = decimalIntegerPat.matcher(token)).matches() ) {
 			into[offset++] = OP_PUSH_LITERAL_1;
 			into[offset++] = Integer.parseInt(m.group(1));
@@ -276,6 +283,16 @@ public class P0009 {
 			Object top = dataStack[dsp-1];
 			dataStack[dsp-1] = dataStack[dsp-2];
 			dataStack[dsp-2] = top;
+		} else if( op == OP_EXECUTE ) {
+			Object thing = dataStack[--dsp];
+			if( isSpecial(thing) && ((Object[])thing)[1] == ST_PROCEDURE_ADDRESS ) {
+				pushR(ip);
+				ip = toInt(((Object[])thing)[2]);
+			} else {
+				throw new RuntimeException("Don't know how to execute "+toString(thing));
+			}
+		} else if( op == OP_JUMP ) {
+			ip = toInt(dataStack[--dsp]);
 		} else if( op == OP_POP ) {
 			--dsp;
 		} else if( op == OP_PRINT ) {
@@ -330,14 +347,29 @@ public class P0009 {
 	protected void doDecodedOps(int decodedEnd) {
 		final int decodedBegin = programLength;
 		Object op = program[decodedBegin];
-		if( op == PSEUDO_OP_BEGIN_PROC ) {
+		if( op == OP_OPEN_PROC ) {
+			if( procDepth > 0 ) {
+				program[programLength++] = OP_PUSH_LITERAL_1;
+				pushR(programLength++);
+				program[programLength++] = OP_JUMP;
+			}
+			pushR(programLength);
 			++procDepth;
-		} else if( op == PSEUDO_OP_END_PROC ) {
+		} else if( op == OP_CLOSE_PROC ) {
+			Object proc = mkProcByAddress(popR());
 			--procDepth;
 			if( procDepth < 0 ) {
 				throw new RuntimeException("Procedure underflow");
 			}
 			program[programLength++] = OP_RETURN;
+			if( procDepth > 0 ) {
+				int fixupJumpIndex = popR();
+				program[fixupJumpIndex] = programLength;
+				program[programLength++] = OP_PUSH_LITERAL_1;
+				program[programLength++] = proc;
+			} else {
+				dataStack[dsp++] = proc;
+			}
 		} else if( procDepth == 0 ) {
 			// Temporarily extend the program to immediately run the decoded ops
 			// (this might not be the best way to do things!  Maybe instead there should be
@@ -446,9 +478,12 @@ public class P0009 {
 		OPC_PUSH_VALUE     , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
 		OP_ARRAY_FROM_STACK, mkIntrinsic(OP_ARRAY_FROM_STACK),
 		OP_COUNT_TO_MARK   , mkIntrinsic(OP_COUNT_TO_MARK),
-		OP_GET_INTERPRETER_INFO, mkIntrinsic(OP_GET_INTERPRETER_INFO),
+		OP_CLOSE_PROC      , mkIntrinsic(OP_CLOSE_PROC),
 		OP_DUP             , mkIntrinsic(OP_DUP),
 		OP_EXCH            , mkIntrinsic(OP_EXCH),
+		OP_EXECUTE         , mkIntrinsic(OP_EXECUTE),
+		OP_GET_INTERPRETER_INFO, mkIntrinsic(OP_GET_INTERPRETER_INFO),
+		OP_OPEN_PROC       , mkIntrinsic(OP_OPEN_PROC),
 		OP_POP             , mkIntrinsic(OP_POP),
 		OP_PUSH_MARK       , mkIntrinsic(OP_PUSH_MARK),
 		OP_PRINT           , mkIntrinsic(OP_PRINT),
