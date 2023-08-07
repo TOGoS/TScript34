@@ -1,9 +1,7 @@
 package net.nuke24.tscript34.p0009;
 
 import java.io.IOException;
-import java.lang.Appendable;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class P0009Test {
 	protected static boolean equals(Object a, Object b) {
@@ -31,12 +29,23 @@ public class P0009Test {
 		if( !equals(a,b) ) throw new RuntimeException("assertEquals fails: "+a+" != "+b);
 	}
 	
+	protected static void toString(int[] arr, int off, int len, Appendable dest) throws IOException {
+		dest.append("[");
+		String sep = "";
+		for( int i=0; i<len; ++i ) {
+			dest.append(sep);
+			dest.append("0x");
+			dest.append(Integer.toString(arr[i], 16));
+			sep = ", ";
+		}
+		dest.append("]");
+	}
 	protected static <T> void toString(T[] arr, int off, int len, Appendable dest) throws IOException {
 		dest.append("[");
 		String sep = "";
 		for( int i=0; i<len; ++i ) {
 			dest.append(sep);
-			toString( arr[i], dest );
+			toString( arr[off+i], dest );
 			sep = ", ";
 		}
 		dest.append("]");
@@ -60,6 +69,31 @@ public class P0009Test {
 		return sb.toString();
 	}
 	
+	protected static <T> void assertSubArrayEquals(int[] expected, int offE, int lenE, int[] actual, int offA, int lenA) {
+		ArrayList<String> failures = new ArrayList<String>();
+		if( lenE != lenA ) {
+			failures.add("length: "+lenE+" != "+lenA);
+		}
+		int checkLen = lenE < lenA ? lenE : lenA;
+		for( int i=0; i<checkLen; ++i ) {
+			if( !equals(expected[offE+i], actual[offA+i]) ) {
+				failures.add("["+i+"]: "+toString(expected[offE+i])+" != "+toString(actual[offA+i]));
+			}
+		}
+		if( failures.size() > 0 ) try {
+			StringBuilder sb = new StringBuilder();
+			sb.append("Arrays not equal:");
+			//for( String failure : failures ) {
+			//	sb.append("\n- "+failure);
+			//}
+			toString(expected, offE, lenE, sb);
+			sb.append(" != ");
+			toString(actual, offA, lenA, sb);
+			throw new RuntimeException(sb.toString());
+		} catch( IOException e ) {
+			throw new RuntimeException(e);
+		}
+	}
 	protected static <T> void assertSubArrayEquals(T[] expected, int offE, int lenE, T[] actual, int offA, int lenA) {
 		ArrayList<String> failures = new ArrayList<String>();
 		if( lenE != lenA ) {
@@ -89,7 +123,7 @@ public class P0009Test {
 		assertSubArrayEquals(a, 0, a.length, b, 0, b.length);
 	}
 	
-	protected void assertProgramEquals(Object[] expected, P0009 interp) {
+	protected void assertProgramEquals(int[] expected, P0009 interp) {
 		assertSubArrayEquals(
 			expected, 0, expected.length,
 			interp.program, 0, interp.programLength
@@ -104,25 +138,26 @@ public class P0009Test {
 	}
 
 	public void testConcat() {
-		P0009 interp = new P0009();
-		interp.doToken("data:,foo");
-		interp.doToken("data:,bar");
-		interp.doToken("2");
-		interp.doToken("concat-n");
+		P0009 interp = mkInterp();
+		interp.doTs34Line(P0009.OP_PUSH_MARK);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE, "data:,foo");
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE, "data:,bar");
+		interp.doTs34Line(P0009.OP_COUNT_TO_MARK);
+		interp.doTs34Line(P0009.OP_CONCAT_N);
 		
 		assertSubArrayEquals(
 			new Object[] { "foobar" }, 0, 1,
-			interp.dataStack, 0, 1
+			interp.dataStack, 1, 1
 		);
 	}
 	
 	public void testCompileDecimalNumber() {
-		P0009 interp = new P0009();
-		interp.doToken("{");
-		interp.doToken("1025");
-		interp.doToken("}");
+		P0009 interp = mkInterp();
+		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		interp.doTs34Line(P0009.OPC_PUSH_VALUE, "data:,1025", P0009.DATATYPE_DECIMAL);
+		interp.doTs34Line(P0009.OP_CLOSE_PROC);
 		assertProgramEquals(
-			new Object[] { P0009.OP_PUSH_LITERAL_1, Integer.valueOf(1025), P0009.OP_RETURN },
+			new int[] { P0009.mkLiteralIntOc(1025), P0009.OC_RETURN },
 			interp
 		);
 		interp.pop();
@@ -140,7 +175,10 @@ public class P0009Test {
 	public void testParsePushValue() {
 		P0009 interp = mkInterp();
 		Object parsed = interp.parseTs34Op(new String[] { P0009.OPC_PUSH_VALUE, "data:,hi%20there" });
-		assertEquals(parsed, P0009.mkSpecial(P0009.ST_INTRINSIC_OP, P0009.OP_PUSH_LITERAL_1, "hi there"));
+		assertEquals(
+			P0009.mkSpecial(P0009.ST_INTRINSIC_OP, P0009.mkOc(P0009.HOC_PUSH_OBJ, interp.findConstant("hi there"))),
+			parsed
+		);
 	}
 	
 	public void testDoPushValue() {
@@ -214,7 +252,7 @@ public class P0009Test {
 		P0009 interp = mkInterp();
 		interp.doTs34Line(P0009.OP_OPEN_PROC);
 		interp.doTs34Line(P0009.OP_CLOSE_PROC);
-		assertProgramEquals(new Object[] { P0009.OP_RETURN }, interp);
+		assertProgramEquals(new int[] { P0009.OC_RETURN }, interp);
 		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(0) }, interp);
 	}
 	
@@ -223,7 +261,7 @@ public class P0009Test {
 		interp.doTs34Line(P0009.OP_OPEN_PROC);
 		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,Henry");
 		interp.doTs34Line(P0009.OP_CLOSE_PROC);
-		assertProgramEquals(new Object[] { P0009.OP_PUSH_LITERAL_1, "Henry", P0009.OP_RETURN }, interp);
+		assertProgramEquals(new int[] { P0009.mkOc(P0009.HOC_PUSH_OBJ, interp.findConstant("Henry")), P0009.OC_RETURN }, interp);
 		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(0) }, interp);
 
 		interp.doTs34Line(P0009.OP_EXECUTE);
