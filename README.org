@@ -15,10 +15,6 @@ mkdir target\classes & javac -d target\classes src\main\java\net\nuke24\tscript3
 
 ** Tasks
 
-*** TODO Replace string opcodes with a nice compact int[] format
-
-In order to ~switch~ instead of if-else chain for interpreting compiled ops
-
 *** TODO Run processes
 
 #+begin_src ps
@@ -60,6 +56,10 @@ Can use that make.php project (called 'PHPXMLEmitter')
 to generate the script if that's easier.
 
 ** Completed Tasks
+
+*** DONE Replace string opcodes with a nice compact int[] format
+
+In order to ~switch~ instead of if-else chain for interpreting compiled ops
 
 *** DONE Include a version number
 

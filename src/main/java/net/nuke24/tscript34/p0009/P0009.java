@@ -1,10 +1,9 @@
 package net.nuke24.tscript34.p0009;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
-import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
@@ -16,10 +15,57 @@ import java.util.regex.Pattern;
 
 public class P0009 {
 	public static String NAME = "TS34.9";
-	public static String VERSION = "0.0.2";
+	public static String VERSION = "0.0.3";
 
 	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
 	public static final Object SPECIAL_MARK = new Object();
+	
+	// 'HOC_' are 'high ops'; those that live in the high bits,
+	// using the lower bits as parameters
+	static final int HOC_VAL_MASK  = 0x00FFFFFF;
+	static final int HOC_OP_MASK   = 0xFF000000;
+	// Lower bits are literal value to push (positive int25s)
+	static final int HOC_PUSH_PINT = 0x00000000;
+	// Lower bits are literal value to push (negative int25s)
+	static final int HOC_PUSH_NINT = 0xFF000000;
+	// Lower bits are index into constant object table
+	static final int HOC_PUSH_OBJ  = 0x01000000;
+	static final int HOC_JUMP      = 0x02000000;
+	
+	// Individual opcodes in no particular order,
+	// and don't rely on these IDs staying constant
+	static final int OC_RETURN           = 0x80000001;
+	static final int OC_CONCAT_N         = 0x80000002;
+	static final int OC_ARRAY_FROM_STACK = 0x80000003;
+	static final int OC_COUNT_TO_MARK    = 0x80000004;
+	static final int OC_DUP              = 0x80000005;
+	static final int OC_EXCH             = 0x80000006;
+	static final int OC_EXECUTE          = 0x80000007;
+	static final int OC_JUMP             = 0x80000008;
+	static final int OC_POP              = 0x80000009;
+	static final int OC_PRINT            = 0x8000000A;
+	static final int OC_PUSH_MARK        = 0x8000000B;
+	static final int OC_GET_INTERPRETER_INFO = 0x8000000C;
+	static final int OC_PRINT_STACK_THUNKS = 0x8000000D;
+	static final int OC_QUIT             = 0x8000000E;
+	static final int OC_QUIT_WITH_CODE   = 0x8000000F;
+	
+	// Fake opcodes, for decoding
+	static final int HOC_FAKE            = 0x90000000;
+	static final int OC_OPEN_PROC        = 0x90000001;
+	static final int OC_CLOSE_PROC       = 0x90000002;
+	
+	public static int mkOc(int hoc, int value) {
+		return (hoc&HOC_OP_MASK) | (value&HOC_VAL_MASK);
+	}
+	public static int mkLiteralIntOc(int value) {
+		switch( value & HOC_OP_MASK ) {
+		case HOC_PUSH_PINT: case HOC_PUSH_NINT:
+			return value;
+		default:
+			throw new RuntimeException("Can't encode integer "+value+" ("+formatOc(value)+" in a single op; too large");
+		}
+	}
 	
 	// { SPECIAL_MARK, ST_MARK, ... }
 	public static String ST_MARK = "st:mark";
@@ -40,7 +86,7 @@ public class P0009 {
 	
 	// <name>:<op constructor arg count>:<pop count>:<push count>
 	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
-	public static String OP_CONCAT = "concat:0:n:1";
+	public static String OP_CONCAT_N = "http://ns.nuke24.net/TScript34/P0009/Ops/ConcatN"; // item0 item1 ... itemN n -- concatenated
 	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
 	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
 	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
@@ -56,6 +102,8 @@ public class P0009 {
 	public static String OP_QUIT = "http://ns.nuke24.net/TScript34/Ops/Quit";
 	public static String OP_QUIT_WITH_CODE = "http://ns.nuke24.net/TScript34/Ops/QuitWithCode";
 	public static String OP_RETURN = "return:0:0:0";
+	
+	public static String DATATYPE_DECIMAL = "http://www.w3.org/2001/XMLSchema#decimal";
 	
 	protected static final Pattern dataUriPat = Pattern.compile("^data:,(.*)");
 	protected static final Pattern decimalIntegerPat = Pattern.compile("^(\\d+)$");
@@ -94,8 +142,10 @@ public class P0009 {
 		return mkSpecialFromList(ST_CONCATENATION, items);
 	}
 
-	public static Object[] mkIntrinsic(Object op0, Object...moreOps) {
-		return mkSpecial(ST_INTRINSIC_OP, op0, moreOps);
+	public static Object[] mkIntrinsic(int...ops) {
+		Object[] special = initSpecial(ST_INTRINSIC_OP, ops.length);
+		for( int i=0; i<ops.length; ++i ) special[i+2] = Integer.valueOf(ops[i]);
+		return special;
 	}
 	public static Object[] mkProcByAddress(int address) {
 		return mkSpecial(ST_PROCEDURE_ADDRESS, address);
@@ -103,6 +153,9 @@ public class P0009 {
 	
 	public static Object[] MARK = mkSpecial(ST_MARK);
 
+	public static String formatOc(int opCode) {
+		return "0x"+Integer.toUnsignedString(opCode, 16);
+	}
 	public static void append(Object obj, Appendable dest) throws IOException {
 		if( isSpecial(obj) ) {
 			Object[] spec = (Object[])obj;
@@ -156,49 +209,36 @@ public class P0009 {
 	
 	Map<String,Object> definitions = new HashMap<String,Object>();
 	
-	protected static int decodeToken(String token, Object[] into, int offset) {
-		Matcher m;
-		if( "{".equals(token) ) {
-			into[offset++] = OP_OPEN_PROC;
-		} else if( "}".equals(token) ) {
-			into[offset++] = OP_CLOSE_PROC;
-		} else if( (m = decimalIntegerPat.matcher(token)).matches() ) {
-			into[offset++] = OP_PUSH_LITERAL_1;
-			into[offset++] = Integer.parseInt(m.group(1));
-		} else if( (m = hexIntegerPat.matcher(token)).matches() ) {
-			into[offset++] = OP_PUSH_LITERAL_1;
-			into[offset++] = Integer.parseInt(m.group(1), 16);
-		} else if( (m = dataUriPat.matcher(token)).matches() ) {
-			String data;
-			try {
-				data = URLDecoder.decode(m.group(1), "utf-8");
-			} catch (UnsupportedEncodingException e) {
-				throw new RuntimeException(e);
-			}
-			into[offset++] = OP_PUSH_LITERAL_1;
-			into[offset++] = data;
-		} else if( "concat-n".equals(token) ) {
-			into[offset++] = OP_CONCAT;
-		} else if( "print".equals(token) ) {
-			into[offset++] = OP_PRINT;
-		} else if( "println".equals(token) ) {
-			into[offset++] = OP_PRINT;
-			into[offset++] = OP_PUSH_LITERAL_1;
-			into[offset++] = "\n";
-			into[offset++] = OP_PRINT;
-		} else {
-			throw new RuntimeException("Don't know how to decode token: "+token);
-		}
-		return offset;
-	}
-	
-	Object[] program = new Object[1024];
+	int[] program = new int[1024];
 	int programLength = 0;
 	int ip = 0;
 	Object[] dataStack = new Object[1024];
 	int dsp = 0;
 	private int[] returnStack = new int[1024];
 	private int rsp = 0;
+	private Object[] constants = new Object[1024];
+	private int constantCount = 0;
+	
+	public int findConstant(Object obj) {
+		for( int i=0; i<constantCount; ++i ) {
+			if( constants[i].equals(obj) ) {
+				return i;
+			}
+		}
+		throw new RuntimeException("Constant not found: "+toThunkString(obj));
+	}
+	protected int addConstant(Object obj) {
+		int index = constantCount++;
+		constants[index] = obj;
+		return index;
+	}
+	protected int addConstant(Object obj, int assertedIndex) {
+		int actualIndex = addConstant(obj);
+		if( actualIndex != assertedIndex ) {
+			throw new RuntimeException("Expected new constant to be at index "+assertedIndex+", but would be at "+actualIndex);
+		}
+		return actualIndex;
+	}
 	
 	public Object pop() {
 		return dataStack[--dsp];
@@ -253,10 +293,25 @@ public class P0009 {
 	}
 	
 	public void step() {
-		Object op = program[ip++];
-		if( false ) {
-		} else if( op == OP_ARRAY_FROM_STACK ) {
-			int count = toInt(dataStack[--dsp]);
+		int opCode = program[ip++];
+		switch( opCode & HOC_OP_MASK ) {
+		case HOC_PUSH_PINT: case HOC_PUSH_NINT:
+			dataStack[dsp++] = Integer.valueOf(opCode);
+			return;
+		case HOC_PUSH_OBJ:
+			dataStack[dsp++] = constants[opCode & HOC_VAL_MASK];
+			return;
+		case HOC_JUMP:
+			ip = opCode & HOC_VAL_MASK;
+			return;
+		}
+		
+		int count;
+		
+		// Regular ops:
+		switch( opCode ) {
+		case OC_ARRAY_FROM_STACK:
+			count = toInt(dataStack[--dsp]);
 			if( count > dsp ) throw new RuntimeException("ArrayFromStack: underflow; can't make "+count+"-length array when only "+dsp+" items on stack!");
 			dsp -= count;
 			Object[] arr = new Object[count];
@@ -264,26 +319,30 @@ public class P0009 {
 				arr[i] = dataStack[dsp+i];
 			}
 			dataStack[dsp++] = arr;
-		} else if( op == OP_CONCAT ) {
+			return;
+		case OC_CONCAT_N:
 			doConcat();
-		} else if( op == OP_COUNT_TO_MARK ) {
+			return;
+		case OC_COUNT_TO_MARK:
 			// System.out.println("# CountToMark: dsp="+dsp);
 			for( int i=dsp; i-->0; ) {
 				if( dataStack[i] == MARK ) {
-					int count = dsp-i-1;
+					count = dsp-i-1;
 					dataStack[dsp++] = Integer.valueOf(count);
 					return;
 				}
 			}
 			throw new RuntimeException("CountToMark: No mark found anywhere in stack!");
-		} else if( op == OP_DUP ) {
+		case OC_DUP:
 			dataStack[dsp] = dataStack[dsp-1];
 			++dsp;
-		} else if( op == OP_EXCH ) {
+			return;
+		case OC_EXCH:
 			Object top = dataStack[dsp-1];
 			dataStack[dsp-1] = dataStack[dsp-2];
 			dataStack[dsp-2] = top;
-		} else if( op == OP_EXECUTE ) {
+			return;
+		case OC_EXECUTE:
 			Object thing = dataStack[--dsp];
 			if( isSpecial(thing) && ((Object[])thing)[1] == ST_PROCEDURE_ADDRESS ) {
 				pushR(ip);
@@ -291,34 +350,38 @@ public class P0009 {
 			} else {
 				throw new RuntimeException("Don't know how to execute "+toString(thing));
 			}
-		} else if( op == OP_JUMP ) {
+			return;
+		case OC_JUMP:
 			ip = toInt(dataStack[--dsp]);
-		} else if( op == OP_POP ) {
+			return;
+		case OC_POP:
 			--dsp;
-		} else if( op == OP_PRINT ) {
+			return;
+		case OC_PRINT:
 			System.out.print(dataStack[--dsp]);
-		} else if( op == OP_PUSH_LITERAL_1 ) {
-			dataStack[dsp++] = program[ip++];
-		} else if( op == OP_PUSH_MARK ) {
+			return;
+		case OC_PUSH_MARK:
 			dataStack[dsp++] = MARK;
-		} else if( op == OP_QUIT ) {
+			return;
+		case OC_QUIT:
 			System.exit(0);
-			throw new RuntimeException("Can't get here");
-		} else if( op == OP_QUIT_WITH_CODE ) {
+			return;
+		case OC_QUIT_WITH_CODE:
 			System.exit(toInt(pop()));
 			throw new RuntimeException("Can't get here");
-		} else if( op == OP_RETURN ) {
+		case OC_RETURN:
 			ip = popR();
+			return;
 
-		} else if( op == OP_GET_INTERPRETER_INFO ) {
+		case OC_GET_INTERPRETER_INFO:
 			dataStack[dsp++] = NAME+"-v"+VERSION;
-		} else if( op == OP_PRINT_STACK_THUNKS ) {
+		case OC_PRINT_STACK_THUNKS:
 			System.out.println("# Stack ("+dsp+" items):");
 			for( int i=dsp; i-->0; ) {
 				System.out.println(toThunkString(dataStack[i]));
 			}
-		} else {
-			throw new RuntimeException("Invalid op at index "+(ip-1)+": "+op);
+		default:
+			throw new RuntimeException("Invalid op at index "+(ip-1)+": "+opCode);
 		}
 	}
 	
@@ -346,31 +409,36 @@ public class P0009 {
 	
 	protected void doDecodedOps(int decodedEnd) {
 		final int decodedBegin = programLength;
-		Object op = program[decodedBegin];
-		if( op == OP_OPEN_PROC ) {
+		int opCode = program[decodedBegin];
+		if( (opCode & HOC_OP_MASK) == HOC_FAKE ) switch( opCode ) {
+		case OC_OPEN_PROC:
 			if( procDepth > 0 ) {
-				program[programLength++] = OP_PUSH_LITERAL_1;
 				pushR(programLength++);
-				program[programLength++] = OP_JUMP;
 			}
 			pushR(programLength);
 			++procDepth;
-		} else if( op == OP_CLOSE_PROC ) {
+			return;
+		case OC_CLOSE_PROC:
 			Object proc = mkProcByAddress(popR());
 			--procDepth;
 			if( procDepth < 0 ) {
 				throw new RuntimeException("Procedure underflow");
 			}
-			program[programLength++] = OP_RETURN;
+			program[programLength++] = OC_RETURN;
 			if( procDepth > 0 ) {
+				int procObjId = addConstant(proc);
 				int fixupJumpIndex = popR();
-				program[fixupJumpIndex] = programLength;
-				program[programLength++] = OP_PUSH_LITERAL_1;
-				program[programLength++] = proc;
+				program[fixupJumpIndex] = mkOc(HOC_JUMP, programLength);
+				program[programLength++] = mkOc(HOC_PUSH_OBJ, procObjId);
 			} else {
 				dataStack[dsp++] = proc;
 			}
-		} else if( procDepth == 0 ) {
+			return;
+		default:
+			throw new RuntimeException("Unrecognized fake opcode: 0x"+Integer.toUnsignedString(opCode));
+		}
+		
+		if( procDepth == 0 ) {
 			// Temporarily extend the program to immediately run the decoded ops
 			// (this might not be the best way to do things!  Maybe instead there should be
 			// special negative instruction pointers to mean 'interpret next token', etc)
@@ -382,13 +450,6 @@ public class P0009 {
 			// Append decoded op to program
 			programLength = decodedEnd;
 		}
-	}
-	
-	public void doToken(String token) {
-		// Append decoded token to program,
-		// but leave program length
-		final int decodedEnd = decodeToken(token, program, programLength);
-		doDecodedOps(decodedEnd);
 	}
 	
 	protected Object get(String name) {
@@ -405,14 +466,21 @@ public class P0009 {
 		throw new RuntimeException("Don't know about "+name);
 	}
 
-	protected int parseTs34Op(String[] words, Object[] into, int offset) {
+	protected int parseTs34Op(String[] words, int[] into, int offset) {
 		String opName = words[0];
 		Object op = get(opName);
 		if( isSpecial(op) ) {
 			Object[] opDef = (Object[])op;
 			if( opDef[1] == ST_INTRINSIC_OP ) {
+				if( words.length > 1 ) {
+					throw new RuntimeException("Excessive arguments to op "+opName);
+				}
 				for( int i=2; i<opDef.length; ++i ) {
-					into[offset++] = opDef[i];
+					if( !(opDef[i] instanceof Integer) ) {
+						throw new RuntimeException("Elements after "+ST_INTRINSIC_OP+" should be integers; found a "+opDef[i].getClass()+" at iundex "+i);
+					}
+					int opCode = toInt(opDef[i]);
+					into[offset++] = opCode;
 				}
 				return offset;
 			} else if( opDef[1] == ST_INTRINSIC_OP_CONSTRUCTOR ) {
@@ -428,12 +496,18 @@ public class P0009 {
 					}
 					String name = words[1];
 					Object value = get(name);
-					if( words.length > 2 ) {
-						throw new RuntimeException(OPC_PUSH_VALUE+": encoded values not yet supported!");
+					// TODO: resolve the encoding URIs
+					if( words.length == 3 && P0009.DATATYPE_DECIMAL.equals(words[2]) ) {
+						value = Integer.valueOf(value.toString());
+					} else if( words.length > 2 ) {
+						throw new RuntimeException(OPC_PUSH_VALUE+": arbitrarily encoded values not yet supported!");
 					}
-					into[offset] = OP_PUSH_LITERAL_1;
-					into[offset+1] = toString(value);
-					return offset+2;
+					if( value instanceof Integer ) {
+						into[offset++] = mkLiteralIntOc((Integer)value);
+					} else {
+						into[offset++] = mkOc(HOC_PUSH_OBJ, addConstant(value));
+					}
+					return offset;
 					//return mkSpecial(ST_INTRINSIC_OP, OP_PUSH_LITERAL_1, toString(value));
 				} else {
 					throw new RuntimeException("Unrecognized intrinsic op constructor: "+opDef[2]);
@@ -464,6 +538,7 @@ public class P0009 {
 		doTs34Line(words);
 	}
 
+	@SuppressWarnings("unchecked")
 	protected static <A,B> Map<A,B> mapOf(A a, B b, Object...rest) {
 		Map<A,B> map = new HashMap<A,B>();
 		map.put(a, b);
@@ -473,36 +548,43 @@ public class P0009 {
 		return map;
 	}
 
+	static final int CONST_INDEX_MARK = 0;
+	static final int CONST_INDEX_NEWLINE = 1;
+	
 	protected static Map<String,?> STANDARD_DEFINITIONS = mapOf(
 		OPC_ALIAS          , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_ALIAS),
 		OPC_PUSH_VALUE     , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
-		OP_ARRAY_FROM_STACK, mkIntrinsic(OP_ARRAY_FROM_STACK),
-		OP_COUNT_TO_MARK   , mkIntrinsic(OP_COUNT_TO_MARK),
-		OP_CLOSE_PROC      , mkIntrinsic(OP_CLOSE_PROC),
-		OP_DUP             , mkIntrinsic(OP_DUP),
-		OP_EXCH            , mkIntrinsic(OP_EXCH),
-		OP_EXECUTE         , mkIntrinsic(OP_EXECUTE),
-		OP_GET_INTERPRETER_INFO, mkIntrinsic(OP_GET_INTERPRETER_INFO),
-		OP_OPEN_PROC       , mkIntrinsic(OP_OPEN_PROC),
-		OP_POP             , mkIntrinsic(OP_POP),
-		OP_PUSH_MARK       , mkIntrinsic(OP_PUSH_MARK),
-		OP_PRINT           , mkIntrinsic(OP_PRINT),
-		OP_PRINT_LINE      , mkIntrinsic(OP_PRINT, OP_PUSH_LITERAL_1, "\n", OP_PRINT),
-		OP_PRINT_STACK_THUNKS, mkIntrinsic(OP_PRINT_STACK_THUNKS),
-		OP_QUIT            , mkIntrinsic(OP_QUIT),
-		OP_QUIT_WITH_CODE  , mkIntrinsic(OP_QUIT_WITH_CODE)
+		OP_ARRAY_FROM_STACK, mkIntrinsic(OC_ARRAY_FROM_STACK),
+		OP_CONCAT_N        , mkIntrinsic(OC_CONCAT_N),
+		OP_COUNT_TO_MARK   , mkIntrinsic(OC_COUNT_TO_MARK),
+		OP_CLOSE_PROC      , mkIntrinsic(OC_CLOSE_PROC),
+		OP_DUP             , mkIntrinsic(OC_DUP),
+		OP_EXCH            , mkIntrinsic(OC_EXCH),
+		OP_EXECUTE         , mkIntrinsic(OC_EXECUTE),
+		OP_GET_INTERPRETER_INFO, mkIntrinsic(OC_GET_INTERPRETER_INFO),
+		OP_OPEN_PROC       , mkIntrinsic(OC_OPEN_PROC),
+		OP_POP             , mkIntrinsic(OC_POP),
+		OP_PUSH_MARK       , mkIntrinsic(mkOc(HOC_PUSH_OBJ, CONST_INDEX_MARK)),
+		OP_PRINT           , mkIntrinsic(OC_PRINT),
+		OP_PRINT_LINE      , mkIntrinsic(OC_PRINT, mkOc(HOC_PUSH_OBJ, CONST_INDEX_NEWLINE), OC_PRINT),
+		OP_PRINT_STACK_THUNKS, mkIntrinsic(OC_PRINT_STACK_THUNKS),
+		OP_QUIT            , mkIntrinsic(OC_QUIT),
+		OP_QUIT_WITH_CODE  , mkIntrinsic(OC_QUIT_WITH_CODE)
 	);
+	
+	public P0009() {
+		// Const 0 - the mark
+		addConstant(MARK, CONST_INDEX_MARK);
+		// Const 1 - newline string
+		addConstant("\n", CONST_INDEX_NEWLINE);
+	}
 	
 	public static void main(String[] args) throws Exception {
 		P0009 interpreter = new P0009();
 		interpreter.definitions.putAll(STANDARD_DEFINITIONS);
 		
 		for( int i=0; i<args.length; ++i ) {
-			if( "-t".equals(args[i]) ) {
-				for( ++i; i<args.length; ++i ) {
-					interpreter.doToken(args[i]);;
-				}
-			} else if( "--version".equals(args[i]) ) {
+			if( "--version".equals(args[i]) ) {
 				System.out.println(NAME+"-v"+VERSION);
 			} else if( args[i].startsWith("-") && !"-".equals(args[i]) ) {
 				System.err.println("Bad arg: "+args[i]);
@@ -517,6 +599,7 @@ public class P0009 {
 				interpreter.definitions.put("scriptFilePath", scriptFilePath);
 				BufferedReader fr = new BufferedReader("-".equals(scriptFilePath) ? new InputStreamReader(System.in) : new FileReader(scriptFilePath));
 				String line;
+				@SuppressWarnings("unused")
 				int lineIndex = 0;
 				while( (line = fr.readLine()) != null ) {
 					interpreter.doTs34Line(line);
