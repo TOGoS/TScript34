@@ -26,6 +26,14 @@ Resulting op pops the value from the top of the stack and unapplies the specifie
 in order, and pushes the resuling decoded value back onto the stack.
 
 
+=op-constructor http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo
+signature: -- InterpreterInfo
+
+Internal structure of InterpreterInfo not defined,
+but when stringified, should be a string containing name and version
+like "AcmeTS34Interpreter-v1.2.3"
+
+
 =op-constructor http://ns.nuke24.net/TScript34/Op/PushValue
 parameters: data encodingN encodingN-1 encodingN-2 ...
 signature: -- value

@@ -15,6 +15,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class P0009 {
+	public static String NAME = "TS34.9";
+	public static String VERSION = "0.0.1";
+
 	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
 	private static final Object SPECIAL_MARK = new Object();
 	
@@ -39,6 +42,7 @@ public class P0009 {
 	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
 	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
 	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
+	public static String OP_GET_INTERPRETER_INFO = "http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo";
 	public static String OP_POP = "http://ns.nuke24.net/TScript34/Ops/Pop";
 	public static String OP_PUSH_LITERAL_1 = "push-literal:1:0:1";
 	public static String OP_PUSH_MARK = "http://ns.nuke24.net/TScript34/Ops/PushMark";
@@ -275,7 +279,6 @@ public class P0009 {
 		} else if( op == OP_POP ) {
 			--dsp;
 		} else if( op == OP_PRINT ) {
-			if(true) throw new RuntimeException("Who called print?");
 			System.out.print(dataStack[--dsp]);
 		} else if( op == OP_PUSH_LITERAL_1 ) {
 			dataStack[dsp++] = program[ip++];
@@ -290,6 +293,8 @@ public class P0009 {
 		} else if( op == OP_RETURN ) {
 			ip = popR();
 
+		} else if( op == OP_GET_INTERPRETER_INFO ) {
+			dataStack[dsp++] = NAME+"-v"+VERSION;
 		} else if( op == OP_PRINT_STACK_THUNKS ) {
 			System.out.println("# Stack ("+dsp+" items):");
 			for( int i=dsp; i-->0; ) {
@@ -441,6 +446,7 @@ public class P0009 {
 		OPC_PUSH_VALUE     , mkSpecial(ST_INTRINSIC_OP_CONSTRUCTOR, OPC_PUSH_VALUE),
 		OP_ARRAY_FROM_STACK, mkIntrinsic(OP_ARRAY_FROM_STACK),
 		OP_COUNT_TO_MARK   , mkIntrinsic(OP_COUNT_TO_MARK),
+		OP_GET_INTERPRETER_INFO, mkIntrinsic(OP_GET_INTERPRETER_INFO),
 		OP_DUP             , mkIntrinsic(OP_DUP),
 		OP_EXCH            , mkIntrinsic(OP_EXCH),
 		OP_POP             , mkIntrinsic(OP_POP),
@@ -461,6 +467,8 @@ public class P0009 {
 				for( ++i; i<args.length; ++i ) {
 					interpreter.doToken(args[i]);;
 				}
+			} else if( "--version".equals(args[i]) ) {
+				System.out.println(NAME+"-v"+VERSION);
 			} else if( args[i].startsWith("-") && !"-".equals(args[i]) ) {
 				System.err.println("Bad arg: "+args[i]);
 				System.exit(1);
