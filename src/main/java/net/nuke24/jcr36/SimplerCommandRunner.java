@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
-	public static String VERSION = "JCR36.1.11-dev"; // Bump to 36.1.x for 'simpler' (one-class) version
+	public static String VERSION = "JCR36.1.12"; // Bump to 36.1.x for 'simpler' (one-class) version
 	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
@@ -70,6 +70,22 @@ public class SimplerCommandRunner {
 		return name;
 	}
 	
+	public static void doJcrExit(String[] args, int i) {
+		int code;
+		if( args.length == i ) {
+			code = 0;
+		} else if( args.length == i+1 ) {
+			try {
+				code = Integer.parseInt(args[i]);
+			} catch( NumberFormatException e ) {
+				throw new RuntimeException("jcr:exit: Failed to parse '"+args[i]+"' as integer", e);
+			}
+		} else {
+			throw new RuntimeException("Too many arguments to jcr:exit: "+quoteArr(slice(args,i,String.class)));
+		}
+		System.exit(code);
+	}
+	
 	public static void doJcrPrint(String[] args, int i) {
 		String sep = " ";
 		String suffix = "\n";
@@ -117,8 +133,14 @@ public class SimplerCommandRunner {
 		"Usage: jcr36 [jcr:run] [<k>=<v> ...] [--] <command> [<arg> ...]\n"+
 		"\n"+
 		"Commands:\n"+
-		"  jcr:run [<k>=<v> ...] <command> [<arg> ...] ; set environment variables and run the specified sub-command\n"+
-		"  jcr:print [-n] [--] [<word> ...]            ; print words; -n to omit trailing newline\n";
+		"  # Set environment variables and run the specified sub-command:\n"+
+		"  jcr:run [<k>=<v> ...] <command> [<arg> ...]\n"+
+		"  \n"+
+		"  # print words; -n to omit otherwise-implicit trailing newline:\n"+
+		"  jcr:print [-n] [--] [<word> ...]\n"+
+		"  \n"+
+		"  # Exit with status code:\n"+
+		"  jrc:exit [<code>]";
 	
 	public static void doJcrDoCmd(String[] args, int i, Map<String,String> parentEnv) {
 		Map<String,String> env = parentEnv;
@@ -133,15 +155,20 @@ public class SimplerCommandRunner {
 				return;
 			} else if( "--version".equals(args[i]) ) {
 				doJcrPrint(new String[] { VERSION }, 0);
+				return;
 			} else if( "--help".equals(args[i]) ) {
 				doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0);
+				return;
 			} else if( args[i].startsWith("-") ) {
 				System.err.println("Unrecognized option: "+quote(args[i]));
-			} else if( "jcr:run".equals(args[i]) ) {
-				// Basically a no-op!
+			} else if( "jcr:exit".equals(args[i]) ) {
+				doJcrExit(args, i+1);
+				return;
 			} else if( "jcr:print".equals(args[i]) ) {
 				doJcrPrint(args, i+1);
 				return;
+			} else if( "jcr:run".equals(args[i]) ) {
+				// Basically a no-op!
 			} else {
 				doSysProc(args, i, env);
 			}
