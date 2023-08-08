@@ -5,10 +5,11 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
-	public static String VERSION = "JCR36.1.12"; // Bump to 36.1.x for 'simpler' (one-class) version
+	public static String VERSION = "JCR36.1.14"; // Bump to 36.1.x for 'simpler' (one-class) version
 	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
@@ -86,12 +87,17 @@ public class SimplerCommandRunner {
 		System.exit(code);
 	}
 	
+	static final Pattern OFS_PAT = Pattern.compile("^--ofs=(.*)$");
+	
 	public static void doJcrPrint(String[] args, int i) {
-		String sep = " ";
+		String ofs = " "; // Output field separator, i.e. OFS in AWK
 		String suffix = "\n";
+		Matcher m;
 		for( ; i<args.length; ++i ) {
 			if( "-n".equals(args[i]) ) {
 				suffix = "";
+			} else if( (m = OFS_PAT.matcher(args[i])).matches() ) {
+				ofs = m.group(1);
 			} else if( "--".equals(args[i]) ) {
 				++i;
 				break;
@@ -105,7 +111,7 @@ public class SimplerCommandRunner {
 		for( ; i<args.length; ++i ) {
 			System.out.print(_sep);
 			System.out.print(args[i]);
-			_sep = sep;
+			_sep = ofs;
 		}
 		System.out.print(suffix);
 	}
@@ -136,8 +142,9 @@ public class SimplerCommandRunner {
 		"  # Set environment variables and run the specified sub-command:\n"+
 		"  jcr:run [<k>=<v> ...] <command> [<arg> ...]\n"+
 		"  \n"+
-		"  # print words; -n to omit otherwise-implicit trailing newline:\n"+
-		"  jcr:print [-n] [--] [<word> ...]\n"+
+		"  # print words, separated by <separator> (defauls: one space);\n"+
+		"  # -n to omit otherwise-implicit trailing newline:\n"+
+		"  jcr:print [-n] [--ofs=<separator>] [--] [<word> ...]\n"+
 		"  \n"+
 		"  # Exit with status code:\n"+
 		"  jrc:exit [<code>]";
