@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
+	public static String VERSION = "JCR36.1.10"; // Bump to 0.1.x for 'simpler' (one-class) version
+	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
 	protected static String quote(String s) {
@@ -50,7 +52,7 @@ public class SimplerCommandRunner {
 		return slice(arr, offset, arr.length-offset, elementClass);
 	}
 	
-	protected static String resolveProgram(String name, Map<String,String> env) {		
+	protected static String resolveProgram(String name, Map<String,String> env) {
 		String pathSepRegex = Pattern.quote(File.pathSeparator);
 		
 		String pathsStr = env.get("PATH");
@@ -112,6 +114,13 @@ public class SimplerCommandRunner {
 		}
 	}
 	
+	protected static String HELP_TEXT =
+		"Usage: jcr36 [jcr:run] [<k>=<v> ...] [--] <command> [<arg> ...]\n"+
+		"\n"+
+		"Commands:\n"+
+		"  jcr:run [<k>=<v> ...] <command> [<arg> ...] ; set environment variables and run the specified sub-command\n"+
+		"  jcr:print [-n] [--] [<word> ...]            ; print words; -n to omit trailing newline\n";
+	
 	public static void doJcrDoCmd(String[] args, int i, Map<String,String> parentEnv) {
 		Map<String,String> env = parentEnv;
 		
@@ -123,6 +132,10 @@ public class SimplerCommandRunner {
 			} else if( "--".equals(args[i]) ) {
 				doJcrDoCmd(args, i+1, env);
 				return;
+			} else if( "--version".equals(args[i]) ) {
+				doJcrPrint(new String[] { VERSION }, 0);
+			} else if( "--help".equals(args[i]) ) {
+				doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0);
 			} else if( args[i].startsWith("-") ) {
 				System.err.println("Unrecognized option: "+quote(args[i]));
 			} else if( "jcr:run".equals(args[i]) ) {
