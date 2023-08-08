@@ -4,12 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
-	public static String VERSION = "JCR36.1.10"; // Bump to 0.1.x for 'simpler' (one-class) version
+	public static String VERSION = "JCR36.1.11-dev"; // Bump to 36.1.x for 'simpler' (one-class) version
 	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
