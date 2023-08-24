@@ -20,7 +20,14 @@
   enough with this project, and I already have enough stray Java repos around.
   - Status: does some basic stuff
 - [[./P0009/][P0009]] :: Single-class Java implementation of TScript34.2 interpreter
+  - Program encoded as int[] with a table of Object[] constants
+  - Stack is Object[], with Object[] { SPECIAL_MARKER, tag, ... } used to denote
+    non-literal values (i.e. values represented in an indirect way, e.g.
+    'value of expression X', '
   - Status: Concept proved, has some unit tests.
+  - May be expanded upon to provide more operations,
+    though I would still like to keep the core very small,
+    so need to come up with some extension mechanism.
 
 ** Language
 
