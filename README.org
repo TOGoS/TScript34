@@ -20,7 +20,7 @@
   enough with this project, and I already have enough stray Java repos around.
   - Status: does some basic stuff
 - [[./P0009/][P0009]] :: Single-class Java implementation of TScript34.2 interpreter
-  - Status: Proposed
+  - Status: Concept proved, has some unit tests.
 
 ** Language
 

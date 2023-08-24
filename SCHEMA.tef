@@ -1,6 +1,4 @@
-
 This file is documentation of named concepts related to TScript34 and subprojects.
-
 
 =op-constructor http://ns.nuke24.net/TScript34/Op/Alias
 parameters: targetName originalName
@@ -24,6 +22,14 @@ signature: encoded-value -- value
 
 Resulting op pops the value from the top of the stack and unapplies the specified encodings,
 in order, and pushes the resuling decoded value back onto the stack.
+
+
+=op-constructor http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo
+signature: -- InterpreterInfo
+
+Internal structure of InterpreterInfo not defined,
+but when stringified, should be a string containing name and version
+like "AcmeTS34Interpreter-v1.2.3"
 
 
 =op-constructor http://ns.nuke24.net/TScript34/Op/PushValue
@@ -182,8 +188,16 @@ Pushes 'the mark' (as used by CountToMark) onto the stack.
 
 
 =op http://ns.nuke24.net/TScript34/Ops/Quit
+signature: --
 
 Quit the program.
+In practice this is probably a 'throw QuitException'.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/QuitWithCode
+signature: code --
+
+Quit the program with the specified status code.
 In practice this is probably a 'throw QuitException'.
 
 

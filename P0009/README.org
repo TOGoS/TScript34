@@ -1,0 +1,75 @@
+#+TITLE: TScript34 P0009
+
+Based on P0006.  P0006 was nice and simple and I didn't want to pollute it.
+This one I can pollute.
+
+First goal: Become self-hosting.
+As in able to run a script that makes directories,
+runs processes, and checks that they return with code 0.
+
+In the meantime, to run tests on Windows:
+
+#+begin_src bat
+mkdir target\classes & javac -d target\classes src\main\java\net\nuke24\tscript34\p0009\P0009.java src\test\java\net\nuke24\tscript34\p0009\P0009Test.java && java -cp target\classes net.nuke24.tscript34.p0009.P0009Test
+#+end_src
+
+** Tasks
+
+*** TODO Run processes
+
+#+begin_src ps
+[ "command" "arg1" ... ] % argv; list of strings
+env % a map
+pwd % current working dir, as string
+[
+	stdin
+	stdout
+	stderr
+] % I/O streams to be used by the spawned process
+process-builder/create5
+process-builder/start-process
+process/get-pid % get PID of running process
+process/wait % wait for process to exit, pushes a process result object
+process-result/get-exit-code % get exit code of completed process
+#+end_src
+
+Or something.
+
+*** TODO Compile self
+
+Such that I can run a script:
+
+#+begin_src sh
+java -jar TS34.9.jar build.ts34
+#+end_src
+
+that will, on Linux or Windows,
+recompile class files,
+run the unit tests,
+and build a jar file.
+
+*** TODO Compile self incrementally
+
+i.e. only rebuild when sources have changed
+
+Can use that make.php project (called 'PHPXMLEmitter')
+to generate the script if that's easier.
+
+** Completed Tasks
+
+*** DONE Replace string opcodes with a nice compact int[] format
+
+In order to ~switch~ instead of if-else chain for interpreting compiled ops
+
+*** DONE Include a version number
+
+#+begin_src ts34
+# This ts34 script will do the job
+http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo
+http://ns.nuke24.net/TScript34/Ops/PrintLine
+#+end_src
+
+#+begin_src sh
+# Alternatively (assuming ts34.9 is aliased to some java command to run it):
+ts34.9 --version
+#+end_src
