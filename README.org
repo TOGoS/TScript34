@@ -28,6 +28,10 @@
   - May be expanded upon to provide more operations,
     though I would still like to keep the core very small,
     so need to come up with some extension mechanism.
+ - [[./P0010/][P0010]] :: Java classes to formalize schemas
+   for 'indirect value' / 'thunk' / 'meaning-tagged value' objects
+ - [[./P0011/][P0011]] :: Hopefully-more-minimal-than-P0005 lisp-in-Java, because
+   I still want one, and P0005 got bogged down with continuation stuff.
 
 ** Language
 
