@@ -33,6 +33,14 @@
  - [[./P0011/][P0011]] :: Hopefully-more-minimal-than-P0005 lisp-in-Java, because
    I still want one, and P0005 got bogged down with continuation stuff.
 
+** OIDs
+
+- 1.3.6.1.4.1.44868.261.34 :: This project
+- 1.3.6.1.4.1.44868.261.34.n :: Sub-project ~t~
+- 1.3.6.1.4.1.44868.261.34.10.t :: Indirect value representation ~t~;
+  see [[./P0010/src/main/java/net/nuke24/tscript34/p0010/IndirectValueTags.java]]
+  for the list of tags!
+
 ** Language
 
 I should probably specify it, huh?
