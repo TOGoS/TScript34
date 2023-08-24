@@ -1,0 +1,192 @@
+
+This file is documentation of named concepts related to TScript34 and subprojects.
+
+
+=op-constructor http://ns.nuke24.net/TScript34/Op/Alias
+parameters: targetName originalName
+signature: --
+
+Adds a new definition to the dictionary, named as the raw first operand,
+mapped to the same value as that of the second operand.
+
+
+=op-constructor http://ns.nuke24.net/TScript34/Op/Encode
+parameters: encoding ...
+signature: value -- encoded-value
+
+Resulting op pops the value from the top of the stack and applies the specified encodings,
+in order, and pushes the resuling encoded value back onto the stack.
+
+
+=op-constructor http://ns.nuke24.net/TScript34/Op/Decode
+parameters: encoding ...
+signature: encoded-value -- value
+
+Resulting op pops the value from the top of the stack and unapplies the specified encodings,
+in order, and pushes the resuling decoded value back onto the stack.
+
+
+=op-constructor http://ns.nuke24.net/TScript34/Op/PushValue
+parameters: data encodingN encodingN-1 encodingN-2 ...
+signature: -- value
+
+Pushes a value onto the stack that is described by $data (first parameter)
+and then decoded according each encoding in turn.
+
+Note that in the TS34.2 language, every op parameter is a URI, including the first one!
+
+e.g. 
+
+  http://ns.nuke24.net/TScript34/Op/PushValue data:,123 http://www.w3.org/2001/XMLSchema#decimal
+
+would push the integer value 123 onto the stack, while
+
+  http://ns.nuke24.net/TScript34/Op/PushValue data:,123
+
+would push the string (or byte squence) "123" onto the stack.
+
+A somewhat contrived example using multiple encodings:
+
+  http://ns.nuke24.net/TScript34/Op/PushValue data:,data%3A%2C123 http://ns.nuke24.net/Datatypes/URIResource http://www.w3.org/2001/XMLSchema#decimal
+
+Pushes the integer 123 to the stack.  (i.e. `decodeDecimal(fetchUri(fetchUri("data:,data%3A%2C123")))`)
+
+
+=op http://ns.nuke24.net/TScript34/Ops/CloseProcedure
+signature: -- procedureRef
+
+Ends the currently-being-appended-to procedure (adding an implicit return)
+and pushes a reference to it onto the stack
+(or adds an op that does so to the containing procedure, if there is one).
+
+
+=op http://ns.nuke24.net/TScript34/Ops/CountToMark
+signature: -- count
+
+Counts the number of elements between the mark and the top of the stack.
+Throws an error if there is no mark.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/ArrayFromStack
+signature: item1 item2 ... itemN n -- array
+
+Takes N items from the stack (N+1 including N itself) and creates an array of them.
+The topmost stack item becomes the last element of the array.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/DictFromStack
+signature: key1 value1 ... value(N/2) n -- array
+
+Takes N items from the stack (N+1 including N itself) and creates a dictionary
+where alternating stack items are keys and values.
+Since N is the total number of items (not including itself) to be taken
+from the stack, it must be even.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Define
+signature: value name --
+
+Adds a new entry to the interpreter's dictionary.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Dup
+signature: x -- x x
+
+Duplicates the top stack item.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/PrintStackThunks
+signature: --
+output: the stack, top to bottom, showing values as they are stored in memory
+
+Unstable!  For debugging!  Implementation-dependent!
+
+Prints a representation of each item's actual [meta]data, starting at the top of the stack.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Exch
+signature: x y -- y x
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Exec
+signature: executable -- ?
+
+Pops an object from the stack and executes it.
+The object may be an op, procedure, or other object with similar
+('alter the interpreter state somehow') semantics.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/FetchUri
+signature: uri -- value
+
+Pops a URI from the stack and pushes the value named by that URI.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/FlattenStringList
+signature: list-of-strings -- one-long-string
+
+Pops a list of strings from the stack and pushes the concatenation of
+all items in the list.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/ForEach
+signature: collection proc -- ?
+
+For each element of the collection, pushes that element onto the top of the stack
+and then executes $proc.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/GetElement
+signature: collection key -- item
+
+Pushes the value from the collection keyed by $key onto the stack.
+
+Throws an error if the collection does not contain the specified key.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/OpenProcedure
+signature: --
+
+Start defining a new procedure.  Procedure definitions may be nested.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Pop
+signature: value --
+
+Pops the top value from the stack and discards it.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Print
+signature: value --
+output: some string representation of $value
+
+Prints the value to the output stream.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/PrintAsPostScriptSource
+signature: value --
+output: PostScript source representation of $value, followed by a newline
+
+
+=op http://ns.nuke24.net/TScript34/Ops/PrintLine
+signature: value --
+output: some string representation of $value, followed by a newline
+
+Prints the value to the output stream, followed by a newline.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/PushMark
+signature: -- mark
+
+Pushes 'the mark' (as used by CountToMark) onto the stack.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/Quit
+
+Quit the program.
+In practice this is probably a 'throw QuitException'.
+
+
+=datatype http://www.w3.org/2001/XMLSchema#decimal
+=datatype http://ns.nuke24.net/TScript34/Datatypes/Symbol
+=datatype http://ns.nuke24.net/Datatypes/URIResource

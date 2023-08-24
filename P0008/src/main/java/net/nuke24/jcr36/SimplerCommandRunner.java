@@ -4,11 +4,13 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
+	public static String VERSION = "JCR36.1.14"; // Bump to 36.1.x for 'simpler' (one-class) version
+	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
 	protected static String quote(String s) {
@@ -50,7 +52,7 @@ public class SimplerCommandRunner {
 		return slice(arr, offset, arr.length-offset, elementClass);
 	}
 	
-	protected static String resolveProgram(String name, Map<String,String> env) {		
+	protected static String resolveProgram(String name, Map<String,String> env) {
 		String pathSepRegex = Pattern.quote(File.pathSeparator);
 		
 		String pathsStr = env.get("PATH");
@@ -69,12 +71,33 @@ public class SimplerCommandRunner {
 		return name;
 	}
 	
+	public static void doJcrExit(String[] args, int i) {
+		int code;
+		if( args.length == i ) {
+			code = 0;
+		} else if( args.length == i+1 ) {
+			try {
+				code = Integer.parseInt(args[i]);
+			} catch( NumberFormatException e ) {
+				throw new RuntimeException("jcr:exit: Failed to parse '"+args[i]+"' as integer", e);
+			}
+		} else {
+			throw new RuntimeException("Too many arguments to jcr:exit: "+quoteArr(slice(args,i,String.class)));
+		}
+		System.exit(code);
+	}
+	
+	static final Pattern OFS_PAT = Pattern.compile("^--ofs=(.*)$");
+	
 	public static void doJcrPrint(String[] args, int i) {
-		String sep = " ";
+		String ofs = " "; // Output field separator, i.e. OFS in AWK
 		String suffix = "\n";
+		Matcher m;
 		for( ; i<args.length; ++i ) {
 			if( "-n".equals(args[i]) ) {
 				suffix = "";
+			} else if( (m = OFS_PAT.matcher(args[i])).matches() ) {
+				ofs = m.group(1);
 			} else if( "--".equals(args[i]) ) {
 				++i;
 				break;
@@ -88,7 +111,7 @@ public class SimplerCommandRunner {
 		for( ; i<args.length; ++i ) {
 			System.out.print(_sep);
 			System.out.print(args[i]);
-			_sep = sep;
+			_sep = ofs;
 		}
 		System.out.print(suffix);
 	}
@@ -112,6 +135,20 @@ public class SimplerCommandRunner {
 		}
 	}
 	
+	protected static String HELP_TEXT =
+		"Usage: jcr36 [jcr:run] [<k>=<v> ...] [--] <command> [<arg> ...]\n"+
+		"\n"+
+		"Commands:\n"+
+		"  # Set environment variables and run the specified sub-command:\n"+
+		"  jcr:run [<k>=<v> ...] <command> [<arg> ...]\n"+
+		"  \n"+
+		"  # print words, separated by <separator> (defauls: one space);\n"+
+		"  # -n to omit otherwise-implicit trailing newline:\n"+
+		"  jcr:print [-n] [--ofs=<separator>] [--] [<word> ...]\n"+
+		"  \n"+
+		"  # Exit with status code:\n"+
+		"  jrc:exit [<code>]";
+	
 	public static void doJcrDoCmd(String[] args, int i, Map<String,String> parentEnv) {
 		Map<String,String> env = parentEnv;
 		
@@ -123,13 +160,22 @@ public class SimplerCommandRunner {
 			} else if( "--".equals(args[i]) ) {
 				doJcrDoCmd(args, i+1, env);
 				return;
+			} else if( "--version".equals(args[i]) ) {
+				doJcrPrint(new String[] { VERSION }, 0);
+				return;
+			} else if( "--help".equals(args[i]) ) {
+				doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0);
+				return;
 			} else if( args[i].startsWith("-") ) {
 				System.err.println("Unrecognized option: "+quote(args[i]));
-			} else if( "jcr:run".equals(args[i]) ) {
-				// Basically a no-op!
+			} else if( "jcr:exit".equals(args[i]) ) {
+				doJcrExit(args, i+1);
+				return;
 			} else if( "jcr:print".equals(args[i]) ) {
 				doJcrPrint(args, i+1);
 				return;
+			} else if( "jcr:run".equals(args[i]) ) {
+				// Basically a no-op!
 			} else {
 				doSysProc(args, i, env);
 			}
