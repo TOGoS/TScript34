@@ -1,5 +1,6 @@
 package net.nuke24.tscript34.p0011;
 
+import java.io.PrintStream;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Random;
@@ -94,6 +95,11 @@ public class TokenizerTest extends TestCase {
 		};
 	};
 	
+	PrintStream debugStream;
+	@Override public void setUp() {
+		//this.debugStream = System.err;
+	}
+	
 	public void testBasicTokenization() {
 		DucerData<CharSequence, Token[]> s = new Tokenizer(new TestCharDecoder()).process("", false);
 		s = s.process("(", true);
@@ -104,7 +110,7 @@ public class TokenizerTest extends TestCase {
 	protected <O>
 	DucerData<CharSequence, O[]>
 	processChunked( DucerData<CharSequence, O[]> s, CharSequence input, boolean endOfInput, int seed ) {
-		System.err.println();
+		if(debugStream != null) debugStream.println();
 		Random r = new Random(seed);
 		StringBuilder remainingInput = new StringBuilder();
 		ArrayList<O> outputs = new ArrayList<O>();
@@ -114,7 +120,7 @@ public class TokenizerTest extends TestCase {
 			int chunkEnd = offset+chunkLen;
 			boolean chunkIsEndOfInput = endOfInput && chunkEnd == input.length();
 			CharSequence chunk = input.subSequence(offset, chunkEnd);
-			System.err.println("Chunk: \""+chunk+"\"");
+			if(debugStream != null) debugStream.println("Chunk: \""+chunk+"\"");
 			s = s.process(chunk, chunkIsEndOfInput);
 			for( int i=0; i<s.output.length; ++i ) {
 				outputs.add(s.output[i]);
@@ -147,8 +153,8 @@ public class TokenizerTest extends TestCase {
 		String expectedStr = arrayToString(expected);
 		String actualStr = arrayToString(actual);
 		if( !expected.equals(actualStr) ) {
-			System.err.println("Expected: "+expectedStr);
-			System.err.println("Actual  : "+actualStr);
+			if(debugStream != null) debugStream.println("Expected: "+expectedStr);
+			if(debugStream != null) debugStream.println("Actual  : "+actualStr);
 		}
 		assertEquals(expected.length, actual.length);
 		for( int i=0; i<expected.length; ++i ) {
@@ -158,7 +164,7 @@ public class TokenizerTest extends TestCase {
 	
 	protected void testTokenizesTo(Token[] expected, String text) {
 		for( int seed=0; seed<10; ++seed ) {
-			DucerData<CharSequence, Token[]> s = new Tokenizer(new TestCharDecoder()).process("", false);
+			DucerData<CharSequence, Token[]> s = new Tokenizer(new TestCharDecoder()).withDebugStream(debugStream).process("", false);
 			s = processChunked(s, text, true, seed);
 			assertArrayEquals(expected, s.output);
 		}

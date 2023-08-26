@@ -1,5 +1,6 @@
 package net.nuke24.tscript34.p0011;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -100,14 +101,20 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 	final int acc;
 	final int mode;
 	final CharDecoder charDecoder;
-	public Tokenizer(String textBuffer, int acc, int mode, CharDecoder charDecoder) {
+	final PrintStream debugStream;
+	public Tokenizer(String textBuffer, int acc, int mode, CharDecoder charDecoder, PrintStream debugStream) {
 		this.textBuffer = textBuffer;
 		this.acc = acc;
 		this.mode = mode;
 		this.charDecoder = charDecoder;
+		this.debugStream = debugStream;
 	}
 	public Tokenizer(CharDecoder charDecoder) {
-		this("", 0, 0, charDecoder);
+		this("", 0, 0, charDecoder, null);
+	}
+	
+	public Tokenizer withDebugStream(PrintStream debugStream) {
+		return new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream);
 	}
 	
 	@Override
@@ -122,11 +129,11 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 			if( i >= input.length() && !endOfInput ) break;
 			
 			int c = i >= input.length() ? -1 : input.charAt(i++);
-			System.err.println("Handling "+(c == -1 ? "EOF" : "char: '"+(char)c+"'"));
+			if(debugStream != null) debugStream.println("Handling "+(c == -1 ? "EOF" : "char: '"+(char)c+"'"));
 			int[] ops = this.charDecoder.decode(mode, c);
 			for( int ic=0; ic >= 0 && ic < ops.length; ) {
 				int op = ops[ic++];
-				System.err.println("Doing op["+(ic-1)+"]: 0x"+Integer.toHexString(op));
+				if(debugStream != null) debugStream.println("Doing op["+(ic-1)+"]: 0x"+Integer.toHexString(op));
 				switch( op & OPMASK_I ) {
 				case OP_APPEND_CHAR  : textBuffer += (char)c    ; break;
 				case OP_APPEND_DATA  : textBuffer += (char)opData(op) ; break;
@@ -147,11 +154,11 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 					throw new RuntimeException("Bad tokenizer opcode: 0x"+Integer.toHexString(op));
 				}
 			}
-			System.err.println("Mode = "+mode);
+			if(debugStream != null) debugStream.println("Mode = "+mode);
 		}
 		
 		return new DucerData<CharSequence, Token[]>(
-			new Tokenizer(textBuffer, acc, mode, charDecoder),
+			new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream),
 			input.subSequence(i, input.length()).toString(),
 			resultTokens.toArray(EMPTY_TOKEN_LIST),
 			mode == MODE_END
