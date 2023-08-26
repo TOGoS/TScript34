@@ -16,6 +16,8 @@ public class TokenizerTest extends TestCase {
 		static final int MODE_DELIMITER = 1;
 		static final int MODE_BAREWORD = 2;
 		static final int MODE_LINE_COMMENT = 3;
+		static final int MODE_QUOTED = 4;
+		static final int MODE_QUOTED_ESCAPE = 5;
 		static final int MODE_END = Tokenizer.MODE_END;
 		
 		// INIT mode ops
@@ -24,14 +26,17 @@ public class TokenizerTest extends TestCase {
 			"mode = "+MODE_INIT,
 		});
 		static final int[] OPS_DELIMITER = Tokenizer.compileOps(new String[] {
-			"acc = buffer.length",
-			"if acc != 0 {",
-			"  flush-token",
-			"}",
+			//"acc = buffer.length",
+			//"if acc != 0 {",
+			//"  flush-token",
+			//"}",
 			"mode = "+MODE_DELIMITER,
 			"buffer.append current-char",
 			"flush-token",
 			"mode = "+MODE_INIT,
+		});
+		static final int[] OPS_QUOTE = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_QUOTED,
 		});
 		static final int[] OPS_BAREWORD = Tokenizer.compileOps(new String[] {
 			"mode = "+MODE_BAREWORD,
@@ -41,17 +46,34 @@ public class TokenizerTest extends TestCase {
 			"mode = "+MODE_LINE_COMMENT,
 		});
 		
-		static final int[] OPS_BAREWORD_CHAR = Tokenizer.compileOps(new String[] {
+		static final int[] OPS_APPEND_CHAR = Tokenizer.compileOps(new String[] {
 			"buffer.append current-char",
+		});
+		static final int[] OPS_APPEND_CHAR_AND_RETURN_TO_QUOTED = Tokenizer.compileOps(new String[] {
+			"buffer.append current-char",
+			"mode = "+MODE_QUOTED
 		});
 		static final int[] OPS_BAREWORD_TO_WHITESPACE = Tokenizer.compileOps(new String[] {
 			"flush-token",
 			"mode = "+MODE_INIT,
 		});
+		static final int[] OPS_BAREWORD_TO_QUOTED = Tokenizer.compileOps(new String[] {
+			"flush-token",
+			"mode = "+MODE_QUOTED,
+		});
 		static final int[] OPS_BAREWORD_TO_END = Tokenizer.compileOps(new String[] {
 			"flush-token",
 			"mode = "+MODE_END,
 		});
+		
+		static final int[] OPS_QUOTED_ESCAPE = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_QUOTED_ESCAPE,
+		});
+		static final int[] OPS_END_QUOTE = Tokenizer.compileOps(new String[] {
+			"flush-token",
+			"mode = "+MODE_INIT,
+		});	
+		
 		static final int[] OPS_END = Tokenizer.compileOps(new String[] {
 			"mode = "+MODE_END,
 		});
@@ -66,6 +88,8 @@ public class TokenizerTest extends TestCase {
 					return OPS_NONE;
 				case '(': case ')':
 					return OPS_DELIMITER;
+				case '"':
+					return OPS_QUOTE;
 				case -1:
 					return OPS_END;
 				default:
@@ -75,10 +99,28 @@ public class TokenizerTest extends TestCase {
 				switch( character ) {
 				case ' ': case '\t': case '\r': case '\n':
 					return OPS_BAREWORD_TO_WHITESPACE;
+				case '"':
+					return OPS_BAREWORD_TO_QUOTED;
 				case -1:
 					return OPS_BAREWORD_TO_END;
 				default:
-					return OPS_BAREWORD_CHAR;
+					return OPS_APPEND_CHAR;
+				}
+			case MODE_QUOTED:
+				switch( character ) {
+				case '"':
+					return OPS_END_QUOTE;
+				case '\\':
+					return OPS_QUOTED_ESCAPE;
+				default:
+					return OPS_APPEND_CHAR;
+				}
+			case MODE_QUOTED_ESCAPE:
+				switch( character ) {
+				case '"': case '\\':
+					return OPS_APPEND_CHAR_AND_RETURN_TO_QUOTED;
+				default:
+					throw new RuntimeException("Unrecognized escape sequence: \"\\"+(char)character+"\"");
 				}
 			case MODE_LINE_COMMENT:
 				switch( character ) {
@@ -152,9 +194,9 @@ public class TokenizerTest extends TestCase {
 	protected <T> void assertArrayEquals(T[] expected, T[] actual) {
 		String expectedStr = arrayToString(expected);
 		String actualStr = arrayToString(actual);
-		if( !expected.equals(actualStr) ) {
-			if(debugStream != null) debugStream.println("Expected: "+expectedStr);
-			if(debugStream != null) debugStream.println("Actual  : "+actualStr);
+		if( !expectedStr.equals(actualStr) ) {
+			System.err.println("Expected: "+expectedStr);
+			System.err.println("Actual  : "+actualStr);
 		}
 		assertEquals(expected.length, actual.length);
 		for( int i=0; i<expected.length; ++i ) {
@@ -209,6 +251,26 @@ public class TokenizerTest extends TestCase {
 		},
 			"#!/bin/foobar\n" +
 			"(foo . (bar . ()))\n"
+		);
+	}
+	public void testTokenizeQuotedString() {
+		testTokenizesTo(new Token[] {
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("foo (bar)",TestCharDecoder.MODE_QUOTED),
+			new Token(")",TestCharDecoder.MODE_DELIMITER),
+		},
+			"#!/bin/foobar\n" +
+			"(\"foo (bar)\")"
+		);
+	}
+	public void testTokenizeQuotedStringWithEscape() {
+		testTokenizesTo(new Token[] {
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("foo \"(bar)\"",TestCharDecoder.MODE_QUOTED),
+			new Token(")",TestCharDecoder.MODE_DELIMITER),
+		},
+			"#!/bin/foobar\n" +
+			"(\"foo \\\"(bar)\\\"\")"
 		);
 	}
 }
