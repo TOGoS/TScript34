@@ -14,9 +14,14 @@ public class TokenizerTest extends TestCase {
 		static final int MODE_INIT = Tokenizer.MODE_DEFAULT;
 		static final int MODE_DELIMITER = 1;
 		static final int MODE_BAREWORD = 2;
+		static final int MODE_LINE_COMMENT = 3;
 		static final int MODE_END = Tokenizer.MODE_END;
 		
+		// INIT mode ops
 		static final int[] OPS_NONE = new int[0];
+		static final int[] OPS_INIT = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_INIT,
+		});
 		static final int[] OPS_DELIMITER = Tokenizer.compileOps(new String[] {
 			"acc = buffer.length",
 			"if acc != 0 {",
@@ -27,11 +32,15 @@ public class TokenizerTest extends TestCase {
 			"flush-token",
 			"mode = "+MODE_INIT,
 		});
-		static final int[] OPS_BAREWORD_CHAR = Tokenizer.compileOps(new String[] {
+		static final int[] OPS_BAREWORD = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_BAREWORD,
 			"buffer.append current-char",
 		});
-		static final int[] OPS_INIT_TO_BAREWORD = Tokenizer.compileOps(new String[] {
-			"mode = "+MODE_BAREWORD,
+		static final int[] OPS_LINE_COMMENT = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_LINE_COMMENT,
+		});
+		
+		static final int[] OPS_BAREWORD_CHAR = Tokenizer.compileOps(new String[] {
 			"buffer.append current-char",
 		});
 		static final int[] OPS_BAREWORD_TO_WHITESPACE = Tokenizer.compileOps(new String[] {
@@ -45,28 +54,39 @@ public class TokenizerTest extends TestCase {
 		static final int[] OPS_END = Tokenizer.compileOps(new String[] {
 			"mode = "+MODE_END,
 		});
-
+		
 		public int[] decode(int mode, int character) {
 			switch(mode) {
 			case MODE_INIT:
 				switch( character ) {
-				case ' ': case '\t':
+				case '#':
+					return OPS_LINE_COMMENT;
+				case ' ': case '\t': case '\r': case '\n':
 					return OPS_NONE;
-				case '(':
+				case '(': case ')':
 					return OPS_DELIMITER;
 				case -1:
 					return OPS_END;
 				default:
-					return OPS_INIT_TO_BAREWORD;
+					return OPS_BAREWORD;
 				}
 			case MODE_BAREWORD:
 				switch( character ) {
-				case ' ': case '\t':
+				case ' ': case '\t': case '\r': case '\n':
 					return OPS_BAREWORD_TO_WHITESPACE;
 				case -1:
 					return OPS_BAREWORD_TO_END;
 				default:
 					return OPS_BAREWORD_CHAR;
+				}
+			case MODE_LINE_COMMENT:
+				switch( character ) {
+				case '\n':
+					return OPS_INIT;
+				case -1:
+					return OPS_END;
+				default:
+					return OPS_NONE;
 				}
 			default:
 				throw new RuntimeException("Unknown mode: "+mode);
@@ -111,13 +131,78 @@ public class TokenizerTest extends TestCase {
 		
 	}
 	
-	public void testTokenizeBareword() {
+	protected <T> String arrayToString(T[] arr) {
+		StringBuilder sb = new StringBuilder("[");
+		String sep = "";
+		for( T item : arr ) {
+			sb.append(sep);
+			sb.append(item);
+			sep = " ";
+		}
+		sb.append("]");
+		return sb.toString();
+	}
+	
+	protected <T> void assertArrayEquals(T[] expected, T[] actual) {
+		String expectedStr = arrayToString(expected);
+		String actualStr = arrayToString(actual);
+		if( !expected.equals(actualStr) ) {
+			System.err.println("Expected: "+expectedStr);
+			System.err.println("Actual  : "+actualStr);
+		}
+		assertEquals(expected.length, actual.length);
+		for( int i=0; i<expected.length; ++i ) {
+			assertEquals(expected[i], actual[i]);
+		}
+	}
+	
+	protected void testTokenizesTo(Token[] expected, String text) {
 		for( int seed=0; seed<10; ++seed ) {
 			DucerData<CharSequence, Token[]> s = new Tokenizer(new TestCharDecoder()).process("", false);
-			s = processChunked(s, "(foo", true, seed);
-			assertEquals(2, s.output.length);
-			assertEquals(new Token("(",TestCharDecoder.MODE_DELIMITER), s.output[0]);
-			assertEquals(new Token("foo",TestCharDecoder.MODE_BAREWORD), s.output[1]);
+			s = processChunked(s, text, true, seed);
+			assertArrayEquals(expected, s.output);
 		}
+	}
+	
+	public void testTokenizeBareword() {
+		testTokenizesTo(new Token[] {
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("foo",TestCharDecoder.MODE_BAREWORD),
+		}, "(foo");
+	}
+	
+	public void testTokenizeBarewordAndLineComment() {
+		testTokenizesTo(new Token[] {
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("foo",TestCharDecoder.MODE_BAREWORD),
+		}, "( foo # bar");
+	}
+	
+	public void testTokenizeBarewordAndMoreLineComments() {
+		testTokenizesTo(new Token[] {
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("foo",TestCharDecoder.MODE_BAREWORD),
+		},
+			"#!/bin/foobar\n" +
+			"( foo # bar\n" +
+			"# baz\n"
+		);
+	}
+	public void testTokenizeMoreStuff() {
+		testTokenizesTo(new Token[] {
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("foo",TestCharDecoder.MODE_BAREWORD),
+			new Token(".",TestCharDecoder.MODE_BAREWORD),
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token("bar",TestCharDecoder.MODE_BAREWORD),
+			new Token(".",TestCharDecoder.MODE_BAREWORD),
+			new Token("(",TestCharDecoder.MODE_DELIMITER),
+			new Token(")",TestCharDecoder.MODE_DELIMITER),
+			new Token(")",TestCharDecoder.MODE_DELIMITER),
+			new Token(")",TestCharDecoder.MODE_DELIMITER),
+		},
+			"#!/bin/foobar\n" +
+			"(foo . (bar . ()))\n"
+		);
 	}
 }
