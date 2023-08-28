@@ -1,0 +1,71 @@
+#+TITLE: TScript34.2 development log
+
+Or: A place for random notes and ideas in order not to clutter up the README or whatever.
+
+** [2023-08-27] Flesh out the different paradigms
+
+I seem to keep flitting between 3 main ways of programming.
+
+I wonder if the reason for this is that each one has
+a niche to which it is best suited, and I just happen to be trying
+to solve problems that span across these different modes.
+
+*** Functional lisp-like languages
+
+- High level of abstraction
+- Presumably good for transforming data
+- Compilers
+
+*** Command languages, like JCR36
+
+- Medium level of abstraction
+- Action based rather than function-based
+- Filesystem manipulation
+- Scripting
+
+*** Microcode
+
+- Small, simple interpreters
+- Minimal language closely linked to VM
+- Can act as a lower-level representation of programs
+  of either of the other paradigms
+- Not very nice for writing programs directly;
+  I keep wanting to write compilers, which brings
+  me back to the original question
+
+*** High-level stack-based languages like PostScript or TS34.2
+
+- Simultaneously high-level and low-level
+- Simplistic syntax for sake of interpreter
+- Operations to create objects and do other complex operations
+- Intention is to be a common representation of high-ish level programs,
+  but being explicitly stack-based makes this somewhat awkward;
+  to be useful for representing programs to be translated,
+  need to be careful that shape of stack can be known at compile-time.
+  Factor and Joy do this.
+- A strange animal, now that I think of it
+  
+*** Which to implement first?
+
+I would like to stop floundering.
+
+But "it probably depends on what I need at any given time"
+
+Perhaps a thing to do is determine the core concepts
+around which each paradigm can be built, so that
+when I want to do something specific, I already know
+where it goes in the system.
+
+I keep thinking that the Lispy language may be the most useful.
+Once that works, TCR can have a command to evaluate lispy
+expressions, and lispy expressions can be defined to return commands.
+
+- [ ] Flesh out command model
+  - command operates on an environment, which includes
+    - environment variables
+    - input and output streams (possibly more than the usual 3)
+    - pwd
+- [ ] Flesh out Lispy language
+  - [ ] Syntax
+  - [ ] Semantics of basic datatypes
+    - Use the P0010 model?
