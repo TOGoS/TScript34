@@ -26,21 +26,13 @@ public class TokenizerTest extends TestCase {
 			"mode = "+MODE_INIT,
 		});
 		static final int[] OPS_DELIMITER = Tokenizer.compileOps(new String[] {
-			//"acc = buffer.length",
-			//"if acc != 0 {",
-			//"  flush-token",
-			//"}",
-			"mode = "+MODE_DELIMITER,
-			"buffer.append current-char",
-			"flush-token",
-			"mode = "+MODE_INIT,
+			"jump-to-mode "+MODE_DELIMITER
 		});
 		static final int[] OPS_QUOTE = Tokenizer.compileOps(new String[] {
 			"mode = "+MODE_QUOTED,
 		});
 		static final int[] OPS_BAREWORD = Tokenizer.compileOps(new String[] {
-			"mode = "+MODE_BAREWORD,
-			"buffer.append current-char",
+			"jump-to-mode "+MODE_BAREWORD,
 		});
 		static final int[] OPS_LINE_COMMENT = Tokenizer.compileOps(new String[] {
 			"mode = "+MODE_LINE_COMMENT,
@@ -53,6 +45,16 @@ public class TokenizerTest extends TestCase {
 			"buffer.append current-char",
 			"mode = "+MODE_QUOTED
 		});
+		static final int[] OPS_BAREWORD_TO_DELIMITER = Tokenizer.compileOps(new String[] {
+			"flush-token",
+			"jump-to-mode "+MODE_DELIMITER,
+		});
+		static final int[] OPS_END_BAREWORD = Tokenizer.compileOps(new String[] {
+			"flush-token",
+			"jump-to-mode "+MODE_INIT,
+			//"mode = "+MODE_INIT,
+		});
+		
 		static final int[] OPS_BAREWORD_TO_WHITESPACE = Tokenizer.compileOps(new String[] {
 			"flush-token",
 			"mode = "+MODE_INIT,
@@ -64,6 +66,13 @@ public class TokenizerTest extends TestCase {
 		static final int[] OPS_BAREWORD_TO_END = Tokenizer.compileOps(new String[] {
 			"flush-token",
 			"mode = "+MODE_END,
+		});
+		
+		
+		static final int[] OPS_DELIMITER_CHAR = Tokenizer.compileOps(new String[] {
+			"buffer.append current-char",
+			"flush-token",
+			"mode = "+MODE_INIT,
 		});
 		
 		static final int[] OPS_QUOTED_ESCAPE = Tokenizer.compileOps(new String[] {
@@ -97,12 +106,26 @@ public class TokenizerTest extends TestCase {
 				}
 			case MODE_BAREWORD:
 				switch( character ) {
+					/*
+				// In theory, should be able to just flush the token,
+				// reject the character, and let MODE_INIT handle it.
+				
+				case ' ': case '\t': case '\r': case '\n':
+				case '(': case ')':
+				case '"':
+				case -1:
+					return OPS_END_BAREWORD;
+				*/
+				
 				case ' ': case '\t': case '\r': case '\n':
 					return OPS_BAREWORD_TO_WHITESPACE;
+				case '(': case ')':
+					return OPS_BAREWORD_TO_DELIMITER;
 				case '"':
 					return OPS_BAREWORD_TO_QUOTED;
 				case -1:
 					return OPS_BAREWORD_TO_END;
+					
 				default:
 					return OPS_APPEND_CHAR;
 				}
@@ -131,6 +154,8 @@ public class TokenizerTest extends TestCase {
 				default:
 					return OPS_NONE;
 				}
+			case MODE_DELIMITER:
+				return OPS_DELIMITER_CHAR;
 			default:
 				throw new RuntimeException("Unknown mode: "+mode);
 			}
@@ -204,12 +229,15 @@ public class TokenizerTest extends TestCase {
 		}
 	}
 	
-	protected void testTokenizesTo(Token[] expected, String text) {
+	protected void testTokenizesTo(Token[] expected, String text, String sourceFilename) {
 		for( int seed=0; seed<10; ++seed ) {
-			DucerData<CharSequence, Token[]> s = new Tokenizer(new TestCharDecoder()).withDebugStream(debugStream).process("", false);
+			DucerData<CharSequence, Token[]> s = new Tokenizer(new TestCharDecoder(), sourceFilename).withDebugStream(debugStream).process("", false);
 			s = processChunked(s, text, true, seed);
 			assertArrayEquals(expected, s.output);
 		}
+	}
+	protected void testTokenizesTo(Token[] expected, String text) {
+		testTokenizesTo(expected, text, null);
 	}
 	
 	public void testTokenizeBareword() {
@@ -271,6 +299,18 @@ public class TokenizerTest extends TestCase {
 		},
 			"#!/bin/foobar\n" +
 			"(\"foo \\\"(bar)\\\"\")"
+		);
+	}
+	public void testTokenizeWithSourceLocation() {
+		testTokenizesTo(new Token[] {
+			new Token("foo",TestCharDecoder.MODE_BAREWORD, "foo.txt", 1, 0, 1, 3),
+			new Token("(",TestCharDecoder.MODE_DELIMITER , "foo.txt", 1, 4, 1, 5),
+			new Token("bar",TestCharDecoder.MODE_BAREWORD, "foo.txt", 1, 5, 1, 8),
+			new Token(")",TestCharDecoder.MODE_DELIMITER , "foo.txt", 1, 8, 1, 9),
+		},
+			"#!/bin/foobar\n" +
+			"foo (bar)",
+			"foo.txt"
 		);
 	}
 }
