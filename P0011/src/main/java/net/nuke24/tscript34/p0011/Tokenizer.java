@@ -83,9 +83,13 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 	public static final int OP_APPEND_CHAR    = 0x00000006; // Append input char to text buffer
 	public static final int OP_APPEND_DATA    = 0x00000007; // Append op data to text buffer
 	public static final int OP_SETMODE        = 0x00000008; // Set mode to op >> 16; mode 0xFFFF means 'end'
-	public static final int OP_REJECT_CHAR    = 0x00000009; // Put character back into input queue and try handling again (presumably with a different mode)
+	public static final int OP_NEXT_CHAR      = 0x0000000A; // 'consume' the current character
 	public static final int MODE_DEFAULT = 0;
 	public static final int MODE_END     = 0xFFFF;
+	
+	final int CHAR_EOF = -1;
+	// Placeholder for to-be-read character
+	final int CHAR_PENDING = -2;
 	
 	public static final int opData(int op) {
 		return 0xFFFF & (op >> OPSHIFT_D);
@@ -95,7 +99,6 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 	}
 	
 	static final Pattern SET_MODE_TO_CONST_PATTERN = Pattern.compile("mode = (\\d+)");
-	static final Pattern JUMP_TO_MODE_TO_CONST_PATTERN = Pattern.compile("jump-to-mode (\\d+)");
 	
 	public static int[] compileOps(String[] asm) {
 		ArrayList<Integer> ops = new ArrayList<Integer>();
@@ -123,11 +126,8 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 			} else if( "if acc == 0 {".equals(line) ) {
 				fixups.add(ops.size());
 				ops.add(OP_JUMP_IF_NONZERO);
-			} else if( "reject-char".equals(line) ) {
-				ops.add(OP_REJECT_CHAR);
-			} else if( (m = JUMP_TO_MODE_TO_CONST_PATTERN.matcher(line)).matches() ) {
-				ops.add(mkDataOp(OP_SETMODE, Integer.parseInt(m.group(1))));
-				ops.add(OP_REJECT_CHAR);
+			} else if( "next-char".equals(line) ) {
+				ops.add(OP_NEXT_CHAR);
 			} else if( (m = SET_MODE_TO_CONST_PATTERN.matcher(line)).matches() ) {
 				ops.add(mkDataOp(OP_SETMODE, Integer.parseInt(m.group(1))));
 			} else {
@@ -194,30 +194,33 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 		ArrayList<Token> resultTokens = new ArrayList<Token>();
 				
 		int i=0;
-		loop_over_chars: while( mode != MODE_END ) {
+		
+		int prevMode = -2;
+		int prevI = -2;
+		while( mode != MODE_END ) {
+			if( mode == prevMode && i == prevI ) {
+				throw new RuntimeException("Mode="+mode+", i="+i+": infinite loop!  Maybe someone forgot a next-char");
+			}
+			
+			prevMode = mode;
+			prevI = i;
+			
 			if( i >= input.length() && !endOfInput ) break;
 			
-			int c = i >= input.length() ? -1 : input.charAt(i);
-			// A slight hack so that ops don't need to explicitly indicate
-			// where token end char should be; if a character is appended
-			// during processing, assume that the end of the token should be
-			// *after* this character, rather than before it.
-			boolean charAppended = false;
-			boolean charConsumed = c != -1; // You can't 'consume' EOF
+			int c = i >= input.length() ? CHAR_EOF : input.charAt(i);
 			
-			if(debugStream != null) debugStream.println("Mode="+mode+", i="+i+"; Handling "+(c == -1 ? "EOF" : "char: '"+(char)c+"'")+" ("+sourceFilename+":"+(sourceLineIndex+1)+","+sourceColumnIndex+"); by default, charConsumed="+charConsumed);
+			if(debugStream != null) debugStream.println("Mode="+mode+", i="+i+"; Handling "+(c == CHAR_EOF ? "EOF" : "char: '"+(char)c+"'")+" ("+sourceFilename+":"+(sourceLineIndex+1)+","+sourceColumnIndex+")");
 			int[] ops = this.charDecoder.decode(mode, c);
 			for( int ic=0; ic >= 0 && ic < ops.length; ) {
 				int op = ops[ic++];
 				if(debugStream != null) debugStream.println("Doing op["+(ic-1)+"]: 0x"+Integer.toHexString(op));
 				switch( op & OPMASK_I ) {
 				case OP_APPEND_CHAR  :
+					if( c == CHAR_PENDING ) throw new RuntimeException("Current character not yet read!");
 					textBuffer += (char)c;
-					charAppended = true;
 					break;
 				case OP_APPEND_DATA  :
 					textBuffer += (char)opData(op);
-					charAppended = true;
 					break;
 				case OP_BUFFER_LENGTH : acc = textBuffer.length(); break;
 				case OP_JUMP_IF_NONZERO :
@@ -231,7 +234,7 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 						new Token(textBuffer, mode) :
 						new Token(textBuffer, mode, sourceFilename,
 							tokenStartLineIndex, tokenStartColumnIndex,
-							sourceLineIndex, sourceColumnIndex+(charAppended?1:0))); // Should really use a separate 'post char position', since what if c == '\n'?
+							    sourceLineIndex,     sourceColumnIndex));
 					textBuffer = "";
 					break;
 				case OP_SETMODE      :
@@ -240,23 +243,21 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 					tokenStartColumnIndex = sourceColumnIndex;
 					if(debugStream != null) debugStream.println("$ mode = "+mode);
 					break;
-				case OP_REJECT_CHAR  :
-					charConsumed = false;
-					if(debugStream != null) debugStream.println("$ reject-char; i="+i+", charConsumed="+charConsumed);
-					continue loop_over_chars;
+				case OP_NEXT_CHAR:
+					if(debugStream != null) debugStream.println("Character '"+(char)c+"' consumed; bumping i and column index");
+					if( c == CHAR_EOF ) {
+						throw new RuntimeException("You can't _consume_ EOF!");
+					} else if( c == '\n' ) {
+						++sourceLineIndex;
+						sourceColumnIndex = 0;
+					} else {
+						++sourceColumnIndex;
+					}
+					++i;
+					c = CHAR_PENDING;
+					break;
 				default:
 					throw new RuntimeException("Bad tokenizer opcode: 0x"+Integer.toHexString(op));
-				}
-			}
-			
-			if( charConsumed ) {
-				++i;
-				if(debugStream != null) debugStream.println("Character '"+(char)c+"' consumed; bumping i and column index");
-				if( c == '\n' ) {
-					++sourceLineIndex;
-					sourceColumnIndex = 0;
-				} else {
-					++sourceColumnIndex;
 				}
 			}
 		}

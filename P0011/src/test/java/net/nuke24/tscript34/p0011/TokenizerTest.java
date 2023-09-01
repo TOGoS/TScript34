@@ -21,51 +21,58 @@ public class TokenizerTest extends TestCase {
 		static final int MODE_END = Tokenizer.MODE_END;
 		
 		// INIT mode ops
-		static final int[] OPS_NONE = new int[0];
-		static final int[] OPS_INIT = Tokenizer.compileOps(new String[] {
+		static final int[] OPS_SKIP = new int[] { Tokenizer.OP_NEXT_CHAR };
+		static final int[] OPS_SKIP_TO_INIT = Tokenizer.compileOps(new String[] {
+			"next-char",
 			"mode = "+MODE_INIT,
 		});
-		static final int[] OPS_DELIMITER = Tokenizer.compileOps(new String[] {
-			"jump-to-mode "+MODE_DELIMITER
+		static final int[] OPS_HANDLE_DELIMITER = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_DELIMITER
 		});
-		static final int[] OPS_QUOTE = Tokenizer.compileOps(new String[] {
+		static final int[] OPS_HANDLE_QUOTE = Tokenizer.compileOps(new String[] {
+			"next-char",
 			"mode = "+MODE_QUOTED,
 		});
 		static final int[] OPS_BAREWORD = Tokenizer.compileOps(new String[] {
-			"jump-to-mode "+MODE_BAREWORD,
+			"mode = "+MODE_BAREWORD,
 		});
-		static final int[] OPS_LINE_COMMENT = Tokenizer.compileOps(new String[] {
+		static final int[] OPS_HANDLE_LINE_COMMENT = Tokenizer.compileOps(new String[] {
+			"next-char",
 			"mode = "+MODE_LINE_COMMENT,
 		});
 		
 		static final int[] OPS_APPEND_CHAR = Tokenizer.compileOps(new String[] {
 			"buffer.append current-char",
+			"next-char",
 		});
 		static final int[] OPS_APPEND_CHAR_AND_RETURN_TO_QUOTED = Tokenizer.compileOps(new String[] {
 			"buffer.append current-char",
-			"mode = "+MODE_QUOTED
+			"mode = "+MODE_QUOTED,
+			"next-char",
 		});
 		static final int[] OPS_BAREWORD_TO_DELIMITER = Tokenizer.compileOps(new String[] {
 			"flush-token",
-			"jump-to-mode "+MODE_DELIMITER,
+			"mode = "+MODE_DELIMITER,
 		});
 		static final int[] OPS_END_BAREWORD = Tokenizer.compileOps(new String[] {
-			"flush-token",
-			"jump-to-mode "+MODE_INIT,
-			//"mode = "+MODE_INIT,
-		});
-		
-		static final int[] OPS_DELIMITER_CHAR = Tokenizer.compileOps(new String[] {
-			"buffer.append current-char",
 			"flush-token",
 			"mode = "+MODE_INIT,
 		});
 		
-		static final int[] OPS_QUOTED_ESCAPE = Tokenizer.compileOps(new String[] {
-			"mode = "+MODE_QUOTED_ESCAPE,
-		});
-		static final int[] OPS_END_QUOTE = Tokenizer.compileOps(new String[] {
+		static final int[] OPS_DELIMITER_CHAR = Tokenizer.compileOps(new String[] {
+			"buffer.append current-char",
+			"next-char",
 			"flush-token",
+			"mode = "+MODE_INIT,
+		});
+		
+		static final int[] OPS_HANDLE_QUOTED_ESCAPE = Tokenizer.compileOps(new String[] {
+			"mode = "+MODE_QUOTED_ESCAPE,
+			"next-char",
+		});
+		static final int[] OPS_HANDLE_END_QUOTE = Tokenizer.compileOps(new String[] {
+			"flush-token",
+			"next-char",
 			"mode = "+MODE_INIT,
 		});	
 		
@@ -78,13 +85,13 @@ public class TokenizerTest extends TestCase {
 			case MODE_INIT:
 				switch( character ) {
 				case '#':
-					return OPS_LINE_COMMENT;
+					return OPS_HANDLE_LINE_COMMENT;
 				case ' ': case '\t': case '\r': case '\n':
-					return OPS_NONE;
+					return OPS_SKIP;
 				case '(': case ')':
-					return OPS_DELIMITER;
+					return OPS_HANDLE_DELIMITER;
 				case '"':
-					return OPS_QUOTE;
+					return OPS_HANDLE_QUOTE;
 				case -1:
 					return OPS_END;
 				default:
@@ -92,9 +99,6 @@ public class TokenizerTest extends TestCase {
 				}
 			case MODE_BAREWORD:
 				switch( character ) {
-				// In theory, should be able to just flush the token,
-				// reject the character, and let MODE_INIT handle it.
-				
 				case ' ': case '\t': case '\r': case '\n':
 				case '(': case ')':
 				case '"':
@@ -106,9 +110,11 @@ public class TokenizerTest extends TestCase {
 			case MODE_QUOTED:
 				switch( character ) {
 				case '"':
-					return OPS_END_QUOTE;
+					return OPS_HANDLE_END_QUOTE;
 				case '\\':
-					return OPS_QUOTED_ESCAPE;
+					return OPS_HANDLE_QUOTED_ESCAPE;
+				case -1:
+					throw new RuntimeException("Encountered EOF in quoted string");
 				default:
 					return OPS_APPEND_CHAR;
 				}
@@ -122,11 +128,11 @@ public class TokenizerTest extends TestCase {
 			case MODE_LINE_COMMENT:
 				switch( character ) {
 				case '\n':
-					return OPS_INIT;
+					return OPS_SKIP_TO_INIT;
 				case -1:
 					return OPS_END;
 				default:
-					return OPS_NONE;
+					return OPS_SKIP;
 				}
 			case MODE_DELIMITER:
 				return OPS_DELIMITER_CHAR;
