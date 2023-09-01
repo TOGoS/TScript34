@@ -194,18 +194,18 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 		ArrayList<Token> resultTokens = new ArrayList<Token>();
 				
 		int i=0;
-		while( mode != MODE_END ) {
+		loop_over_chars: while( mode != MODE_END ) {
 			if( i >= input.length() && !endOfInput ) break;
 			
-			int c = i >= input.length() ? -1 : input.charAt(i++);
+			int c = i >= input.length() ? -1 : input.charAt(i);
 			// A slight hack so that ops don't need to explicitly indicate
 			// where token end char should be; if a character is appended
 			// during processing, assume that the end of the token should be
 			// *after* this character, rather than before it.
 			boolean charAppended = false;
-			boolean charConsumed = true;
+			boolean charConsumed = c != -1; // You can't 'consume' EOF
 			
-			if(debugStream != null) debugStream.println("Handling "+(c == -1 ? "EOF" : "char: '"+(char)c+"'"));
+			if(debugStream != null) debugStream.println("Mode="+mode+", i="+i+"; Handling "+(c == -1 ? "EOF" : "char: '"+(char)c+"'")+" ("+sourceFilename+":"+(sourceLineIndex+1)+","+sourceColumnIndex+"); by default, charConsumed="+charConsumed);
 			int[] ops = this.charDecoder.decode(mode, c);
 			for( int ic=0; ic >= 0 && ic < ops.length; ) {
 				int op = ops[ic++];
@@ -238,18 +238,20 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 					mode = opData(op);
 					tokenStartLineIndex = sourceLineIndex;
 					tokenStartColumnIndex = sourceColumnIndex;
+					if(debugStream != null) debugStream.println("$ mode = "+mode);
 					break;
 				case OP_REJECT_CHAR  :
-					--i;
 					charConsumed = false;
-					break;
+					if(debugStream != null) debugStream.println("$ reject-char; i="+i+", charConsumed="+charConsumed);
+					continue loop_over_chars;
 				default:
 					throw new RuntimeException("Bad tokenizer opcode: 0x"+Integer.toHexString(op));
 				}
 			}
-			if(debugStream != null) debugStream.println("Mode = "+mode);
 			
 			if( charConsumed ) {
+				++i;
+				if(debugStream != null) debugStream.println("Character '"+(char)c+"' consumed; bumping i and column index");
 				if( c == '\n' ) {
 					++sourceLineIndex;
 					sourceColumnIndex = 0;

@@ -55,20 +55,6 @@ public class TokenizerTest extends TestCase {
 			//"mode = "+MODE_INIT,
 		});
 		
-		static final int[] OPS_BAREWORD_TO_WHITESPACE = Tokenizer.compileOps(new String[] {
-			"flush-token",
-			"mode = "+MODE_INIT,
-		});
-		static final int[] OPS_BAREWORD_TO_QUOTED = Tokenizer.compileOps(new String[] {
-			"flush-token",
-			"mode = "+MODE_QUOTED,
-		});
-		static final int[] OPS_BAREWORD_TO_END = Tokenizer.compileOps(new String[] {
-			"flush-token",
-			"mode = "+MODE_END,
-		});
-		
-		
 		static final int[] OPS_DELIMITER_CHAR = Tokenizer.compileOps(new String[] {
 			"buffer.append current-char",
 			"flush-token",
@@ -106,7 +92,6 @@ public class TokenizerTest extends TestCase {
 				}
 			case MODE_BAREWORD:
 				switch( character ) {
-					/*
 				// In theory, should be able to just flush the token,
 				// reject the character, and let MODE_INIT handle it.
 				
@@ -115,17 +100,6 @@ public class TokenizerTest extends TestCase {
 				case '"':
 				case -1:
 					return OPS_END_BAREWORD;
-				*/
-				
-				case ' ': case '\t': case '\r': case '\n':
-					return OPS_BAREWORD_TO_WHITESPACE;
-				case '(': case ')':
-					return OPS_BAREWORD_TO_DELIMITER;
-				case '"':
-					return OPS_BAREWORD_TO_QUOTED;
-				case -1:
-					return OPS_BAREWORD_TO_END;
-					
 				default:
 					return OPS_APPEND_CHAR;
 				}
