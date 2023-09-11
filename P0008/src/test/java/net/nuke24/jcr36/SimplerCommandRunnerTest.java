@@ -48,10 +48,36 @@ public class SimplerCommandRunnerTest implements Runnable
 		
 	}
 	
-	@Override public void run() {
+	public void testPrint() {
 		OutputCollector out = OutputCollector.create();
-		SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), out);
+		SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
 		assertEquals("Hello, world!\n", out.toString());
+	}
+	
+	public void testPrintN() {
+		OutputCollector out = OutputCollector.create();
+		SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "-n", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		assertEquals("Hello, world!", out.toString());
+	}
+	
+	public void testExit() {
+		assertEquals(0, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, null }));
+	}
+	
+	public void testExit123() {
+		assertEquals(123, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "123" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, null }));
+	}
+	
+	public void testExitN456() {
+		assertEquals(-456, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "-456" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, null }));
+	}
+	
+	@Override public void run() {
+		testPrint();
+		testPrintN();
+		testExit();
+		testExit123();
+		testExitN456();
 	}
 	
 	public static void main(String[] args) {
