@@ -2,6 +2,7 @@ package net.nuke24.jcr36;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
@@ -9,11 +10,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
-	public static String VERSION = "JCR36.1.14"; // Bump to 36.1.x for 'simpler' (one-class) version
+	public static String VERSION = "JCR36.1.15-dev"; // Bump to 36.1.x for 'simpler' (one-class) version
 	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
-	protected static String quote(String s) {
+	public static String quote(String s) {
 		return
 			"\"" +
 			s.replace("\\","\\\\")
@@ -89,7 +90,7 @@ public class SimplerCommandRunner {
 	
 	static final Pattern OFS_PAT = Pattern.compile("^--ofs=(.*)$");
 	
-	public static void doJcrPrint(String[] args, int i) {
+	public static void doJcrPrint(String[] args, int i, PrintStream out) {
 		String ofs = " "; // Output field separator, i.e. OFS in AWK
 		String suffix = "\n";
 		Matcher m;
@@ -109,11 +110,11 @@ public class SimplerCommandRunner {
 		}
 		String _sep = "";
 		for( ; i<args.length; ++i ) {
-			System.out.print(_sep);
-			System.out.print(args[i]);
+			out.print(_sep);
+			out.print(args[i]);
 			_sep = ofs;
 		}
-		System.out.print(suffix);
+		out.print(suffix);
 	}
 	
 	public static void doSysProc(String[] args, int i, Map<String,String> env) {
@@ -149,7 +150,7 @@ public class SimplerCommandRunner {
 		"  # Exit with status code:\n"+
 		"  jrc:exit [<code>]";
 	
-	public static void doJcrDoCmd(String[] args, int i, Map<String,String> parentEnv) {
+	public static void doJcrDoCmd(String[] args, int i, Map<String,String> parentEnv, PrintStream out) {
 		Map<String,String> env = parentEnv;
 		
 		for( ; i<args.length; ++i ) {
@@ -158,13 +159,13 @@ public class SimplerCommandRunner {
 				if( env == parentEnv ) env = new HashMap<String,String>(parentEnv);
 				env.put(args[i].substring(0,eqidx), args[i].substring(eqidx+1));
 			} else if( "--".equals(args[i]) ) {
-				doJcrDoCmd(args, i+1, env);
+				doJcrDoCmd(args, i+1, env, out);
 				return;
 			} else if( "--version".equals(args[i]) ) {
-				doJcrPrint(new String[] { VERSION }, 0);
+				doJcrPrint(new String[] { VERSION }, 0, out);
 				return;
 			} else if( "--help".equals(args[i]) ) {
-				doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0);
+				doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0, out);
 				return;
 			} else if( args[i].startsWith("-") ) {
 				System.err.println("Unrecognized option: "+quote(args[i]));
@@ -172,7 +173,7 @@ public class SimplerCommandRunner {
 				doJcrExit(args, i+1);
 				return;
 			} else if( "jcr:print".equals(args[i]) ) {
-				doJcrPrint(args, i+1);
+				doJcrPrint(args, i+1, out);
 				return;
 			} else if( "jcr:run".equals(args[i]) ) {
 				// Basically a no-op!
@@ -183,6 +184,6 @@ public class SimplerCommandRunner {
 	}
 	
 	public static void main(String[] args) {
-		doJcrDoCmd(args, 0, System.getenv());
+		doJcrDoCmd(args, 0, System.getenv(), System.out);
 	}
 }
