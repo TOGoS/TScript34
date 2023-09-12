@@ -6,6 +6,7 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.Collections;
+import java.util.Map;
 
 import static net.nuke24.jcr36.SimplerCommandRunner.quote;
 import static net.nuke24.jcr36.SimplerCommandRunner.debug;
@@ -49,35 +50,42 @@ public class SimplerCommandRunnerTest implements Runnable
 		throw new RuntimeException("assertTrue(false, "+quote(message)+")");
 	}
 	
+	static Map<String,String> ENV_EMPTY = Collections.emptyMap();
+	static Map<String,String> ENV_W_ALIASES = SimplerCommandRunner.withAliases(ENV_EMPTY, SimplerCommandRunner.STANDARD_ALIASES);	
+	
 	public void testPrint() {
 		OutputCollector out = OutputCollector.create();
-		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "Hello, world!" }, 0, ENV_W_ALIASES, new Object[] { null, out, null });
 		assertEquals(0, exitCode);
 		assertEquals("Hello, world!\n", out.toString());
 	}
 	
 	public void testPrintN() {
 		OutputCollector out = OutputCollector.create();
-		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "-n", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "-n", "Hello, world!" }, 0, ENV_W_ALIASES, new Object[] { null, out, null });
 		assertEquals(0, exitCode);
 		assertEquals("Hello, world!", out.toString());
 	}
 	
 	public void testExit() {
-		assertEquals(0, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, null }));
+		assertEquals(0, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit" }, 0, ENV_W_ALIASES, new Object[] { null, null, null }));
+	}
+	
+	public void testExitByLongName() {
+		assertEquals(5, SimplerCommandRunner.doJcrDoCmd(new String[]{ "http://ns.nuke24.net/JavaCommandRunner36/Action/Exit", "5" }, 0, ENV_EMPTY, new Object[] { null, null, null }));
 	}
 	
 	public void testExit123() {
-		assertEquals(123, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "123" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, System.err }));
+		assertEquals(123, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "123" }, 0, ENV_W_ALIASES, new Object[] { null, null, System.err }));
 	}
 	
 	public void testExitN456() {
-		assertEquals(-456, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "-456" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, System.err }));
+		assertEquals(-456, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "-456" }, 0, ENV_W_ALIASES, new Object[] { null, null, System.err }));
 	}
 	
 	public void testRunSysProc() {
 		OutputCollector out = OutputCollector.create();
-		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:runsys", "java", "-version" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, out });
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:runsys", "java", "-version" }, 0, ENV_W_ALIASES, new Object[] { null, out, out });
 		assertEquals(0, exitCode);
 		assertTrue(out.toString().length() > 0, "Expected `jcr:runsys java -version` to output some non-zero number of characters");
 	}
@@ -91,7 +99,7 @@ public class SimplerCommandRunnerTest implements Runnable
 		OutputCollector out = OutputCollector.create();
 		int exitCode = SimplerCommandRunner.doJcrDoCmd(
 			new String[]{ "jcr:runsys", "java", "-jar", jarFile.getPath(), "jcr:print", "-n", "Hello, world!" },
-			0, Collections.<String,String>emptyMap(), new Object[] { null, out, System.err });
+			0, ENV_W_ALIASES, new Object[] { null, out, System.err });
 		assertEquals(0, exitCode);
 		assertEquals("Hello, world!", out.toString());
 	}
@@ -100,6 +108,7 @@ public class SimplerCommandRunnerTest implements Runnable
 		testPrint();
 		testPrintN();
 		testExit();
+		testExitByLongName();
 		testExit123();
 		testExitN456();
 		testRunSysProc();
