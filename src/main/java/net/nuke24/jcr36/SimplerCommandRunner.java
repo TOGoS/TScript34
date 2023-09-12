@@ -179,7 +179,7 @@ public class SimplerCommandRunner {
 		}
 	}
 	
-	static InputStream getInputStream(Object is) {
+	static InputStream toInputStream(Object is) {
 		if( is == null ) {
 			return new ByteArrayInputStream(new byte[0]);
 		} else if( is instanceof InputStream ) {
@@ -189,13 +189,13 @@ public class SimplerCommandRunner {
 		}
 	}
 	
-	static OutputStream getOutputStream(Object os) {
+	static OutputStream totOutputStream(Object os) {
 		if( os == null ) return null;
 		if( os instanceof OutputStream ) return (OutputStream)os;
 		throw new RuntimeException("Don't know how to make OutputStream from "+os);
 	}
 	
-	static PrintStream getPrintStream(Object os) {
+	static PrintStream toPrintStream(Object os) {
 		if( os == null ) return null;
 		if( os instanceof PrintStream ) return (PrintStream)os;
 		if( os instanceof OutputStream ) {
@@ -222,16 +222,16 @@ public class SimplerCommandRunner {
 		try {
 			proc = pb.start();
 			ArrayList<Piper> pipers = new ArrayList<Piper>();
-			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start(getInputStream(io[0]), false, proc.getOutputStream(), true));
-			if( pb.redirectOutput() == Redirect.PIPE ) pipers.add(Piper.start(proc.getInputStream(), true, getOutputStream(io[1]), false));
-			if( pb.redirectError() == Redirect.PIPE ) pipers.add(Piper.start(proc.getErrorStream(), true, getOutputStream(io[2]), false));
+			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start(toInputStream(io[0]), false, proc.getOutputStream(), true));
+			if( pb.redirectOutput() == Redirect.PIPE ) pipers.add(Piper.start(proc.getInputStream(), true, totOutputStream(io[1]), false));
+			if( pb.redirectError() == Redirect.PIPE ) pipers.add(Piper.start(proc.getErrorStream(), true, totOutputStream(io[2]), false));
 			int exitCode = proc.waitFor();
 			
 			for( Piper p : pipers ) {
 				p.join();
 				if( !p.errors.isEmpty() && exitCode == 0 ) exitCode = EXIT_CODE_PIPING_ERROR; 
 			}
-			PrintStream stdErr = getPrintStream(io[2]);
+			PrintStream stdErr = toPrintStream(io[2]);
 			if( stdErr != null ) for( Piper p : pipers ) for( Throwable e : p.errors ) {
 				stdErr.print("Piping error: "+e+"\n");
 			}
@@ -286,9 +286,9 @@ public class SimplerCommandRunner {
 			} else if( "--".equals(args[i]) ) {
 				return doJcrDoCmd(args, i+1, env, io);
 			} else if( "--version".equals(args[i]) ) {
-				return doJcrPrint(new String[] { VERSION }, 0, getPrintStream(io[1]));
+				return doJcrPrint(new String[] { VERSION }, 0, toPrintStream(io[1]));
 			} else if( "--help".equals(args[i]) ) {
-				return doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0, getPrintStream(io[1]));
+				return doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0, toPrintStream(io[1]));
 			} else if( args[i].startsWith("-") ) {
 				System.err.println("Unrecognized option: "+quote(args[i]));
 			} else {
@@ -296,7 +296,7 @@ public class SimplerCommandRunner {
 				if( CMD_EXIT.equals(cmd) ) {
 					return doJcrExit(args, i+1);
 				} else if( CMD_PRINT.equals(cmd) ) {
-					return doJcrPrint(args, i+1, getPrintStream(io[1]));
+					return doJcrPrint(args, i+1, toPrintStream(io[1]));
 				} else if( "jcr:run".equals(cmd) ) {
 					// Basically a no-op!
 				} else if( CMD_RUNSYSPROC.equals(cmd) ) {
