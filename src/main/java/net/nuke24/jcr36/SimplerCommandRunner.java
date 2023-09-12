@@ -191,7 +191,7 @@ public class SimplerCommandRunner {
 		try {
 			proc = pb.start();
 			ArrayList<Piper> pipers = new ArrayList<Piper>();
-			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start((InputStream)io[2], false, proc.getOutputStream(), true));
+			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start((InputStream)io[0], false, proc.getOutputStream(), true));
 			if( pb.redirectOutput() == Redirect.PIPE ) pipers.add(Piper.start(proc.getInputStream(), true, (OutputStream)io[1], false));
 			if( pb.redirectError() == Redirect.PIPE ) pipers.add(Piper.start(proc.getErrorStream(), true, (OutputStream)io[2], false));
 			int exitCode = proc.waitFor();
