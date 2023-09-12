@@ -154,7 +154,7 @@ public class SimplerCommandRunner {
 				byte[] buf = new byte[16384];
 				int z;
 				while( (z = in.read(buf)) > 0 ) {
-					out.write(buf, 0, z);
+					if( out != null ) out.write(buf, 0, z);
 				}
 			} catch( Exception e ) {
 				this.errors.add(e);
@@ -166,7 +166,7 @@ public class SimplerCommandRunner {
 				}
 				
 				if( this.ownOut ) try {
-					out.close();
+					if( out != null ) out.close();
 				} catch( Exception e ) {
 					this.errors.add(e);
 				}
@@ -187,6 +187,12 @@ public class SimplerCommandRunner {
 		} else {
 			throw new RuntimeException("Don't know how to turn "+debug(is)+" into InputStream");
 		}
+	}
+	
+	static OutputStream getOutputStream(Object os) {
+		if( os == null ) return null;
+		if( os instanceof OutputStream ) return (OutputStream)os;
+		throw new RuntimeException("Don't know how to make OutputStream from "+os);
 	}
 	
 	static PrintStream getPrintStream(Object os) {
@@ -210,15 +216,15 @@ public class SimplerCommandRunner {
 		pb.environment().clear();
 		pb.environment().putAll(env);
 		pb.redirectInput(io[0] == System.in ? Redirect.INHERIT : Redirect.PIPE);
-		pb.redirectOutput(io[1] == null ? Redirect.DISCARD : io[1] == System.out ? Redirect.INHERIT : Redirect.PIPE);
-		pb.redirectError(io[2] == null ? Redirect.DISCARD :  io[2] == System.err ? Redirect.INHERIT : Redirect.PIPE);
+		pb.redirectOutput(io[1] == System.out ? Redirect.INHERIT : Redirect.PIPE);
+		pb.redirectError( io[2] == System.err ? Redirect.INHERIT : Redirect.PIPE);
 		Process proc;
 		try {
 			proc = pb.start();
 			ArrayList<Piper> pipers = new ArrayList<Piper>();
 			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start(getInputStream(io[0]), false, proc.getOutputStream(), true));
-			if( pb.redirectOutput() == Redirect.PIPE ) pipers.add(Piper.start(proc.getInputStream(), true, (OutputStream)io[1], false));
-			if( pb.redirectError() == Redirect.PIPE ) pipers.add(Piper.start(proc.getErrorStream(), true, (OutputStream)io[2], false));
+			if( pb.redirectOutput() == Redirect.PIPE ) pipers.add(Piper.start(proc.getInputStream(), true, getOutputStream(io[1]), false));
+			if( pb.redirectError() == Redirect.PIPE ) pipers.add(Piper.start(proc.getErrorStream(), true, getOutputStream(io[2]), false));
 			int exitCode = proc.waitFor();
 			
 			for( Piper p : pipers ) {

@@ -90,6 +90,11 @@ public class SimplerCommandRunnerTest implements Runnable
 		assertTrue(out.toString().length() > 0, "Expected `jcr:runsys java -version` to output some non-zero number of characters");
 	}
 	
+	public void testRunSysProcToNul() {
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:runsys", "java", "-version" }, 0, ENV_W_ALIASES, new Object[] { null, null, null });
+		assertEquals(0, exitCode);
+	}
+	
 	public void testRunJcrAsSysProc() {
 		File jarFile = new File("JCR36.1.14.jar");
 		if( !jarFile.exists() ) {
@@ -112,6 +117,7 @@ public class SimplerCommandRunnerTest implements Runnable
 		testExit123();
 		testExitN456();
 		testRunSysProc();
+		testRunSysProcToNul();
 		testRunJcrAsSysProc();
 	}
 	
