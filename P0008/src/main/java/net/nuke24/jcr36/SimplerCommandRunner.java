@@ -1,5 +1,6 @@
 package net.nuke24.jcr36;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +32,16 @@ public class SimplerCommandRunner {
 			 .replace("\t","\\t")
 			 .replace(""+(char)0x1b,"\\x1B")
 			+"\"";
+	}
+	
+	public static String debug(Object obj) {
+		if( obj == null ) {
+			return "null";
+		} else if( obj instanceof String ) {
+			return SimplerCommandRunner.quote((String)obj);
+		} else {
+			return "("+obj.getClass().getName()+")"+obj.toString();
+		}
 	}
 	
 	protected static String quoteArr(String[] arr) {
@@ -164,6 +175,16 @@ public class SimplerCommandRunner {
 		}
 	}
 	
+	static InputStream getInputStream(Object is) {
+		if( is == null ) {
+			return new ByteArrayInputStream(new byte[0]);
+		} else if( is instanceof InputStream ) {
+			return (InputStream)is;
+		} else {
+			throw new RuntimeException("Don't know how to turn "+debug(is)+" into InputStream");
+		}
+	}
+	
 	static PrintStream getPrintStream(Object os) {
 		if( os == null ) return null;
 		if( os instanceof PrintStream ) return (PrintStream)os;
@@ -191,7 +212,7 @@ public class SimplerCommandRunner {
 		try {
 			proc = pb.start();
 			ArrayList<Piper> pipers = new ArrayList<Piper>();
-			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start((InputStream)io[0], false, proc.getOutputStream(), true));
+			if( pb.redirectInput() == Redirect.PIPE ) pipers.add(Piper.start(getInputStream(io[0]), false, proc.getOutputStream(), true));
 			if( pb.redirectOutput() == Redirect.PIPE ) pipers.add(Piper.start(proc.getInputStream(), true, (OutputStream)io[1], false));
 			if( pb.redirectError() == Redirect.PIPE ) pipers.add(Piper.start(proc.getErrorStream(), true, (OutputStream)io[2], false));
 			int exitCode = proc.waitFor();
@@ -249,6 +270,8 @@ public class SimplerCommandRunner {
 				return doJcrPrint(args, i+1, getPrintStream(io[1]));
 			} else if( "jcr:run".equals(args[i]) ) {
 				// Basically a no-op!
+			} else if( "jcr:runsys".equals(args[i]) ) {
+				return doSysProc(args, i+1, env, io);
 			} else {
 				return doSysProc(args, i, env, io);
 			}

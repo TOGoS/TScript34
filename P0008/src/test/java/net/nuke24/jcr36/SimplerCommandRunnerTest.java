@@ -1,10 +1,14 @@
 package net.nuke24.jcr36;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.Collections;
+
+import static net.nuke24.jcr36.SimplerCommandRunner.quote;
+import static net.nuke24.jcr36.SimplerCommandRunner.debug;
 
 public class SimplerCommandRunnerTest implements Runnable
 {
@@ -29,14 +33,6 @@ public class SimplerCommandRunnerTest implements Runnable
 		}
 	}
 	
-	static String debug(Object obj) {
-		if( obj instanceof String ) {
-			return SimplerCommandRunner.quote((String)obj);
-		} else {
-			return obj.toString();
-		}
-	}
-	
 	static void assertEquals(Object a, Object b) {
 		if( a == b ) return;
 	
@@ -45,18 +41,25 @@ public class SimplerCommandRunnerTest implements Runnable
 		if( !a.equals(b) ) {
 			throw new RuntimeException(debug(a)+" != "+debug(b));
 		}
+	}
+	
+	static void assertTrue(boolean condition, String message) {
+		if( condition ) return;
 		
+		throw new RuntimeException("assertTrue(false, "+quote(message)+")");
 	}
 	
 	public void testPrint() {
 		OutputCollector out = OutputCollector.create();
-		SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		assertEquals(0, exitCode);
 		assertEquals("Hello, world!\n", out.toString());
 	}
 	
 	public void testPrintN() {
 		OutputCollector out = OutputCollector.create();
-		SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "-n", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:print", "-n", "Hello, world!" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, null });
+		assertEquals(0, exitCode);
 		assertEquals("Hello, world!", out.toString());
 	}
 	
@@ -65,11 +68,32 @@ public class SimplerCommandRunnerTest implements Runnable
 	}
 	
 	public void testExit123() {
-		assertEquals(123, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "123" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, null }));
+		assertEquals(123, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "123" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, System.err }));
 	}
 	
 	public void testExitN456() {
-		assertEquals(-456, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "-456" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, null }));
+		assertEquals(-456, SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:exit", "-456" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, null, System.err }));
+	}
+	
+	public void testRunSysProc() {
+		OutputCollector out = OutputCollector.create();
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(new String[]{ "jcr:runsys", "java", "-version" }, 0, Collections.<String,String>emptyMap(), new Object[] { null, out, out });
+		assertEquals(0, exitCode);
+		assertTrue(out.toString().length() > 0, "Expected `jcr:runsys java -version` to output some non-zero number of characters");
+	}
+	
+	public void testRunJcrAsSysProc() {
+		File jarFile = new File("JCR36.1.14.jar");
+		if( !jarFile.exists() ) {
+			System.err.println("testRunJcrAsSysProc: Skipping because "+jarFile.getPath()+" doesn't exist");
+			return;
+		}
+		OutputCollector out = OutputCollector.create();
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(
+			new String[]{ "jcr:runsys", "java", "-jar", jarFile.getPath(), "jcr:print", "-n", "Hello, world!" },
+			0, Collections.<String,String>emptyMap(), new Object[] { null, out, System.err });
+		assertEquals(0, exitCode);
+		assertEquals("Hello, world!", out.toString());
 	}
 	
 	@Override public void run() {
@@ -78,6 +102,8 @@ public class SimplerCommandRunnerTest implements Runnable
 		testExit();
 		testExit123();
 		testExitN456();
+		testRunSysProc();
+		testRunJcrAsSysProc();
 	}
 	
 	public static void main(String[] args) {
