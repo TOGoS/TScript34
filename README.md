@@ -18,4 +18,6 @@ When run on the command-line, `jcr:docmd` is implied.
 |   alias     |  Full name                                              |
 |-------------|---------------------------------------------------------|
 | `jcr:docmd` | `http://ns.nuke24.net/JavaCommandRunner36/Action/DoCmd` |
+| `jcr:exit`  | `http://ns.nuke24.net/JavaCommandRunner36/Action/Exit`
 | `jcr:print` | `http://ns.nuke24.net/JavaCommandRunner36/Action/Print` |
+| `jcr:runsys` | `http://ns.nuke24.net/JavaCommandRunner36/Action/RunSysProc` |
