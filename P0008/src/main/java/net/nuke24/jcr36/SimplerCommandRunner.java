@@ -10,15 +10,21 @@ import java.io.UnsupportedEncodingException;
 import java.lang.ProcessBuilder.Redirect;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
-	public static String VERSION = "JCR36.1.15-dev"; // Bump to 36.1.x for 'simpler' (one-class) version
+	public static final String VERSION = "JCR36.1.15-dev"; // Bump to 36.1.x for 'simpler' (one-class) version
 	
-	public static int EXIT_CODE_PIPING_ERROR = -1001;
+	public static final int EXIT_CODE_PIPING_ERROR = -1001;
+	
+	public static final String CMD_DOCMD = "http://ns.nuke24.net/JavaCommandRunner36/Action/DoCmd";
+	public static final String CMD_EXIT = "http://ns.nuke24.net/JavaCommandRunner36/Action/Exit";
+	public static final String CMD_PRINT = "http://ns.nuke24.net/JavaCommandRunner36/Action/Print";
+	public static final String CMD_RUNSYSPROC = "http://ns.nuke24.net/JavaCommandRunner36/Action/RunSysProc";
 	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
@@ -38,21 +44,19 @@ public class SimplerCommandRunner {
 		if( obj == null ) {
 			return "null";
 		} else if( obj instanceof String ) {
-			return SimplerCommandRunner.quote((String)obj);
+			return quote((String)obj);
+		} else if( obj instanceof String[] ) {
+			StringBuilder sb = new StringBuilder("[");
+			String sep = "";
+			for( Object item : (String[])obj ) {
+				sb.append(sep).append(debug(item));
+				sep = ", ";
+			}
+			sb.append("]");
+			return sb.toString();
 		} else {
 			return "("+obj.getClass().getName()+")"+obj.toString();
 		}
-	}
-	
-	protected static String quoteArr(String[] arr) {
-		StringBuilder sb = new StringBuilder("[");
-		String sep = "";
-		for( String item : arr ) {
-			sb.append(item).append(sep);
-			sep = ", ";
-		}
-		sb.append("]");
-		return sb.toString();
 	}
 	
 	public static <T> T[] slice(T[] arr, int offset, int length, Class<T> elementClass) {
@@ -101,7 +105,7 @@ public class SimplerCommandRunner {
 				throw new RuntimeException("jcr:exit: Failed to parse '"+args[i]+"' as integer", e);
 			}
 		} else {
-			throw new RuntimeException("Too many arguments to jcr:exit: "+quoteArr(slice(args,i,String.class)));
+			throw new RuntimeException("Too many arguments to jcr:exit: "+debug(slice(args,i,String.class)));
 		}
 		return code;
 	}
@@ -228,10 +232,27 @@ public class SimplerCommandRunner {
 			
 			return exitCode;
 		} catch (IOException e) {
-			throw new RuntimeException("Failed to run process "+quoteArr(resolvedArgs), e);
+			throw new RuntimeException("Failed to run process "+debug(resolvedArgs), e);
 		} catch (InterruptedException e) {
-			throw new RuntimeException("Failed to run process "+quoteArr(resolvedArgs), e);
+			throw new RuntimeException("Failed to run process "+debug(resolvedArgs), e);
 		}
+	}
+	
+	public static String envMangleAlias(String name) {
+		return "JCR_ALIAS_"+name.replace(":", "_").toUpperCase();
+	}
+	
+	public static String dealiasCommand(String name, Map<String,String> env) {
+		String resolved = env.get(envMangleAlias(name));
+		return resolved == null ? name : resolved;
+	}
+	
+	public static Map<String,String> STANDARD_ALIASES = new HashMap<String,String>();
+	static {
+		STANDARD_ALIASES.put("jcr:docmd" , CMD_DOCMD);
+		STANDARD_ALIASES.put("jcr:exit"  , CMD_EXIT);
+		STANDARD_ALIASES.put("jcr:print" , CMD_PRINT);
+		STANDARD_ALIASES.put("jcr:runsys", CMD_RUNSYSPROC);
 	}
 	
 	protected static String HELP_TEXT =
@@ -264,23 +285,43 @@ public class SimplerCommandRunner {
 				return doJcrPrint(new String[] { VERSION, "\n", "\n", HELP_TEXT }, 0, getPrintStream(io[1]));
 			} else if( args[i].startsWith("-") ) {
 				System.err.println("Unrecognized option: "+quote(args[i]));
-			} else if( "jcr:exit".equals(args[i]) ) {
-				return doJcrExit(args, i+1);
-			} else if( "jcr:print".equals(args[i]) ) {
-				return doJcrPrint(args, i+1, getPrintStream(io[1]));
-			} else if( "jcr:run".equals(args[i]) ) {
-				// Basically a no-op!
-			} else if( "jcr:runsys".equals(args[i]) ) {
-				return doSysProc(args, i+1, env, io);
 			} else {
-				return doSysProc(args, i, env, io);
+				String cmd = dealiasCommand(args[i], env);
+				if( CMD_EXIT.equals(cmd) ) {
+					return doJcrExit(args, i+1);
+				} else if( CMD_PRINT.equals(cmd) ) {
+					return doJcrPrint(args, i+1, getPrintStream(io[1]));
+				} else if( "jcr:run".equals(cmd) ) {
+					// Basically a no-op!
+				} else if( CMD_RUNSYSPROC.equals(cmd) ) {
+					return doSysProc(args, i+1, env, io);
+				} else {
+					return doSysProc(args, i, env, io);
+				}
 			}
 		}
 		return 0;
 	}
 	
+	public static Map<String,String> withAliases(Map<String,String> env, Map<String,String> aliases) {
+		if( aliases.size() == 0 ) return env;
+		env = new HashMap<String,String>(env);
+		for( Map.Entry<String,String> ae : aliases.entrySet() ) {
+			env.put(envMangleAlias(ae.getKey()), ae.getValue());
+		}
+		return env;
+	}
+	
 	public static void main(String[] args) {
-		int exitCode = doJcrDoCmd(args, 0, System.getenv(), new Object[] { System.in, System.out, System.err });
+		int argi = 0;
+		boolean loadStdAliases = true;
+		if( "--no-std-aliases".equals(args[argi]) ) {
+			loadStdAliases = false;
+			++argi;
+		}
+		Map<String,String> env = System.getenv();
+		env = withAliases(env, loadStdAliases ? STANDARD_ALIASES : Collections.<String,String>emptyMap());
+		int exitCode = doJcrDoCmd(args, argi, env, new Object[] { System.in, System.out, System.err });
 		System.exit(exitCode);
 	}
 }
