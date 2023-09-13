@@ -109,6 +109,36 @@ public class SimplerCommandRunnerTest implements Runnable
 		assertEquals("Hello, world!", out.toString());
 	}
 	
+	public void testCatDataUri() {
+		OutputCollector out = OutputCollector.create();
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(
+			new String[]{ "jcr:cat", "data:,Hello,%20", "data:,world!" },
+			0, ENV_W_ALIASES, new Object[] { null, out, System.err });
+		assertEquals(0, exitCode);
+		assertEquals("Hello, world!", out.toString());
+	}
+	
+	public void testCatFile() {
+		OutputCollector out = OutputCollector.create();
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(
+			new String[]{ "jcr:cat", "./src/test/resources/hello-world.txt" },
+			0, ENV_W_ALIASES, new Object[] { null, out, System.err });
+		assertEquals(0, exitCode);
+		assertEquals("Hello, world!\n", out.toString());
+	}
+	
+	public void testCatFileUri() {
+		OutputCollector out = OutputCollector.create();
+		int exitCode = SimplerCommandRunner.doJcrDoCmd(
+			new String[]{ "jcr:cat",
+				"file:src/test/resources/hello-world.txt",
+				"file:./src/test/resources/hello-world.txt"
+			},
+			0, ENV_W_ALIASES, new Object[] { null, out, System.err });
+		assertEquals(0, exitCode);
+		assertEquals("Hello, world!\nHello, world!\n", out.toString());
+	}
+	
 	@Override public void run() {
 		testPrint();
 		testPrintN();
@@ -119,6 +149,8 @@ public class SimplerCommandRunnerTest implements Runnable
 		testRunSysProc();
 		testRunSysProcToNul();
 		testRunJcrAsSysProc();
+		testCatDataUri();
+		testCatFile();
 	}
 	
 	public static void main(String[] args) {

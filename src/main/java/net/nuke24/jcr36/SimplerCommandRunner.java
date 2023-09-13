@@ -2,6 +2,7 @@ package net.nuke24.jcr36;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -9,9 +10,14 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.ProcessBuilder.Redirect;
 import java.lang.reflect.Array;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,7 +30,10 @@ public class SimplerCommandRunner {
 	public static final String CMD_DOCMD = "http://ns.nuke24.net/JavaCommandRunner36/Action/DoCmd";
 	public static final String CMD_EXIT = "http://ns.nuke24.net/JavaCommandRunner36/Action/Exit";
 	public static final String CMD_PRINT = "http://ns.nuke24.net/JavaCommandRunner36/Action/Print";
+	public static final String CMD_CAT = "http://ns.nuke24.net/JavaCommandRunner36/Action/Cat";
 	public static final String CMD_RUNSYSPROC = "http://ns.nuke24.net/JavaCommandRunner36/Action/RunSysProc";
+	
+	static final Charset UTF8 = Charset.forName("UTF-8");
 	
 	// Quote in the conventional C/Java/JSON style.
 	// Don't rely on this for passing to other programs!
@@ -75,6 +84,51 @@ public class SimplerCommandRunner {
 		return slice(arr, offset, arr.length-offset, elementClass);
 	}
 	
+	// Require scheme to have at least 2 characters
+	// so that windows paths like "C:/foo/bar" are unambiguously
+	// recognized as NOT being URIs.
+	static final Pattern URI_MATCHER = Pattern.compile("^([a-z][a-z0-9+.-]+):(.*)", Pattern.CASE_INSENSITIVE);
+	static final Pattern WIN_PATH_MATCHER = Pattern.compile("^([a-z]):(.*)", Pattern.CASE_INSENSITIVE);
+	static final Pattern BITPRINT_URN_PATTERN = Pattern.compile("^urn:bitprint:([A-Z2-7]{32})\\.([A-Z2-7]{39})");
+	static final Pattern DATA_URI_PATTERN = Pattern.compile("^data:(),(.*)"); // TODO: support the rest of it!
+	
+	public static List<String> resolveUri(String uri, Map<String,String> env) {
+		Matcher m;
+		if( (m = BITPRINT_URN_PATTERN.matcher(uri)).matches() ) {
+			m.group(1);
+			throw new RuntimeException("Hash URN resolution not yet supported");
+		} else if( URI_MATCHER.matcher(uri).matches() ) {
+			return Collections.singletonList(uri);
+		} else {
+			String path = uri.replace("\\", "/");
+			if( path.startsWith("//") ) {
+				// already UNC
+			} else if( uri.startsWith("/") ) {
+				path = "//" + path;
+			} else if( (m = WIN_PATH_MATCHER.matcher(path)).matches() ) {
+				path = "///" + m.group(1).toUpperCase()+":"+m.group(2);
+			} else {
+				// relative
+			}
+			return Collections.singletonList("file:"+URLEncoder.encode(path, UTF8));
+		}
+	}
+	
+	public static InputStream getInputStream(String name, Map<String,String> env) throws IOException {
+		List<String> candidates = resolveUri(name, env);
+		for( String uri : candidates ) {
+			Matcher m;
+			if( (m = DATA_URI_PATTERN.matcher(uri)).matches() ) {
+				// TODO: Directly decode data instead of this decode-to-string-first business
+				byte[] data = URLDecoder.decode(m.group(2), UTF8).getBytes();
+				return new ByteArrayInputStream(data);
+			} else {
+				return new URL(uri).openConnection().getInputStream();
+			}
+		}
+		throw new FileNotFoundException("Couldn't resolve '"+name+"' to a readable resource"); 
+	}
+	
 	protected static String resolveProgram(String name, Map<String,String> env) {
 		String pathSepRegex = Pattern.quote(File.pathSeparator);
 		
@@ -111,6 +165,39 @@ public class SimplerCommandRunner {
 	}
 	
 	static final Pattern OFS_PAT = Pattern.compile("^--ofs=(.*)$");
+	
+	public static int doJcrCat(String[] args, int i, Map<String,String> env, Object[] io) {
+		String ofs = ""; // Output file separator, to be symmetric with print --ofs=whatever
+		Matcher m;
+		for( ; i<args.length; ++i ) {
+			if( (m = OFS_PAT.matcher(args[i])).matches() ) {
+				ofs = m.group(1);
+			} else if( "--".equals(args[i]) ) {
+				++i;
+				break;
+			} else if( args[i].startsWith("-") ) {
+				throw new RuntimeException("Unrecognized argument to jcr:print: "+quote(args[i]));
+			} else {
+				break;
+			}
+		}
+		PrintStream out = toPrintStream(io[1]);
+		if( out == null ) return 0;
+		String _sep = "";
+		for( ; i<args.length; ++i ) {
+			out.print(_sep);
+			try {
+				new Piper(getInputStream(args[i], env), true, out, false).run();
+			} catch (IOException e) {
+				PrintStream err = toPrintStream(io[2]); 
+				err.print("Failed to open "+args[i]+": ");
+				e.printStackTrace(err);
+				return 1;
+			}
+			_sep = ofs;
+		}
+		return 0;
+	}
 	
 	public static int doJcrPrint(String[] args, int i, PrintStream out) {
 		String ofs = " "; // Output field separator, i.e. OFS in AWK
@@ -255,6 +342,7 @@ public class SimplerCommandRunner {
 	
 	public static Map<String,String> STANDARD_ALIASES = new HashMap<String,String>();
 	static {
+		STANDARD_ALIASES.put("jcr:cat"   , CMD_CAT);
 		STANDARD_ALIASES.put("jcr:docmd" , CMD_DOCMD);
 		STANDARD_ALIASES.put("jcr:exit"  , CMD_EXIT);
 		STANDARD_ALIASES.put("jcr:print" , CMD_PRINT);
@@ -293,7 +381,9 @@ public class SimplerCommandRunner {
 				System.err.println("Unrecognized option: "+quote(args[i]));
 			} else {
 				String cmd = dealiasCommand(args[i], env);
-				if( CMD_EXIT.equals(cmd) ) {
+				if( CMD_CAT.equals(cmd) ) {
+					return doJcrCat(args, i+1, env, io);
+				} else if( CMD_EXIT.equals(cmd) ) {
 					return doJcrExit(args, i+1);
 				} else if( CMD_PRINT.equals(cmd) ) {
 					return doJcrPrint(args, i+1, toPrintStream(io[1]));
