@@ -53,6 +53,43 @@ should mean the same thing and have the same result in either.
 That said, some PostScript programs might not be valid TScript34 programs,
 and vice-versa.
 
+*** Common Syntax
+
+Languages aside from the 'syntaxless' TS34.2 (which is line-based)
+and PostScript clones (though they may extend the syntax to support line comments)
+may share common tokenization rules.
+
+#+BEGIN_SRC
+#!/shebang/line
+# line comment
+#SPECIAL-DIRECTIVE
+
+foo-bar:baz/quux#quuux # Bareword, includinbg some punctuation characters;
+                       # Note that '#' only starts a line comment when precedded
+		       # by whitespace or the beginning of a line
+
+[abc 123] # Square braces are self-delimiting: `[` `abc` `123` `]`
+(asd 123) # So are parentheses
+{asd 123} # End curly braces, except in TCL-like languages where
+          # they act like nestable double quotes.
+
+# Single and double quotes follow the same tokenization rules
+
+'quoted symbol\n' # Single quotes mean 'treat as a symbol'
+                  # (except in Lispy languages, where 'foo means (quote foo)
+"quoted string\n" # Double quotes mean literal string
+
+‹hello \ ‹there›› # Nestable symbol quoting without escapes
+«hello \ «there»» # Nestable literal quoting without escapes
+#+END_SRC
+
+The single and double regular and nestable quotes are the same,
+and with the semantics as the TOGVM-PHP language and SchemaSchema.
+Other unicode quotes might allow nesting _with_  escape sequences
+(see https://github.com/TOGoS/TOGVM-Spec/blob/master/test-vectors/tokens/quotes.txt),
+but that seems to lead to some ambiguity:
+at which level are the escapes decoded?
+
 ** FAQ
 
 *** What the %!&*@ is this?
