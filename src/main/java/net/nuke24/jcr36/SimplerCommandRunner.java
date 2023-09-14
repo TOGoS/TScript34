@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SimplerCommandRunner {
-	public static final String VERSION = "JCR36.1.19-dev"; // Bump to 36.1.x for 'simpler' version
+	public static final String VERSION = "JCR36.1.20"; // Bump to 36.1.x for 'simpler' version
 	
 	public static final int EXIT_CODE_PIPING_ERROR = -1001;
 	
