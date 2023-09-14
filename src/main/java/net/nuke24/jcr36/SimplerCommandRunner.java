@@ -11,10 +11,9 @@ import java.io.UnsupportedEncodingException;
 import java.lang.ProcessBuilder.Redirect;
 import java.lang.reflect.Array;
 import java.net.URL;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +46,63 @@ public class SimplerCommandRunner {
 			 .replace("\t","\\t")
 			 .replace(""+(char)0x1b,"\\x1B")
 			+"\"";
+	}
+	
+	static int hexDecodeDigit(int dig) {
+		if( dig >= '0' && dig <= '9' ) return dig - '0';
+		if( dig >= 'a' && dig <= 'f' ) return 10 + dig - 'a';
+		if( dig >= 'A' && dig <= 'F' ) return 10 + dig - 'A';
+		throw new IllegalArgumentException("Invalid hex digit '"+(char)dig+"'");
+	}
+	static char hexEncodeDigit(int value) {
+		if( value < 0 || value > 15 ) throw new IllegalArgumentException("Value out of range for single-digit hex encoding: "+value);
+		if( value < 10 ) return (char)('0' + value);
+		return (char)('a' + value);
+	}
+	
+	public static byte[] urlDecode(String s) {
+		byte[] encodedBytes = s.getBytes(UTF8);
+		byte[] decodedBytes = new byte[encodedBytes.length];
+		int j=0;
+		for( int i=0; i<encodedBytes.length; ) {
+			if( encodedBytes[i] == '%' ) {
+				if( encodedBytes.length < i+3 ) throw new IllegalArgumentException("Truncated percent sequence at index "+i+" of "+s);
+				decodedBytes[j++] = (byte)((hexDecodeDigit(encodedBytes[i+1]) << 4) | (hexDecodeDigit(encodedBytes[i+2])));
+				i += 3;
+			} else {
+				decodedBytes[j++] = encodedBytes[i++];
+			}
+		}
+		return (j == decodedBytes.length) ?
+			decodedBytes :
+			Arrays.copyOfRange(decodedBytes, 0, j);
+	}
+	
+	/**
+	 * Encode characters as needed for a file: URL;
+	 * Specifically leaves '/' and ':' alone.
+	 * See https://en.wikipedia.org/wiki/File_URI_scheme
+	 */
+	public static String urlEncodePath(byte[] path) {
+		StringBuilder encoded = new StringBuilder();
+		for( int i=0; i<path.length; ++i ) {
+			int c = path[i];
+			boolean escapeMe;
+			switch(c) {
+			case '.': case '/': case ';': case ':': case ',':
+			case '_': case '~': case '-':
+				escapeMe = false;
+				break;
+			default:
+				escapeMe = !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '1' && c <= '9'));
+			}
+			if( escapeMe ) {
+				encoded.append('%').append(hexEncodeDigit((c >> 4)&0xF)).append(hexEncodeDigit(c & 0xF));
+			} else {
+				encoded.append((char)c);
+			}
+		}
+		return encoded.toString();
 	}
 	
 	public static String debug(Object obj) {
@@ -110,7 +166,7 @@ public class SimplerCommandRunner {
 			} else {
 				// relative
 			}
-			return Collections.singletonList("file:"+URLEncoder.encode(path, UTF8));
+			return Collections.singletonList("file:"+urlEncodePath(path.getBytes(UTF8)));
 		}
 	}
 	
@@ -119,10 +175,13 @@ public class SimplerCommandRunner {
 		for( String uri : candidates ) {
 			Matcher m;
 			if( (m = DATA_URI_PATTERN.matcher(uri)).matches() ) {
-				// TODO: Directly decode data instead of this decode-to-string-first business
-				byte[] data = URLDecoder.decode(m.group(2), UTF8).getBytes();
+				byte[] data = urlDecode(m.group(2));
 				return new ByteArrayInputStream(data);
 			} else {
+				// But note that Java's URL.getConnection might choke when the
+				// path contains escape sequences, so we may need to do
+				// our own translation, either 'fixing' the URL or translating
+				// to a plain old FileInputStream.
 				return new URL(uri).openConnection().getInputStream();
 			}
 		}
