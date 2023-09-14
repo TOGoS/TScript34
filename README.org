@@ -70,8 +70,8 @@ foo-bar:baz/quux#quuux # Bareword, includinbg some punctuation characters;
 
 [abc 123] # Square braces are self-delimiting: `[` `abc` `123` `]`
 (asd 123) # So are parentheses
-{asd 123} # End curly braces, except in TCL-like languages where
-          # they act like nestable double quotes.
+{asd 123} # And so are curly braces, except in TCL-like languages,
+          # where they act like nestable double quotes.
 
 # Single and double quotes follow the same tokenization rules
 
@@ -83,23 +83,63 @@ foo-bar:baz/quux#quuux # Bareword, includinbg some punctuation characters;
 «hello \ «there»» # Nestable literal quoting without escapes
 #+END_SRC
 
-The single and double regular and nestable quotes are the same,
-and with the semantics as the TOGVM-PHP language and SchemaSchema.
-Other unicode quotes might allow nesting _with_  escape sequences
-(see https://github.com/TOGoS/TOGVM-Spec/blob/master/test-vectors/tokens/quotes.txt),
-but that seems to lead to some ambiguity:
+~‹›~ and ~«»~ are called '[[https://en.wikipedia.org/wiki/Guillemet][guillaments]]'.
+
+*** Alternate quote styles
+
+The single and double regular and nestable quotes are the same
+characters with the semantics as defined by the TOGVM-PHP language and SchemaSchema.
+Other unicode quotes might allow nesting _with_  escape sequences,
+or other permutaions of nestable/escapable/supporting interpolations or not
+(see https://github.com/TOGoS/TOGVM-Spec/blob/master/test-vectors/tokens/quotes.txt).
+
+However, that seems to lead to some ambiguity:
 at which level are the escapes decoded?
+The answer is probably: at the outermost quotation,
+since that is the most straightforward.
+But that might seem surprising and/or not the most useful
+interpretation to someone writing with them.
+Therefore I am punting by simply disallowing them, for now.
+The following quote characters should be reserved;
+i.e. recoignized but unsupported (for now):
+
+#+BEGIN_SRC
+`backticks`
+‘nestable single quotes’
+“nestable double quotes”
+「Japanese single quote」
+『Japanese double quote』
+〈Japanese angle quote〉
+《Japanese double-angle quote》
+【Whatever this is】
+〔This other one〕
+〖More crazy unicode quotes〗
+〘Yet more of them!〙
+〚Holy crap, so many weird quote characters〛
+#+END_SRC
+
+(the last few were simply copied from
+https://en.wikipedia.org/wiki/CJK_Symbols_and_Punctuation
+for completeness; I have never thought about
+using them or what they would mean)
 
 ** FAQ
 
 *** What the %!&*@ is this?
 
-A small PostScript-based language specification along with a few implementations.
+A collection of projects, some entirely experimental, that are vaguely related
+in that they share the goal of defining minimal, cross-platform programming language
+interpreters, VMs, or compilers.
+
+*** PostScript?
+
+Some of the sub-projects attempt to define or implement
+a small PostScript-based language specification.
 
 The goal is to have a very easy-to-implement cross-platform core
 that can bootstrap nicer languages (e.g. scheme, more fleshed-out PostScript, etc).
 
-*** Why PostScript and not Forth, Scheme, TCL ...
+**** Why PostScript and not Forth, Scheme, TCL ...
 
 Being a concatenative stack-based language means very little 'parsing'
 is needed; tokens are tokenized and fed directly to the interpreter.
@@ -112,11 +152,24 @@ as first-class objects, somewhat more conventional operation names,
 symmetrical string syntax '(foo)' instead of '" foo"', and fewer assumptions
 that it is running very close to the metal.
 
-*** Why not use WebAssembly?
+*** Other languages/VMs to consider implementing
 
-Uthgmsagrumbleidk maybe that would be a good idea?  But it would probably be slightly less 'minimal'
-than what I'm going for, here.
+**** WebAssembly
+
+Might be slightly less 'minimal' than what I'm going for, here,
+though admittedly I haven't tried it.
 
 TODO: Read https://www.javaadvent.com/2022/12/webassembly-for-the-java-geek.html
 
 It is compelling.
+
+**** [[https://100r.co/site/uxn.html][UXN]]
+
+#+BEGIN_QUOTE
+The Uxn/Varvara ecosystem is a personal computing stack
+based on a small virtual machine that lies at the heart of our software,
+and that allows us to run the same application on a variety of systems.
+#+END_QUOTE
+
+Sounds very similar to what I'm going for,
+so why not!
