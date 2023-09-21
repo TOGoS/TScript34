@@ -1,0 +1,12 @@
+#+TITLE: TScript34 Prototype 11 : Lisp Interpreter
+
+** Tasks
+
+*** DONE Simple tokenizer
+*** DONE Simple evaluator
+*** TODO token -> expression reader
+*** TODO Unify with P0008
+
+Maybe functions should be useable as JCR commande - they just output their result instead of returning it.
+
+Lisp expressions can construct JCR actions, but not run them.
