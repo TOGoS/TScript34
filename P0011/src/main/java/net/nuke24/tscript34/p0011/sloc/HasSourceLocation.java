@@ -1,4 +1,4 @@
-package net.nuke24.tscript34.p0011;
+package net.nuke24.tscript34.p0011.sloc;
 
 public interface HasSourceLocation {
 	public String getSourceFileUri();

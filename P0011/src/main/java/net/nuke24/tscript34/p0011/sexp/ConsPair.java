@@ -1,6 +1,8 @@
 package net.nuke24.tscript34.p0011.sexp;
 
-public class ConsPair extends AbstractExpression {
+import net.nuke24.tscript34.p0011.sloc.AbstractHasSourceLocation;
+
+public class ConsPair extends AbstractHasSourceLocation {
 	public final Object left;
 	public final Object right;
 	
@@ -26,6 +28,6 @@ public class ConsPair extends AbstractExpression {
 	}
 	
 	@Override public String toString() {
-		return "ConsPair(" + left.toString() + " . " + right.toString() + ")";
+		return "ConsPair(" + left.toString() + ", " + right.toString() + getSlocString(", ")+")";
 	}
 }

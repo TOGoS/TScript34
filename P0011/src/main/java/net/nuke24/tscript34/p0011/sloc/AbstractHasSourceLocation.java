@@ -1,4 +1,4 @@
-package net.nuke24.tscript34.p0011;
+package net.nuke24.tscript34.p0011.sloc;
 
 public class AbstractHasSourceLocation implements HasSourceLocation {
 	public final String sourceFileUri;
@@ -32,15 +32,15 @@ public class AbstractHasSourceLocation implements HasSourceLocation {
 	}
 	
 	protected boolean abstractSourceLocationEquals(Object obj) {
-		if( !(obj instanceof Token) ) return false;
-		Token ot = (Token)obj;
+		if( !(obj instanceof HasSourceLocation) ) return false;
+		HasSourceLocation hsl = (HasSourceLocation)obj;
 		return
-			(this.sourceFileUri == ot.sourceFileUri ||
-			 (this.sourceFileUri != null && this.sourceFileUri.equals(ot.sourceFileUri))) &&
-			this.sourceLineIndex == ot.sourceLineIndex &&
-			this.sourceColumnIndex == ot.sourceColumnIndex &&
-			this.sourceEndLineIndex == ot.sourceEndLineIndex &&
-			this.sourceEndColumnIndex == ot.sourceEndColumnIndex;
+			(this.sourceFileUri == hsl.getSourceFileUri() ||
+			 (this.sourceFileUri != null && this.sourceFileUri.equals(hsl.getSourceFileUri()))) &&
+			this.sourceLineIndex == hsl.getSourceLineIndex() &&
+			this.sourceColumnIndex == hsl.getSourceColumnIndex() &&
+			this.sourceEndLineIndex == hsl.getSourceEndLineIndex() &&
+			this.sourceEndColumnIndex == hsl.getSourceEndColumnIndex();
 	}
 	
 	protected int abstractSourceLocationHashCode() {
@@ -52,19 +52,19 @@ public class AbstractHasSourceLocation implements HasSourceLocation {
 			(this.sourceEndColumnIndex << 24);
 	}
 	
-	protected String getSlocString() {
+	protected String getSlocString(String prefix) {
 		return (
 			this.sourceFileUri == null &&
 			sourceLineIndex == -1 && sourceColumnIndex == -1 &&
 			sourceEndLineIndex == -1 && sourceEndColumnIndex == -1
-		) ? "" : "<"+
+		) ? "" : prefix + "<"+
 			sourceFileUri+">#"+
 			(sourceLineIndex+1)+","+(sourceColumnIndex+1)+".."+
 			(sourceEndLineIndex+1)+","+(sourceEndColumnIndex+1);
 	}
 	
 	@Override public String toString() {
-		return getClass().getSimpleName()+"("+getSlocString()+")";
+		return getClass().getSimpleName()+"("+getSlocString("")+")";
 	}
 	
 	@Override public String getSourceFileUri() { return sourceFileUri; }

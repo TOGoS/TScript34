@@ -1,5 +1,7 @@
 package net.nuke24.tscript34.p0011;
 
+import net.nuke24.tscript34.p0011.sloc.AbstractHasSourceLocation;
+
 public class Token extends AbstractHasSourceLocation {
 	public final String text;
 	public final int mode;
@@ -35,7 +37,6 @@ public class Token extends AbstractHasSourceLocation {
 	}
 	
 	@Override public String toString() {
-		String slocStr = getSlocString();
-		return "Token(\"" + text + "\", "+mode+(slocStr.isEmpty() ? "" : ", "+slocStr)+")";
+		return "Token(\"" + text + "\""+mode+getSlocString(", ")+")";
 	}
 }

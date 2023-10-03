@@ -5,30 +5,11 @@ import java.io.IOException;
 import javax.script.ScriptException;
 
 import junit.framework.TestCase;
-import net.nuke24.tscript34.p0011.sexp.AbstractExpression;
+
 import net.nuke24.tscript34.p0011.sexp.Atom;
 import net.nuke24.tscript34.p0011.sexp.ConsPair;
 import net.nuke24.tscript34.p0011.sexp.LiteralValue;
-
-class SourceLocation implements HasSourceLocation {
-	public String sourceUri;
-	public final int sourceLineIndex;
-	public final int sourceColumnIndex;
-	public final int sourceEndLineIndex;
-	public final int sourceEndColumnIndex;
-	public SourceLocation(String sourceUri, int sourceLineIndex, int sourceColumnIndex, int sourceEndLineIndex, int sourceEndColumnIndex) {
-		this.sourceUri = sourceUri;
-		this.sourceLineIndex = sourceLineIndex;
-		this.sourceColumnIndex = sourceColumnIndex;
-		this.sourceEndLineIndex = sourceEndColumnIndex;
-		this.sourceEndColumnIndex = sourceEndColumnIndex;
-	}
-	@Override public String getSourceFileUri() { return sourceUri; }
-	@Override public int getSourceLineIndex() { return sourceLineIndex; }
-	@Override public int getSourceColumnIndex() { return sourceColumnIndex; }
-	@Override public int getSourceEndLineIndex() { return sourceEndLineIndex; }
-	@Override public int getSourceEndColumnIndex() { return sourceEndColumnIndex; }
-}
+import net.nuke24.tscript34.p0011.sloc.HasSourceLocation;
 
 class EvalException extends ScriptException {
 	private static final long serialVersionUID = 3707037127440615004L;
@@ -61,7 +42,7 @@ class Evaluator {
 	}
 	
 	/** Evaluate a list, returning a new list (ConsPair or Atom(S_NIL)) */
-	public static AbstractExpression evalList(HasSourceLocation listObj, Function<String, Object> defs) throws EvalException {
+	public static HasSourceLocation evalList(HasSourceLocation listObj, Function<String, Object> defs) throws EvalException {
 		if( listObj instanceof ConsPair ) {
 			ConsPair pair = (ConsPair)listObj; 
 			// Here's the place to add 'splat' if you want it
@@ -87,7 +68,7 @@ class Evaluator {
 	}
 	
 	public static Object evalConsPair(ConsPair cp, Function<String,Object> defs) throws EvalException {
-		AbstractExpression funcExpr = (AbstractExpression)cp.left;
+		HasSourceLocation funcExpr = (HasSourceLocation)cp.left;
 		Object fun = eval(funcExpr, defs);
 		boolean isMacro = false;
 		if( fun instanceof ConsPair && isSymbol( ((ConsPair)fun).left, S_MACRO )) {
@@ -98,12 +79,12 @@ class Evaluator {
 			if( !(fun instanceof Macro) ) {
 				throw new EvalException(funcExpr+" is not a macro", cp);
 			}
-			return ((Macro<AbstractExpression,Object>)fun).apply((AbstractExpression)cp.right, defs);
+			return ((Macro<HasSourceLocation,Object>)fun).apply((HasSourceLocation)cp.right, defs);
 		} else {
 			if( !(fun instanceof Function) ) {
 				throw new EvalException(funcExpr+" is not a function", cp);
 			}
-			return ((Function<AbstractExpression,Object>)fun).apply(evalList((AbstractExpression)cp.right, defs));
+			return ((Function<HasSourceLocation,Object>)fun).apply(evalList((HasSourceLocation)cp.right, defs));
 		}
 	}
 	
@@ -122,10 +103,10 @@ class Evaluator {
 		}
 	}
 	
-	static class Concat implements Function<AbstractExpression,Object> {
+	static class Concat implements Function<Object,Object> {
 		public static Concat instance = new Concat();
 		
-		public Object apply(AbstractExpression arg) {
+		public Object apply(Object arg) {
 			StringBuilder result = new StringBuilder();
 			while( !isSymbol(arg, S_NIL) ) {
 				ConsPair p = (ConsPair)arg;
@@ -134,7 +115,7 @@ class Evaluator {
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}
-				arg = (AbstractExpression)p.right;
+				arg = p.right;
 			}
 			return result.toString();
 		};
