@@ -7,7 +7,6 @@ import java.util.Random;
 
 import junit.framework.TestCase;
 import net.nuke24.tscript34.p0011.Danducer.DucerData;
-import net.nuke24.tscript34.p0011.Tokenizer.Token;
 
 public class TokenizerTest extends TestCase {
 	PrintStream debugStream;
@@ -77,9 +76,9 @@ public class TokenizerTest extends TestCase {
 		}
 	}
 	
-	protected void testTokenizesTo(Token[] expected, String text, String sourceFilename) {
+	protected void testTokenizesTo(Token[] expected, String text, String sourceUri) {
 		for( int seed=0; seed<10; ++seed ) {
-			DucerData<CharSequence, Token[]> s = new Tokenizer(new LispyCharDecoder(), sourceFilename).withDebugStream(debugStream).process("", false);
+			DucerData<CharSequence, Token[]> s = new Tokenizer(new LispyCharDecoder(), sourceUri).withDebugStream(debugStream).process("", false);
 			s = processChunked(s, text, true, seed);
 			assertArrayEquals(expected, s.output);
 		}
@@ -149,16 +148,17 @@ public class TokenizerTest extends TestCase {
 			"(\"foo \\\"(bar)\\\"\")"
 		);
 	}
+	
 	public void testTokenizeWithSourceLocation() {
 		testTokenizesTo(new Token[] {
-			new Token("foo",LispyCharDecoder.MODE_BAREWORD, "foo.txt", 1, 0, 1, 3),
-			new Token("(",LispyCharDecoder.MODE_DELIMITER , "foo.txt", 1, 4, 1, 5),
-			new Token("bar",LispyCharDecoder.MODE_BAREWORD, "foo.txt", 1, 5, 1, 8),
-			new Token(")",LispyCharDecoder.MODE_DELIMITER , "foo.txt", 1, 8, 1, 9),
+			new Token("foo",LispyCharDecoder.MODE_BAREWORD, "file:foo.txt", 1, 0, 1, 3),
+			new Token("(",LispyCharDecoder.MODE_DELIMITER , "file:foo.txt", 1, 4, 1, 5),
+			new Token("bar",LispyCharDecoder.MODE_BAREWORD, "file:foo.txt", 1, 5, 1, 8),
+			new Token(")",LispyCharDecoder.MODE_DELIMITER , "file:foo.txt", 1, 8, 1, 9),
 		},
 			"#!/bin/foobar\n" +
 			"foo (bar)",
-			"foo.txt"
+			"file:foo.txt"
 		);
 	}
 }

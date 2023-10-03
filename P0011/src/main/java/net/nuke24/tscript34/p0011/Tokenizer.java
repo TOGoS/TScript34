@@ -5,68 +5,9 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
+public class Tokenizer implements Danducer<CharSequence, Token[]> {
 	public interface CharDecoder {
 		int[] decode(int mode, int character);
-	}
-	
-	public static class Token {
-		public final String text;
-		public final int mode;
-		public final String sourceFilename;
-		public final int sourceLineIndex;
-		public final int sourceColumnIndex;
-		public final int sourceEndLineIndex;
-		public final int sourceEndColumnIndex;
-		public Token(
-			String text, int mode,
-			String sourceFilename,
-			int sourceLineIndex, int sourceColumnIndex,
-			int sourceEndLineIndex, int sourceEndColumnIndex
-		) {
-			this.text = text;
-			this.mode = mode;
-			this.sourceFilename = sourceFilename;
-			this.sourceLineIndex = sourceLineIndex;
-			this.sourceColumnIndex = sourceColumnIndex;
-			this.sourceEndLineIndex = sourceEndLineIndex;
-			this.sourceEndColumnIndex = sourceEndColumnIndex;
-		}
-		public Token(String text, int mode) {
-			this(text, mode, null, -1, -1, -1, -1);
-		}
-		@Override public boolean equals(Object obj) {
-			if( !(obj instanceof Token) ) return false;
-			Token ot = (Token)obj;
-			return text.equals(ot.text) && mode == ot.mode &&
-				(this.sourceFilename == ot.sourceFilename ||
-				(this.sourceFilename != null && this.sourceFilename.equals(ot.sourceFilename))) &&
-				this.sourceLineIndex == ot.sourceLineIndex &&
-				this.sourceColumnIndex == ot.sourceColumnIndex &&
-				this.sourceEndLineIndex == ot.sourceEndLineIndex &&
-				this.sourceEndColumnIndex == ot.sourceEndColumnIndex;
-		}
-		
-		@Override public int hashCode() {
-			return text.hashCode() ^ mode +
-				(this.sourceFilename == null ? 0 : this.sourceFilename.hashCode()) +
-				(this.sourceLineIndex      <<  0) +
-				(this.sourceColumnIndex    <<  8) +
-				(this.sourceEndLineIndex   << 16) +
-				(this.sourceEndColumnIndex << 24);
-		}
-		
-		@Override public String toString() {
-			String slocStr = (
-				this.sourceFilename == null &&
-				sourceLineIndex == -1 && sourceColumnIndex == -1 &&
-				sourceEndLineIndex == -1 && sourceEndColumnIndex == -1
-			) ? "" : ", \""+
-				sourceFilename+":"+
-				(sourceLineIndex+1)+","+(sourceColumnIndex+1)+".."+
-				(sourceEndLineIndex+1)+","+(sourceEndColumnIndex+1)+"\"";
-			return "Token(\"" + text + "\", "+mode+slocStr+")";
-		}
 	}
 	
 	static final Token[] EMPTY_TOKEN_LIST = new Token[0];
@@ -147,35 +88,35 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 	final int mode;
 	final CharDecoder charDecoder;
 	final PrintStream debugStream;
-	final String sourceFilename;
+	final String sourceUri;
 	final int tokenStartLineIndex;
 	final int tokenStartColumnIndex;
 	final int sourceLineIndex;
 	final int sourceColumnIndex;
 	public Tokenizer(
 		String textBuffer, int acc, int mode, CharDecoder charDecoder, PrintStream debugStream,
-		String sourceFilename, int tokenStartLineIndex, int tokenStartColumnIndex, int sourceLineIndex, int sourceColumnIndex
+		String sourceUri, int tokenStartLineIndex, int tokenStartColumnIndex, int sourceLineIndex, int sourceColumnIndex
 	) {
 		this.textBuffer = textBuffer;
 		this.acc = acc;
 		this.mode = mode;
 		this.charDecoder = charDecoder;
 		this.debugStream = debugStream;
-		this.sourceFilename = sourceFilename;
+		this.sourceUri = sourceUri;
 		this.tokenStartLineIndex = tokenStartLineIndex;
 		this.tokenStartColumnIndex = tokenStartColumnIndex;
 		this.sourceLineIndex = sourceLineIndex;
 		this.sourceColumnIndex = sourceColumnIndex;
 	}
-	public Tokenizer(CharDecoder charDecoder, String sourceFilename) {
-		this("", 0, 0, charDecoder, null, sourceFilename, -1, -1, 0, 0);
+	public Tokenizer(CharDecoder charDecoder, String sourceUri) {
+		this("", 0, 0, charDecoder, null, sourceUri, -1, -1, 0, 0);
 	}
 	public Tokenizer(CharDecoder charDecoder) {
 		this(charDecoder, null);
 	}
 	
 	public Tokenizer withDebugStream(PrintStream debugStream) {
-		return new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream, sourceFilename, tokenStartColumnIndex, tokenStartColumnIndex, sourceLineIndex, sourceColumnIndex);
+		return new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream, sourceUri, tokenStartColumnIndex, tokenStartColumnIndex, sourceLineIndex, sourceColumnIndex);
 	}
 	public Tokenizer withSourceLocation(String sourceFilename, int sourceLineIndex, int sourceColumnIndex) {
 		return new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream, sourceFilename, tokenStartColumnIndex, tokenStartColumnIndex, sourceLineIndex, sourceColumnIndex);
@@ -209,7 +150,7 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 			
 			int c = i >= input.length() ? CHAR_EOF : input.charAt(i);
 			
-			if(debugStream != null) debugStream.println("Mode="+mode+", i="+i+"; Handling "+(c == CHAR_EOF ? "EOF" : "char: '"+(char)c+"'")+" ("+sourceFilename+":"+(sourceLineIndex+1)+","+sourceColumnIndex+")");
+			if(debugStream != null) debugStream.println("Mode="+mode+", i="+i+"; Handling "+(c == CHAR_EOF ? "EOF" : "char: '"+(char)c+"'")+" ("+sourceUri+":"+(sourceLineIndex+1)+","+sourceColumnIndex+")");
 			int[] ops = this.charDecoder.decode(mode, c);
 			for( int ic=0; ic >= 0 && ic < ops.length; ) {
 				int op = ops[ic++];
@@ -230,9 +171,9 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 					if( acc == 0 ) ic = opData(op);
 					break;
 				case OP_FLUSH_TOKEN  :
-					resultTokens.add(sourceFilename == null ?
+					resultTokens.add(sourceUri == null ?
 						new Token(textBuffer, mode) :
-						new Token(textBuffer, mode, sourceFilename,
+						new Token(textBuffer, mode, sourceUri,
 							tokenStartLineIndex, tokenStartColumnIndex,
 							    sourceLineIndex,     sourceColumnIndex));
 					textBuffer = "";
@@ -263,7 +204,7 @@ public class Tokenizer implements Danducer<CharSequence, Tokenizer.Token[]> {
 		}
 		
 		return new DucerData<CharSequence, Token[]>(
-			new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream, sourceFilename, tokenStartLineIndex, tokenStartColumnIndex, sourceLineIndex, sourceColumnIndex),
+			new Tokenizer(textBuffer, acc, mode, charDecoder, debugStream, sourceUri, tokenStartLineIndex, tokenStartColumnIndex, sourceLineIndex, sourceColumnIndex),
 			input.subSequence(i, input.length()).toString(),
 			resultTokens.toArray(EMPTY_TOKEN_LIST),
 			mode == MODE_END

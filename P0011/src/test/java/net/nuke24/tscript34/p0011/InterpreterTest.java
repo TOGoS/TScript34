@@ -1,14 +1,12 @@
 package net.nuke24.tscript34.p0011;
 
-import static org.junit.Assert.assertThrows;
-
 import java.io.IOException;
 
 import javax.script.ScriptException;
 
 import junit.framework.TestCase;
 
-class SourceLocation {
+class SourceLocation implements HasSourceLocation {
 	public String sourceUri;
 	public final int sourceLineIndex;
 	public final int sourceColumnIndex;
@@ -21,13 +19,18 @@ class SourceLocation {
 		this.sourceEndLineIndex = sourceEndColumnIndex;
 		this.sourceEndColumnIndex = sourceEndColumnIndex;
 	}
+	@Override public String getSourceFileUri() { return sourceUri; }
+	@Override public int getSourceLineIndex() { return sourceLineIndex; }
+	@Override public int getSourceColumnIndex() { return sourceColumnIndex; }
+	@Override public int getSourceEndLineIndex() { return sourceEndLineIndex; }
+	@Override public int getSourceEndColumnIndex() { return sourceEndColumnIndex; }
 }
 
 class EvalException extends ScriptException {
 	private static final long serialVersionUID = 3707037127440615004L;
-	final SourceLocation sLoc;
+	final HasSourceLocation sLoc;
 	public EvalException(String message, SourceLocation sLoc) {
-		super(message, sLoc.sourceUri, sLoc.sourceLineIndex+1, sLoc.sourceColumnIndex+1);
+		super(message, sLoc.getSourceFileUri(), sLoc.getSourceLineIndex()+1, sLoc.getSourceColumnIndex()+1);
 		this.sLoc = sLoc;
 	}
 }
