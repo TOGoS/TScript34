@@ -33,12 +33,40 @@ class Evaluator {
 	// () = null
 	// foo = Symbol("foo")
 	
-	static String S_NIL = "http://ns.nuke24.net/TScript34/P0011/Values/Nil";
-	static String S_MACRO = "http://ns.nuke24.net/TScript34/P0011/X/Macro";
-	static String S_QUOTE = "http://ns.nuke24.net/TScript34/P0011/Macro/Quote";
+	static final String S_NIL = "http://ns.nuke24.net/TScript34/P0011/Values/Nil";
+	static final String S_MACRO = "http://ns.nuke24.net/TScript34/P0011/X/Macro";
+	static final String S_QUOTE = "http://ns.nuke24.net/TScript34/P0011/Macro/Quote";
+	static final String FN_CONCAT = "http://ns.nuke24.net/TOGVM/Functions/Concatenate";
+	static final String FN_CONS = "http://ns.nuke24.net/TScript34/P0011/Functions/Cons";
+	static final String FN_HEAD = "http://ns.nuke24.net/TScript34/P0011/Functions/Head";
+	static final String FN_TAIL = "http://ns.nuke24.net/TScript34/P0011/Functions/Tail";
 	
 	static void format(Object obj, Appendable dest) throws IOException {
 		dest.append(obj.toString());
+	}
+	
+	static ConsPair cons(Object a, Object b) {
+		return new ConsPair(a, b);
+	}
+	static HasSourceLocation list(Object...items) {
+		HasSourceLocation tail = new Atom(S_NIL);
+		for( int i=items.length; i-- > 0; ) {
+			tail = new ConsPair(items[i], tail);
+		}
+		return tail;
+	}
+	static ConsPair assertConsPair(Object p, String role, HasSourceLocation sLoc) throws EvalException {
+		if( !(p instanceof ConsPair) ) throw new EvalException("Expected a cons pair, but got "+p+" for "+role, sLoc);
+		return (ConsPair)p;
+	}
+	static Object car(Object a, String role, HasSourceLocation sLoc) throws EvalException {
+		return assertConsPair(a, role, sLoc).left;
+	}
+	static Object cdr(Object a, String role, HasSourceLocation sLoc) throws EvalException {
+		return assertConsPair(a, role, sLoc).right;
+	}
+	static Object cadr(Object a, String role, HasSourceLocation sLoc) throws EvalException {
+		return car(cdr(a, role, sLoc), role, sLoc);
 	}
 	
 	/** Evaluate a list, returning a new list (ConsPair or Atom(S_NIL)) */
@@ -120,13 +148,46 @@ class Evaluator {
 			return result.toString();
 		};
 	};
+	
+	static class Cons implements Function<Object,Object> {
+		public static Cons instance = new Cons();
+		
+		public Object apply(Object args) throws EvalException {
+			return cons(
+				car(args, "'cons' arg0", (HasSourceLocation)args),
+				cadr(args, "'cons' arg1", (HasSourceLocation)args)
+			);
+		};
+	};
+	
+	static class Head implements Function<Object,Object> {
+		public static Head instance = new Head();
+		
+		public Object apply(Object args) throws EvalException {
+			return car(car(args, "'head' argument list", (HasSourceLocation)args), "'head' argument 0", (HasSourceLocation)args);
+		};
+	};
+	
+	static class Tail implements Function<Object,Object> {
+		public static Tail instance = new Tail();
+		
+		public Object apply(Object args) throws EvalException {
+			return cdr(car(args, "'tail' argument list", (HasSourceLocation)args), "'tail' argument 0", (HasSourceLocation)args);
+		};
+	};
 }
 
 public class InterpreterTest extends TestCase {
 	Function<String,Object> testDefs = new Function<String, Object>() {
 		@Override public Object apply(String arg) {
-			if( "concat".equals(arg) ) {
+			if( Evaluator.FN_CONCAT.equals(arg) ) {
 				return Evaluator.Concat.instance;
+			} else if( Evaluator.FN_CONS.equals(arg) ) {
+				return Evaluator.Cons.instance;
+			} else if( Evaluator.FN_HEAD.equals(arg) ) {
+				return Evaluator.Head.instance;
+			} else if( Evaluator.FN_TAIL.equals(arg) ) {
+				return Evaluator.Tail.instance;
 			} else {
 				return null;
 			}
@@ -137,13 +198,48 @@ public class InterpreterTest extends TestCase {
 	
 	public void testConcatFooBar() throws EvalException {
 		ConsPair expression = new ConsPair(
-			new Atom("concat"),
+			new Atom(Evaluator.FN_CONCAT),
 			new ConsPair(
 				new LiteralValue("foo"),
 				new ConsPair(
 					new LiteralValue("bar"),
 					new Atom(Evaluator.S_NIL))));
 		assertEquals("foobar", Evaluator.eval(expression, testDefs));
+	}
+	
+	public void testConsFooBar() throws EvalException {
+		ConsPair expression = new ConsPair(
+			new Atom(Evaluator.FN_CONS),
+			new ConsPair(
+				new LiteralValue("foo"),
+				new ConsPair(
+					new LiteralValue("bar"),
+					new Atom(Evaluator.S_NIL))));
+		assertEquals(new ConsPair("foo", "bar"), Evaluator.eval(expression, testDefs));
+	}
+	
+	public void testHeadConsFooBar() throws EvalException {
+		HasSourceLocation expression = Evaluator.list(
+			new Atom(Evaluator.FN_HEAD),
+			Evaluator.list(
+				new Atom(Evaluator.FN_CONS),
+				new LiteralValue("foo"),
+				new LiteralValue("bar")
+			)
+		);
+		assertEquals("foo", Evaluator.eval(expression, testDefs));
+	}
+	
+	public void testTailConsFooBar() throws EvalException {
+		HasSourceLocation expression = Evaluator.list(
+			new Atom(Evaluator.FN_TAIL),
+			Evaluator.list(
+				new Atom(Evaluator.FN_CONS),
+				new LiteralValue("foo"),
+				new LiteralValue("bar")
+			)
+		);
+		assertEquals("bar", Evaluator.eval(expression, testDefs));
 	}
 	
 	public void testEvalUndefinedSymbolThrows() {
