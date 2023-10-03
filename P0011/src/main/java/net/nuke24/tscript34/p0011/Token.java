@@ -25,30 +25,17 @@ public class Token extends AbstractHasSourceLocation {
 		return text.equals(ot.text) && mode == ot.mode &&
 			(this.sourceFileUri == ot.sourceFileUri ||
 			(this.sourceFileUri != null && this.sourceFileUri.equals(ot.sourceFileUri))) &&
-			this.sourceLineIndex == ot.sourceLineIndex &&
-			this.sourceColumnIndex == ot.sourceColumnIndex &&
-			this.sourceEndLineIndex == ot.sourceEndLineIndex &&
-			this.sourceEndColumnIndex == ot.sourceEndColumnIndex;
+			abstractSourceLocationEquals(ot);
 	}
 	
 	@Override public int hashCode() {
 		return text.hashCode() ^ mode +
 			(this.sourceFileUri == null ? 0 : this.sourceFileUri.hashCode()) +
-			(this.sourceLineIndex      <<  0) +
-			(this.sourceColumnIndex    <<  8) +
-			(this.sourceEndLineIndex   << 16) +
-			(this.sourceEndColumnIndex << 24);
+			abstractSourceLocationHashCode();
 	}
 	
 	@Override public String toString() {
-		String slocStr = (
-			this.sourceFileUri == null &&
-			sourceLineIndex == -1 && sourceColumnIndex == -1 &&
-			sourceEndLineIndex == -1 && sourceEndColumnIndex == -1
-		) ? "" : ", \""+
-			sourceFileUri+"#"+
-			(sourceLineIndex+1)+","+(sourceColumnIndex+1)+".."+
-			(sourceEndLineIndex+1)+","+(sourceEndColumnIndex+1)+"\"";
-		return "Token(\"" + text + "\", "+mode+slocStr+")";
+		String slocStr = getSlocString();
+		return "Token(\"" + text + "\", "+mode+(slocStr.isEmpty() ? "" : ", "+slocStr)+")";
 	}
 }

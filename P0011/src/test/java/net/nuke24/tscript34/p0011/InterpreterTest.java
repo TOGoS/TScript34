@@ -5,6 +5,10 @@ import java.io.IOException;
 import javax.script.ScriptException;
 
 import junit.framework.TestCase;
+import net.nuke24.tscript34.p0011.sexp.AbstractExpression;
+import net.nuke24.tscript34.p0011.sexp.Atom;
+import net.nuke24.tscript34.p0011.sexp.ConsPair;
+import net.nuke24.tscript34.p0011.sexp.LiteralValue;
 
 class SourceLocation implements HasSourceLocation {
 	public String sourceUri;
@@ -29,12 +33,15 @@ class SourceLocation implements HasSourceLocation {
 class EvalException extends ScriptException {
 	private static final long serialVersionUID = 3707037127440615004L;
 	final HasSourceLocation sLoc;
-	public EvalException(String message, SourceLocation sLoc) {
+	public EvalException(String message, HasSourceLocation sLoc) {
 		super(message, sLoc.getSourceFileUri(), sLoc.getSourceLineIndex()+1, sLoc.getSourceColumnIndex()+1);
 		this.sLoc = sLoc;
 	}
 }
 
+interface Macro<T,R> {
+	public R apply(T arg, Function<String,Object> defs) throws EvalException;
+}
 interface Function<T,R> {
 	public R apply(T arg) throws EvalException;
 }
@@ -45,96 +52,89 @@ class Evaluator {
 	// () = null
 	// foo = Symbol("foo")
 	
-	interface Expression {
-		Object eval(Function<String,Object> defs) throws EvalException;
-	}
-	static class Nil implements Expression {
-		public static Nil instance = new Nil();
-		private Nil() { }
-		@Override
-		public Object eval(Function<String, Object> defs) {
-			return this;
-		}
-	}
-	static class Pair implements Expression {
-		public final Object left;
-		public final Object right;
-		public final SourceLocation sLoc;
-		public Pair(Object left, Object right, SourceLocation sLoc) {
-			this.left = left;
-			this.right = right;
-			this.sLoc = sLoc;
-		}
-		
-		@SuppressWarnings("unchecked")
-		@Override
-		public Object eval(Function<String, Object> defs) throws EvalException {
-			Object fun = Evaluator.eval(this.left, defs);
-			if( !(fun instanceof Function) ) {
-				throw new EvalException(fun+" is not a function", this.sLoc);
-			}
-			return ((Function<Object,Object>)fun).apply(evalList(this.right, defs, this.sLoc));
-		}
-	}
-	static class Literal implements Expression {
-		Object value;
-		Literal(Object value) {
-			this.value = value;
-		}
-		@Override
-		public Object eval(Function<String, Object> defs) {
-			return value;
-		}
-	}
-	static class Symbol implements Expression {
-		public final String name;
-		public final SourceLocation sLoc;
-		public Symbol(String name, SourceLocation sLoc) {
-			this.name = name;
-			this.sLoc = sLoc;
-		}
-		@Override public Object eval(Function<String, Object> defs) throws EvalException {
-			Object result = defs.apply(this.name);
-			if( result == null ) throw new EvalException(name, sLoc);
-			return result;
-		}
-	}
+	static String S_NIL = "http://ns.nuke24.net/TScript34/P0011/Values/Nil";
+	static String S_MACRO = "http://ns.nuke24.net/TScript34/P0011/X/Macro";
+	static String S_QUOTE = "http://ns.nuke24.net/TScript34/P0011/Macro/Quote";
 	
 	static void format(Object obj, Appendable dest) throws IOException {
 		dest.append(obj.toString());
 	}
-
-	public static Object evalList(Object listObj, Function<String, Object> defs, SourceLocation sLoc) throws EvalException {
-		if( listObj == Nil.instance ) return Nil.instance;
-		if( listObj instanceof Pair ) {
-			Pair pair = (Pair)listObj; 
+	
+	/** Evaluate a list, returning a new list (ConsPair or Atom(S_NIL)) */
+	public static AbstractExpression evalList(HasSourceLocation listObj, Function<String, Object> defs) throws EvalException {
+		if( listObj instanceof ConsPair ) {
+			ConsPair pair = (ConsPair)listObj; 
 			// Here's the place to add 'splat' if you want it
-			return new Pair(Evaluator.eval(pair.left, defs), evalList(pair.right, defs, pair.sLoc), pair.sLoc);
+			return new ConsPair(
+				eval((HasSourceLocation)pair.left, defs),
+				evalList((HasSourceLocation)pair.right, defs),
+				listObj.getSourceFileUri(),
+				// We're lying; this is is the location of the expression
+				// that evaluated to this new ConsPair;
+				// might want to indicate that somehow!
+				listObj.getSourceLineIndex(), listObj.getSourceColumnIndex(),
+				listObj.getSourceEndLineIndex(), listObj.getSourceEndColumnIndex()
+			);
 		}
-		throw new EvalException("Argument list is not a pair", sLoc);
+		if( isSymbol(listObj, S_NIL) ) {
+			return (Atom)listObj;
+		}
+		throw new EvalException("Argument list is not a pair", listObj);
 	}
 	
-	public static Object eval(Object obj, Function<String,Object> defs) throws EvalException {
-		if( obj instanceof Expression ) {
-			return ((Expression)obj).eval(defs);
+	static boolean isSymbol(Object obj, String name) {
+		return (obj instanceof Atom) && name.equals(((Atom)obj).text);
+	}
+	
+	public static Object evalConsPair(ConsPair cp, Function<String,Object> defs) throws EvalException {
+		AbstractExpression funcExpr = (AbstractExpression)cp.left;
+		Object fun = eval(funcExpr, defs);
+		boolean isMacro = false;
+		if( fun instanceof ConsPair && isSymbol( ((ConsPair)fun).left, S_MACRO )) {
+			isMacro = true;
+			fun = ((ConsPair)fun).right;
+		}
+		if( isMacro ) {
+			if( !(fun instanceof Macro) ) {
+				throw new EvalException(funcExpr+" is not a macro", cp);
+			}
+			return ((Macro<AbstractExpression,Object>)fun).apply((AbstractExpression)cp.right, defs);
 		} else {
-			return obj;
+			if( !(fun instanceof Function) ) {
+				throw new EvalException(funcExpr+" is not a function", cp);
+			}
+			return ((Function<AbstractExpression,Object>)fun).apply(evalList((AbstractExpression)cp.right, defs));
 		}
 	}
 	
-	static class Concat implements Function<Object,Object> {
+	public static Object eval(HasSourceLocation expr, Function<String,Object> defs) throws EvalException {
+		if( expr instanceof ConsPair ) {
+			return evalConsPair( (ConsPair)expr, defs );
+		} else if( expr instanceof Atom ) {
+			String symbol = ((Atom)expr).text;
+			Object val = defs.apply(symbol);
+			if( val == null ) throw new EvalException("'"+symbol+"' not defined", expr);
+			return val;
+		} else if( expr instanceof LiteralValue ) {
+			return ((LiteralValue)expr).value;
+		} else {
+			throw new EvalException("Don't know how to evaluate "+expr, expr);
+		}
+	}
+	
+	static class Concat implements Function<AbstractExpression,Object> {
 		public static Concat instance = new Concat();
 		
-		public Object apply(Object arg) {
+		public Object apply(AbstractExpression arg) {
 			StringBuilder result = new StringBuilder();
-			while( arg != Evaluator.Nil.instance ) {
-				Evaluator.Pair p = (Evaluator.Pair)arg;
+			while( !isSymbol(arg, S_NIL) ) {
+				ConsPair p = (ConsPair)arg;
 				try {
 					Evaluator.format(p.left, result);
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}
-				arg = p.right;
+				arg = (AbstractExpression)p.right;
 			}
 			return result.toString();
 		};
@@ -143,8 +143,7 @@ class Evaluator {
 
 public class InterpreterTest extends TestCase {
 	Function<String,Object> testDefs = new Function<String, Object>() {
-		@Override
-		public Object apply(String arg) {
+		@Override public Object apply(String arg) {
 			if( "concat".equals(arg) ) {
 				return Evaluator.Concat.instance;
 			} else {
@@ -153,17 +152,23 @@ public class InterpreterTest extends TestCase {
 		}
 	};
 	
-	SourceLocation sLoc = new SourceLocation("testConcatFooBar", 0, 0, 0, 0);
+	//SourceLocation sLoc = new SourceLocation("testConcatFooBar", 0, 0, 0, 0);
 	
 	public void testConcatFooBar() throws EvalException {
-		Evaluator.Pair program = new Evaluator.Pair(new Evaluator.Symbol("concat", sLoc), new Evaluator.Pair("foo", new Evaluator.Pair("bar", Evaluator.Nil.instance, sLoc), sLoc), sLoc);
-		assertEquals("foobar", program.eval(testDefs));
+		ConsPair expression = new ConsPair(
+			new Atom("concat"),
+			new ConsPair(
+				new LiteralValue("foo"),
+				new ConsPair(
+					new LiteralValue("bar"),
+					new Atom(Evaluator.S_NIL))));
+		assertEquals("foobar", Evaluator.eval(expression, testDefs));
 	}
 	
 	public void testEvalUndefinedSymbolThrows() {
 		EvalException caught = null;
 		try {
-			new Evaluator.Symbol("dne", sLoc).eval(testDefs);
+			Evaluator.eval(new Atom("dne"), testDefs);
 		} catch( EvalException e ) {
 			caught = e;
 		};

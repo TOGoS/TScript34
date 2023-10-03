@@ -19,11 +19,19 @@ public class AbstractHasSourceLocation implements HasSourceLocation {
 		this.sourceEndColumnIndex = sourceEndColumnIndex;
 	}
 	
+	public AbstractHasSourceLocation(HasSourceLocation sLoc) {
+		this(
+			sLoc.getSourceFileUri(),
+			sLoc.getSourceLineIndex(), sLoc.getSourceColumnIndex(),
+			sLoc.getSourceEndLineIndex(), sLoc.getSourceEndColumnIndex()
+		);
+	}
+	
 	public AbstractHasSourceLocation() {
 		this(null, -1, -1, -1, -1);
 	}
 	
-	@Override public boolean equals(Object obj) {
+	protected boolean abstractSourceLocationEquals(Object obj) {
 		if( !(obj instanceof Token) ) return false;
 		Token ot = (Token)obj;
 		return
@@ -35,7 +43,7 @@ public class AbstractHasSourceLocation implements HasSourceLocation {
 			this.sourceEndColumnIndex == ot.sourceEndColumnIndex;
 	}
 	
-	@Override public int hashCode() {
+	protected int abstractSourceLocationHashCode() {
 		return
 			(this.sourceFileUri == null ? 0 : this.sourceFileUri.hashCode()) +
 			(this.sourceLineIndex      <<  0) +
@@ -56,7 +64,7 @@ public class AbstractHasSourceLocation implements HasSourceLocation {
 	}
 	
 	@Override public String toString() {
-		return "AbstractHasSourceLocation("+getSlocString()+")";
+		return getClass().getSimpleName()+"("+getSlocString()+")";
 	}
 	
 	@Override public String getSourceFileUri() { return sourceFileUri; }
