@@ -1,27 +1,18 @@
 package net.nuke24.tscript34.p0011;
 
-public class Token implements HasSourceLocation {
+public class Token extends AbstractHasSourceLocation {
 	public final String text;
 	public final int mode;
-	public final String sourceFileUri;
-	public final int sourceLineIndex;
-	public final int sourceColumnIndex;
-	public final int sourceEndLineIndex;
-	public final int sourceEndColumnIndex;
 	
 	public Token(
 		String text, int mode,
-		String sourceFilename,
+		String sourceFileUri,
 		int sourceLineIndex, int sourceColumnIndex,
 		int sourceEndLineIndex, int sourceEndColumnIndex
 	) {
+		super(sourceFileUri, sourceLineIndex, sourceColumnIndex, sourceEndLineIndex, sourceEndColumnIndex);
 		this.text = text;
 		this.mode = mode;
-		this.sourceFileUri = sourceFilename;
-		this.sourceLineIndex = sourceLineIndex;
-		this.sourceColumnIndex = sourceColumnIndex;
-		this.sourceEndLineIndex = sourceEndLineIndex;
-		this.sourceEndColumnIndex = sourceEndColumnIndex;
 	}
 	
 	public Token(String text, int mode) {
@@ -60,10 +51,4 @@ public class Token implements HasSourceLocation {
 			(sourceEndLineIndex+1)+","+(sourceEndColumnIndex+1)+"\"";
 		return "Token(\"" + text + "\", "+mode+slocStr+")";
 	}
-	
-	@Override public String getSourceFileUri() { return sourceFileUri; }
-	@Override public int getSourceLineIndex() { return sourceLineIndex; }
-	@Override public int getSourceColumnIndex() { return sourceColumnIndex; }
-	@Override public int getSourceEndLineIndex() { return sourceEndLineIndex; }
-	@Override public int getSourceEndColumnIndex() { return sourceEndColumnIndex; }
 }
