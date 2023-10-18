@@ -18,6 +18,15 @@ public class Atom extends AbstractHasSourceLocation {
 		this.text = text;
 	}
 	
+	@Override public boolean equals(Object obj) {
+		if( !(obj instanceof Atom) ) return false;
+		Atom a = (Atom)obj;
+		return text.equals(a.text) && abstractSourceLocationEquals(obj);
+	}
+	@Override public int hashCode() {
+		return 303 + this.text.hashCode() + abstractSourceLocationHashCode() << 7;
+	}
+	
 	@Override public String toString() {
 		return "Atom(\""+this.text+getSlocString(", ")+"\")";
 	}
