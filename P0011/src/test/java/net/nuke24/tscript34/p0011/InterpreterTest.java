@@ -9,6 +9,7 @@ import junit.framework.TestCase;
 import net.nuke24.tscript34.p0011.sexp.Atom;
 import net.nuke24.tscript34.p0011.sexp.ConsPair;
 import net.nuke24.tscript34.p0011.sexp.LiteralValue;
+import net.nuke24.tscript34.p0011.sexp.Symbols;
 import net.nuke24.tscript34.p0011.sloc.HasSourceLocation;
 
 class EvalException extends ScriptException {
@@ -33,14 +34,6 @@ class Evaluator {
 	// () = null
 	// foo = Symbol("foo")
 	
-	static final String S_NIL = "http://ns.nuke24.net/TScript34/P0011/Values/Nil";
-	static final String S_MACRO = "http://ns.nuke24.net/TScript34/P0011/X/Macro";
-	static final String S_QUOTE = "http://ns.nuke24.net/TScript34/P0011/Macro/Quote";
-	static final String FN_CONCAT = "http://ns.nuke24.net/TOGVM/Functions/Concatenate";
-	static final String FN_CONS = "http://ns.nuke24.net/TScript34/P0011/Functions/Cons";
-	static final String FN_HEAD = "http://ns.nuke24.net/TScript34/P0011/Functions/Head";
-	static final String FN_TAIL = "http://ns.nuke24.net/TScript34/P0011/Functions/Tail";
-	
 	static void format(Object obj, Appendable dest) throws IOException {
 		dest.append(obj.toString());
 	}
@@ -49,7 +42,7 @@ class Evaluator {
 		return new ConsPair(a, b);
 	}
 	static HasSourceLocation list(Object...items) {
-		HasSourceLocation tail = new Atom(S_NIL);
+		HasSourceLocation tail = Symbols.NIL;
 		for( int i=items.length; i-- > 0; ) {
 			tail = new ConsPair(items[i], tail);
 		}
@@ -85,7 +78,7 @@ class Evaluator {
 				listObj.getSourceEndLineIndex(), listObj.getSourceEndColumnIndex()
 			);
 		}
-		if( isSymbol(listObj, S_NIL) ) {
+		if( isSymbol(listObj, Symbols.S_NIL) ) {
 			return (Atom)listObj;
 		}
 		throw new EvalException("Argument list is not a pair", listObj);
@@ -99,7 +92,7 @@ class Evaluator {
 		HasSourceLocation funcExpr = (HasSourceLocation)cp.left;
 		Object fun = eval(funcExpr, defs);
 		boolean isMacro = false;
-		if( fun instanceof ConsPair && isSymbol( ((ConsPair)fun).left, S_MACRO )) {
+		if( fun instanceof ConsPair && isSymbol( ((ConsPair)fun).left, Symbols.S_MACRO )) {
 			isMacro = true;
 			fun = ((ConsPair)fun).right;
 		}
@@ -136,7 +129,7 @@ class Evaluator {
 		
 		public Object apply(Object arg) {
 			StringBuilder result = new StringBuilder();
-			while( !isSymbol(arg, S_NIL) ) {
+			while( !isSymbol(arg, Symbols.S_NIL) ) {
 				ConsPair p = (ConsPair)arg;
 				try {
 					Evaluator.format(p.left, result);
@@ -180,13 +173,13 @@ class Evaluator {
 public class InterpreterTest extends TestCase {
 	Function<String,Object> testDefs = new Function<String, Object>() {
 		@Override public Object apply(String arg) {
-			if( Evaluator.FN_CONCAT.equals(arg) ) {
+			if( Symbols.FN_CONCAT.equals(arg) ) {
 				return Evaluator.Concat.instance;
-			} else if( Evaluator.FN_CONS.equals(arg) ) {
+			} else if( Symbols.FN_CONS.equals(arg) ) {
 				return Evaluator.Cons.instance;
-			} else if( Evaluator.FN_HEAD.equals(arg) ) {
+			} else if( Symbols.FN_HEAD.equals(arg) ) {
 				return Evaluator.Head.instance;
-			} else if( Evaluator.FN_TAIL.equals(arg) ) {
+			} else if( Symbols.FN_TAIL.equals(arg) ) {
 				return Evaluator.Tail.instance;
 			} else {
 				return null;
@@ -198,31 +191,31 @@ public class InterpreterTest extends TestCase {
 	
 	public void testConcatFooBar() throws EvalException {
 		ConsPair expression = new ConsPair(
-			new Atom(Evaluator.FN_CONCAT),
+			new Atom(Symbols.FN_CONCAT),
 			new ConsPair(
 				new LiteralValue("foo"),
 				new ConsPair(
 					new LiteralValue("bar"),
-					new Atom(Evaluator.S_NIL))));
+					new Atom(Symbols.S_NIL))));
 		assertEquals("foobar", Evaluator.eval(expression, testDefs));
 	}
 	
 	public void testConsFooBar() throws EvalException {
 		ConsPair expression = new ConsPair(
-			new Atom(Evaluator.FN_CONS),
+			new Atom(Symbols.FN_CONS),
 			new ConsPair(
 				new LiteralValue("foo"),
 				new ConsPair(
 					new LiteralValue("bar"),
-					new Atom(Evaluator.S_NIL))));
+					new Atom(Symbols.S_NIL))));
 		assertEquals(new ConsPair("foo", "bar"), Evaluator.eval(expression, testDefs));
 	}
 	
 	public void testHeadConsFooBar() throws EvalException {
 		HasSourceLocation expression = Evaluator.list(
-			new Atom(Evaluator.FN_HEAD),
+			new Atom(Symbols.FN_HEAD),
 			Evaluator.list(
-				new Atom(Evaluator.FN_CONS),
+				new Atom(Symbols.FN_CONS),
 				new LiteralValue("foo"),
 				new LiteralValue("bar")
 			)
@@ -232,9 +225,9 @@ public class InterpreterTest extends TestCase {
 	
 	public void testTailConsFooBar() throws EvalException {
 		HasSourceLocation expression = Evaluator.list(
-			new Atom(Evaluator.FN_TAIL),
+			new Atom(Symbols.FN_TAIL),
 			Evaluator.list(
-				new Atom(Evaluator.FN_CONS),
+				new Atom(Symbols.FN_CONS),
 				new LiteralValue("foo"),
 				new LiteralValue("bar")
 			)
