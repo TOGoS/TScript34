@@ -87,7 +87,7 @@ class Evaluator {
 	static boolean isSymbol(Object obj, String name) {
 		return (obj instanceof Atom) && name.equals(((Atom)obj).text);
 	}
-	
+		
 	public static Object evalConsPair(ConsPair cp, Function<String,Object> defs) throws EvalException {
 		HasSourceLocation funcExpr = (HasSourceLocation)cp.left;
 		Object fun = eval(funcExpr, defs);
@@ -100,12 +100,16 @@ class Evaluator {
 			if( !(fun instanceof Macro) ) {
 				throw new EvalException(funcExpr+" is not a macro", cp);
 			}
-			return ((Macro<HasSourceLocation,Object>)fun).apply((HasSourceLocation)cp.right, defs);
+			@SuppressWarnings("unchecked")
+			Macro<HasSourceLocation,Object> mac = (Macro<HasSourceLocation, Object>)fun;
+			return mac.apply((HasSourceLocation)cp.right, defs);
 		} else {
 			if( !(fun instanceof Function) ) {
 				throw new EvalException(funcExpr+" is not a function", cp);
 			}
-			return ((Function<HasSourceLocation,Object>)fun).apply(evalList((HasSourceLocation)cp.right, defs));
+			@SuppressWarnings("unchecked")
+			Function<HasSourceLocation,Object> func = (Function<HasSourceLocation,Object>)fun;
+			return func.apply(evalList((HasSourceLocation)cp.right, defs));
 		}
 	}
 	
