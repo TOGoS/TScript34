@@ -126,12 +126,15 @@ public class ParserTest extends TestCase {
 			)
 		)), result);
 	}
-	public void testParseNestedEmptyList() {
+	public void testParseNestedLists() {
 		List<Object> result = new ArrayList<Object>();
 		DucerData<Token, Object[]> state = new DucerData<Token,Object[]>(Parser.ROOT_PARSER, null, new Object[0], false);
 		for( Token t : Arrays.asList(
 			new Token("(", LispyCharDecoder.MODE_DELIMITER),
 			new Token("123", LispyCharDecoder.MODE_BAREWORD),
+			new Token("(", LispyCharDecoder.MODE_DELIMITER),
+			new Token("foo", LispyCharDecoder.MODE_BAREWORD),
+			new Token(")", LispyCharDecoder.MODE_DELIMITER),
 			new Token("(", LispyCharDecoder.MODE_DELIMITER),
 			new Token(")", LispyCharDecoder.MODE_DELIMITER),
 			new Token(")", LispyCharDecoder.MODE_DELIMITER)
@@ -142,8 +145,14 @@ public class ParserTest extends TestCase {
 		assertEquals(Arrays.asList(new ConsPair(
 			new Atom("123"),
 			new ConsPair(
-				Symbols.NIL,
-				Symbols.NIL
+				new ConsPair(
+					new Atom("foo"),
+					Symbols.NIL
+				),
+				new ConsPair(
+					Symbols.NIL,
+					Symbols.NIL
+				)
 			)
 		)), result);
 	}
