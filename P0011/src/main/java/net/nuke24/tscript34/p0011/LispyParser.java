@@ -96,28 +96,14 @@ class LispyParser implements Danducer<Token[], Object[]> {
 		return state;
 	}
 	
-	protected static <T> T[] join(T[] a, T[] b, Class<T[]> arrClass) {
-		if( b.length == 0 ) return a;
-		if( a.length == 0 ) return b;
-		T[] c;
-		try {
-			c = arrClass.getDeclaredConstructor(Integer.class).newInstance(a.length + b.length);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-		for( int i=0; i<a.length; ++i ) c[i] = a[i];
-		for( int i=0; i<b.length; ++i ) c[i+a.length] = b[i];
-		return c;
-	}
-	
-	protected static <A,B> DucerData<A, B[]> update(DucerData<A,B[]> prev, DucerData<A,B[]> next, Class<B[]> bArrClass) {
+	protected static <A,B> DucerData<A, B[]> update(DucerData<A,B[]> prev, DucerData<A,B[]> next) {
 		if( prev.output.length == 0 ) return next;
 		// Could assert about !prev.isDone or something;
 		// prev.isDone => next.output.length == 0
 		// prev.isDone => next.isDone
 		// Not sure if we can say anything about remaining inputs;
 		// that should have been taken care of by the caller.
-		return new DucerData<A,B[]>(next.state, next.remainingInput, join(prev.output, next.output, bArrClass), next.isDone);
+		return new DucerData<A,B[]>(next.state, next.remainingInput, ArrayUtil.join(prev.output, next.output), next.isDone);
 	}
 	
 	@Override
@@ -126,7 +112,7 @@ class LispyParser implements Danducer<Token[], Object[]> {
 		for( int i=0; i<input.length; ++i ) {
 			DucerData<Token[], Object[]> newData = ((LispyParser)data.state).processOne(input[i]);
 			assert(newData.remainingInput.length == 0);
-			data = update(data, newData, Object[].class);
+			data = update(data, newData);
 		}
 		if( endOfInput ) {
 			data = ((LispyParser)data.state).processEndOfInput(data);
