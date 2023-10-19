@@ -1,13 +1,11 @@
 package net.nuke24.tscript34.p0011;
 
-import static net.nuke24.tscript34.p0011.DanducerTestUtil.processChunked;
-
 import java.io.PrintStream;
 
-import junit.framework.TestCase;
 import net.nuke24.tscript34.p0011.Danducer.DucerData;
+import net.nuke24.tscript34.p0011.DanducerTestUtil.CharSequenceChunkerator;
 
-public class TokenizerTest extends TestCase {
+public class TokenizerTest extends XXTestCase {
 	PrintStream debugStream;
 	@Override public void setUp() {
 		this.debugStream = System.err;
@@ -19,38 +17,10 @@ public class TokenizerTest extends TestCase {
 		assertEquals(1, s.output.length);
 		assertEquals(new Token("(",1), s.output[0]);
 	}
-	
-	protected <T> String arrayToString(T[] arr) {
-		StringBuilder sb = new StringBuilder("[");
-		String sep = "";
-		for( T item : arr ) {
-			sb.append(sep);
-			sb.append(item);
-			sep = " ";
-		}
-		sb.append("]");
-		return sb.toString();
-	}
-	
-	protected <T> void assertArrayEquals(T[] expected, T[] actual) {
-		String expectedStr = arrayToString(expected);
-		String actualStr = arrayToString(actual);
-		if( !expectedStr.equals(actualStr) ) {
-			System.err.println("Expected: "+expectedStr);
-			System.err.println("Actual  : "+actualStr);
-		}
-		assertEquals(expected.length, actual.length);
-		for( int i=0; i<expected.length; ++i ) {
-			assertEquals(expected[i], actual[i]);
-		}
-	}
-	
+		
 	protected void testTokenizesTo(Token[] expected, String text, String sourceUri) {
-		for( int seed=0; seed<10; ++seed ) {
-			DucerData<CharSequence, Token[]> s = new Tokenizer(new LispyCharDecoder(), sourceUri).withDebugStream(debugStream).process("", false);
-			s = processChunked(s, text, true, seed, debugStream);
-			assertArrayEquals(expected, s.output);
-		}
+		DucerData<CharSequence,Token[]> state = new Tokenizer(new LispyCharDecoder(), sourceUri).withDebugStream(debugStream).process("", false);
+		testDucerOutput(expected, new CharSequenceChunkerator(text), state);
 	}
 	protected void testTokenizesTo(Token[] expected, String text) {
 		testTokenizesTo(expected, text, null);

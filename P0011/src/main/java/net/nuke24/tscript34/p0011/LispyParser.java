@@ -93,7 +93,11 @@ class LispyParser implements Danducer<Token[], Object[]> {
 	DucerData<Token[], Object[]> processEndOfInput(DucerData<Token[], Object[]> state) {
 		// TODO: Could do some assertiosn here,
 		// throw exception if we're not root.
-		return state;
+		if( this.parent != null ) {
+			throw new RuntimeException("Unexpected eof");
+		}
+		// If no more input, then there will be no more output!
+		return state.withIsDone(true);
 	}
 	
 	protected static <A,B> DucerData<A, B[]> update(DucerData<A,B[]> prev, DucerData<A,B[]> next) {

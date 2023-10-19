@@ -13,8 +13,13 @@ public interface Danducer<I,O> {
 			this.output = output;
 			this.isDone = isDone;
 		}
+		
 		public DucerData<I,O> process(I input, boolean endOfInput) {
 			return this.state.process(input, endOfInput);
+		}
+		
+		public DucerData<I,O> withIsDone(boolean isDone) {
+			return isDone == this.isDone ? this : new DucerData<I,O>(state, remainingInput, output, isDone);
 		}
 	}
 	

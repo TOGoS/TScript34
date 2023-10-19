@@ -40,33 +40,6 @@ public class DanducerTestUtil {
 		}
 	}
 	
-	public static <IS,O> DucerData<IS,O[]> processChunked(
-		DucerData<IS, O[]> s,
-		Chunkerator<IS> input,
-		boolean endOfInput, int seed, PrintStream debugStream
-	) {
-		if(debugStream != null) debugStream.println();
-		Random r = new Random(seed);
-		ArrayList<O> outputs = new ArrayList<O>();
-		while( input.size() > 0 ) {
-			int chunkLen = Math.max(1, Math.min(input.size(), r.nextInt(4)));
-			Chunk<IS> chunk = input.next(chunkLen);
-			if(debugStream != null) debugStream.println("Chunk: \""+chunk+"\"");
-			s = s.process(chunk.getHead(), chunk.isEnd());
-			for( int i=0; i<s.output.length; ++i ) {
-				outputs.add(s.output[i]);
-			}
-			input = chunk.getTail().prepend(s.remainingInput);
-		}
-		@SuppressWarnings("unchecked")
-		O[] outputArr = (O[])Array.newInstance(s.output.getClass().getComponentType(), outputs.size());
-		return new DucerData<IS, O[]>(
-			s.state, s.remainingInput,
-			outputs.toArray(outputArr),
-			s.isDone
-		);
-	}
-	
 	static class CharSequenceChunkerator implements Chunkerator<CharSequence> {
 		final CharSequence cs;
 		final int offset;
@@ -101,36 +74,66 @@ public class DanducerTestUtil {
 		@Override public int sizeOf(CharSequence t) { return t.length(); }
 	}
 	
-	static boolean useChunkerator = true;
-	
-	public static <O>
-	DucerData<CharSequence, O[]>
-	processChunked( DucerData<CharSequence, O[]> s, CharSequence input, boolean endOfInput, int seed, PrintStream debugStream ) {
-		if(useChunkerator) return processChunked(s, new CharSequenceChunkerator(input), endOfInput, seed, debugStream);
+	static class ArrayChunkerator<T> implements Chunkerator<T[]> {
+		final T[] arr;
+		final int offset;
+		public ArrayChunkerator(T[] arr, int offset) {
+			this.arr = arr;
+			this.offset = offset;
+		}
+		public ArrayChunkerator(T[] arr) {
+			this(arr, 0);
+		}
 		
+		@Override
+		public Chunk<T[]> next(int count) {
+			count = Math.min(arr.length - offset, count);
+			return new BasicChunk<T[]>(
+				ArrayUtil.slice(arr, offset, count),
+				new ArrayChunkerator<T>(this.arr, this.offset+count),
+				offset + count == arr.length
+			);
+		}
+		@Override public Chunkerator<T[]> prepend(T[] head) {
+			if(head.length == 0) return this;
+			
+			return new ArrayChunkerator<T>(ArrayUtil.join(head, ArrayUtil.slice(this.arr, this.offset)));
+		}
+		@Override public int size() { return arr.length - offset; }
+
+		@Override public int sizeOf(T[] t) { return t.length; }
+	}
+	
+	public static <IS,O> DucerData<IS,O[]> processRandomlyChunked(
+		DucerData<IS, O[]> s,
+		Chunkerator<IS> input,
+		boolean endOfInput, int seed, PrintStream debugStream
+	) {
 		if(debugStream != null) debugStream.println();
 		Random r = new Random(seed);
-		StringBuilder remainingInput = new StringBuilder();
 		ArrayList<O> outputs = new ArrayList<O>();
-		int offset=0;
-		while( offset < input.length() ) {
-			int chunkLen = Math.max(1, Math.min(input.length() - offset, r.nextInt(4)));
-			int chunkEnd = offset+chunkLen;
-			boolean chunkIsEndOfInput = endOfInput && chunkEnd == input.length();
-			CharSequence chunk = input.subSequence(offset, chunkEnd);
+		while( input.size() > 0 ) {
+			int chunkLen = Math.max(1, Math.min(input.size(), r.nextInt(4)));
+			Chunk<IS> chunk = input.next(chunkLen);
 			if(debugStream != null) debugStream.println("Chunk: \""+chunk+"\"");
-			s = s.process(chunk, chunkIsEndOfInput);
+			s = s.process(chunk.getHead(), endOfInput && chunk.isEnd());
 			for( int i=0; i<s.output.length; ++i ) {
 				outputs.add(s.output[i]);
 			}
-			offset = chunkEnd;
+			input = chunk.getTail().prepend(s.remainingInput);
 		}
 		@SuppressWarnings("unchecked")
 		O[] outputArr = (O[])Array.newInstance(s.output.getClass().getComponentType(), outputs.size());
-		return new DucerData<CharSequence, O[]>(
-			s.state, remainingInput.toString(),
+		return new DucerData<IS, O[]>(
+			s.state, s.remainingInput,
 			outputs.toArray(outputArr),
 			s.isDone
 		);
+	}
+	
+	public static <O>
+	DucerData<CharSequence, O[]>
+	processRandomlyChunked( DucerData<CharSequence, O[]> s, CharSequence input, boolean endOfInput, int seed, PrintStream debugStream ) {
+		return processRandomlyChunked(s, new CharSequenceChunkerator(input), endOfInput, seed, debugStream);
 	}
 }
