@@ -6,7 +6,7 @@ import net.nuke24.tscript34.p0011.sexp.ConsPair;
 import net.nuke24.tscript34.p0011.sexp.LiteralValue;
 import net.nuke24.tscript34.p0011.sexp.Symbols;
 
-public class ParserTest extends XXTestCase {
+public class LispyParserTest extends XXTestCase {
 	@Override public void setUp() {
 		this.debugStream = System.err;
 	}
