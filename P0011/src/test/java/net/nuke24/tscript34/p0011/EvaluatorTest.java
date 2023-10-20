@@ -174,7 +174,7 @@ class Evaluator {
 	};
 }
 
-public class InterpreterTest extends TestCase {
+public class EvaluatorTest extends TestCase {
 	Function<String,Object> testDefs = new Function<String, Object>() {
 		@Override public Object apply(String arg) {
 			if( Symbols.FN_CONCAT.equals(arg) ) {
