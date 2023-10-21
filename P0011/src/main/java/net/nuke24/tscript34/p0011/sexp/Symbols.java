@@ -12,4 +12,12 @@ public class Symbols {
 	public static final String FN_TAIL = "http://ns.nuke24.net/TScript34/P0011/Functions/Tail";
 	
 	public static final Atom NIL = new Atom(S_NIL);
+	
+	public static boolean isSymbol(Object obj, String text) {
+		return obj instanceof Atom && text.equals(((Atom)obj).text);
+	}
+	public static boolean isNil(Object obj) {
+		return isSymbol(obj, S_NIL);
+		
+	}
 }

@@ -3,6 +3,8 @@ package net.nuke24.tscript34.p0011;
 import net.nuke24.tscript34.p0011.Tokenizer.CharDecoder;
 
 public class LispyCharDecoder implements CharDecoder {
+	public static final LispyCharDecoder instance = new LispyCharDecoder();
+	
 	static final int MODE_INIT = Tokenizer.MODE_DEFAULT;
 	static final int MODE_DELIMITER = 1;
 	static final int MODE_BAREWORD = 2;

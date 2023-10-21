@@ -4,6 +4,7 @@ import net.nuke24.tscript34.p0011.sexp.Atom;
 import net.nuke24.tscript34.p0011.sexp.ConsPair;
 import net.nuke24.tscript34.p0011.sexp.LiteralValue;
 import net.nuke24.tscript34.p0011.sexp.Symbols;
+import net.nuke24.tscript34.p0011.sloc.HasSourceLocation;
 
 class LispyParser implements Danducer<Token[], Object[]> {
 	// Could have separate classes for root and list parsers
@@ -12,9 +13,9 @@ class LispyParser implements Danducer<Token[], Object[]> {
 	static final LispyParser ROOT_PARSER = new LispyParser(null, null);
 	
 	final LispyParser parent;
-	final Object currentList; // ((a . b) . c) ...
+	final HasSourceLocation currentList; // ((a . b) . c) ...
 	
-	public LispyParser(LispyParser parent, Object currentList) {
+	public LispyParser(LispyParser parent, HasSourceLocation currentList) {
 		this.parent = parent;
 		this.currentList = currentList;
 	}
@@ -23,15 +24,29 @@ class LispyParser implements Danducer<Token[], Object[]> {
 		return this.parent == null;
 	}
 	
-	protected Object getResultList() {
-		Object cons = Symbols.NIL;
-		Object c = this.currentList;
-		while( c != Symbols.NIL ) {
-			ConsPair p = ((ConsPair)c);
-			cons = new ConsPair(p.right, cons);
-			c = p.left;
+	static HasSourceLocation withSourceLocation(Object obj, String fn, int li, int ci, int eli, int eci) {
+		if( obj instanceof ConsPair ) {
+			return new ConsPair(((ConsPair)obj).left, ((ConsPair)obj).right, fn, li, ci, eli, eci);
+		} else if( obj instanceof Atom ) {
+			return new Atom(((Atom)obj).text, fn, li, ci, eli, eci);
+		} else {
+			throw new RuntimeException("Lol don't know how to recreate-with-different-source-location a "+obj.getClass());
 		}
-		return cons;
+	}
+	
+	protected Object getResultList(HasSourceLocation endDelimiter) {
+		HasSourceLocation cons = new Atom(Symbols.S_NIL, endDelimiter);
+		HasSourceLocation c = this.currentList;
+		while( !Symbols.isNil(c) ) {
+			ConsPair p = ((ConsPair)c);
+			HasSourceLocation leftSl = (HasSourceLocation)p.right;
+			cons = new ConsPair(p.right, cons, cons.getSourceFileUri(), leftSl.getSourceLineIndex(), leftSl.getSourceColumnIndex(), cons.getSourceEndLineIndex(), cons.getSourceEndColumnIndex());
+			c = (HasSourceLocation)p.left;
+		}
+		// Include the leading '(' as part of the outermost
+		return withSourceLocation(cons, c.getSourceFileUri(),
+			c.getSourceLineIndex(), c.getSourceColumnIndex(),
+			cons.getSourceEndLineIndex(), cons.getSourceEndColumnIndex());
 	}
 	
 	LispyParser add(Object item) {
@@ -63,13 +78,13 @@ class LispyParser implements Danducer<Token[], Object[]> {
 		case LispyCharDecoder.MODE_DELIMITER:
 			if( "(".equals(input.text) ) {
 				return new DucerData<Token[], Object[]>(
-					new LispyParser(this, Symbols.NIL),
+					new LispyParser(this, new Atom(Symbols.S_NIL, input)),
 					EMPTY_TOKEN_LIST,
 					EMPTY_OUTPUT,
 					false
 				);
 			} else if( ")".equals(input.text) ) {
-				return eolResult(getResultList(), false);
+				return eolResult(getResultList(input), false);
 			} else {
 				throw new RuntimeException(new EvalException("What kind of delimiter is '"+input.text+"'?", input));
 			}
