@@ -87,6 +87,13 @@ public class TokenizerTest extends XXTestCase {
 			"(\"foo \\\"(bar)\\\"\\t\")"
 		);
 	}
+	public void testTokenizeQuotedStringWithSourceLocation() {
+		testTokenizesTo(new Token[] {
+			new Token("foo",LispyCharDecoder.MODE_QUOTED, "test.scm", 0, 0, 0, 5),
+		},
+			"\"foo\""
+		, "test.scm");
+	}
 	
 	public void testTokenizeWithSourceLocation() {
 		testTokenizesTo(new Token[] {

@@ -21,8 +21,8 @@ public class LispyCharDecoder implements CharDecoder {
 		"mode = "+MODE_DELIMITER
 	});
 	static final int[] OPS_HANDLE_QUOTE = Tokenizer.compileOps(new String[] {
-		"next-char",
 		"mode = "+MODE_QUOTED,
+		"next-char",
 	});
 	static final int[] OPS_BAREWORD = Tokenizer.compileOps(new String[] {
 		"mode = "+MODE_BAREWORD,
@@ -67,8 +67,8 @@ public class LispyCharDecoder implements CharDecoder {
 		"next-char",
 	});
 	static final int[] OPS_HANDLE_END_QUOTE = Tokenizer.compileOps(new String[] {
-		"flush-token",
 		"next-char",
+		"flush-token",
 		"mode = "+MODE_INIT,
 	});
 	
