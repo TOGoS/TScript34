@@ -18,13 +18,16 @@ public class LispyCharDecoder implements CharDecoder {
 		"mode = "+MODE_INIT,
 	});
 	static final int[] OPS_HANDLE_DELIMITER = Tokenizer.compileOps(new String[] {
+		"mark-token-start",
 		"mode = "+MODE_DELIMITER
 	});
 	static final int[] OPS_HANDLE_QUOTE = Tokenizer.compileOps(new String[] {
+		"mark-token-start",
 		"mode = "+MODE_QUOTED,
 		"next-char",
 	});
 	static final int[] OPS_BAREWORD = Tokenizer.compileOps(new String[] {
+		"mark-token-start",
 		"mode = "+MODE_BAREWORD,
 	});
 	static final int[] OPS_HANDLE_LINE_COMMENT = Tokenizer.compileOps(new String[] {

@@ -89,9 +89,9 @@ public class TokenizerTest extends XXTestCase {
 	}
 	public void testTokenizeQuotedStringWithSourceLocation() {
 		testTokenizesTo(new Token[] {
-			new Token("foo",LispyCharDecoder.MODE_QUOTED, "test.scm", 0, 0, 0, 5),
+			new Token("foo\t",LispyCharDecoder.MODE_QUOTED, "test.scm", 0, 0, 0, 7),
 		},
-			"\"foo\""
+			"\"foo\\t\""
 		, "test.scm");
 	}
 	
@@ -101,9 +101,10 @@ public class TokenizerTest extends XXTestCase {
 			new Token("(",LispyCharDecoder.MODE_DELIMITER , "file:foo.txt", 1, 4, 1, 5),
 			new Token("bar",LispyCharDecoder.MODE_BAREWORD, "file:foo.txt", 1, 5, 1, 8),
 			new Token(")",LispyCharDecoder.MODE_DELIMITER , "file:foo.txt", 1, 8, 1, 9),
+			new Token("ba\tz",LispyCharDecoder.MODE_QUOTED  , "file:foo.txt", 1, 10, 1, 17),
 		},
 			"#!/bin/foobar\n" +
-			"foo (bar)",
+			"foo (bar) \"ba\\tz\"",
 			"file:foo.txt"
 		);
 	}

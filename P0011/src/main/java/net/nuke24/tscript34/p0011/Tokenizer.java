@@ -25,6 +25,7 @@ public class Tokenizer implements Danducer<CharSequence, Token[]> {
 	public static final int OP_APPEND_DATA    = 0x00000007; // Append op data to text buffer
 	public static final int OP_SETMODE        = 0x00000008; // Set mode to op >> 16; mode 0xFFFF means 'end'
 	public static final int OP_NEXT_CHAR      = 0x0000000A; // 'consume' the current character
+	public static final int OP_MARK_TOKEN_START=0x0000000B;
 	public static final int MODE_DEFAULT = 0;
 	public static final int MODE_END     = 0xFFFF;
 	
@@ -75,6 +76,8 @@ public class Tokenizer implements Danducer<CharSequence, Token[]> {
 				ops.add(OP_JUMP_IF_NONZERO);
 			} else if( "next-char".equals(line) ) {
 				ops.add(OP_NEXT_CHAR);
+			} else if( "mark-token-start".equals(line) ) {
+				ops.add(OP_MARK_TOKEN_START);
 			} else if( (m = SET_MODE_TO_CONST_PATTERN.matcher(line)).matches() ) {
 				ops.add(mkDataOp(OP_SETMODE, Integer.parseInt(m.group(1))));
 			} else {
@@ -184,10 +187,12 @@ public class Tokenizer implements Danducer<CharSequence, Token[]> {
 							    sourceLineIndex,     sourceColumnIndex));
 					textBuffer = "";
 					break;
-				case OP_SETMODE      :
-					mode = opData(op);
+				case OP_MARK_TOKEN_START:
 					tokenStartLineIndex = sourceLineIndex;
 					tokenStartColumnIndex = sourceColumnIndex;
+					break;
+				case OP_SETMODE      :
+					mode = opData(op);
 					if(debugStream != null) debugStream.println("$ mode = "+mode);
 					break;
 				case OP_NEXT_CHAR:
