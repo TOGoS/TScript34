@@ -28,6 +28,6 @@ public class Atom extends AbstractHasSourceLocation {
 	}
 	
 	@Override public String toString() {
-		return "Atom(\""+this.text+getSlocString(", ")+"\")";
+		return "Atom(\""+this.text+"\""+getSlocString(", ")+")";
 	}
 }
