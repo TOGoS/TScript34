@@ -80,11 +80,11 @@ public class TokenizerTest extends XXTestCase {
 	public void testTokenizeQuotedStringWithEscape() {
 		testTokenizesTo(new Token[] {
 			new Token("(",LispyCharDecoder.MODE_DELIMITER),
-			new Token("foo \"(bar)\"",LispyCharDecoder.MODE_QUOTED),
+			new Token("foo \"(bar)\"\t",LispyCharDecoder.MODE_QUOTED),
 			new Token(")",LispyCharDecoder.MODE_DELIMITER),
 		},
 			"#!/bin/foobar\n" +
-			"(\"foo \\\"(bar)\\\"\")"
+			"(\"foo \\\"(bar)\\\"\\t\")"
 		);
 	}
 	

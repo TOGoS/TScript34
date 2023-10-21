@@ -41,6 +41,11 @@ public class LispyCharDecoder implements CharDecoder {
 		"mode = "+MODE_QUOTED,
 		"next-char",
 	});
+	static final int[] OPS_APPEND_TAB_AND_RETURN_TO_QUOTED = Tokenizer.compileOps(new String[] {
+		"buffer.append "+(int)'\t',
+		"mode = "+MODE_QUOTED,
+		"next-char",
+	});
 	static final int[] OPS_BAREWORD_TO_DELIMITER = Tokenizer.compileOps(new String[] {
 		"flush-token",
 		"mode = "+MODE_DELIMITER,
@@ -113,6 +118,8 @@ public class LispyCharDecoder implements CharDecoder {
 			switch( character ) {
 			case '"': case '\\':
 				return OPS_APPEND_CHAR_AND_RETURN_TO_QUOTED;
+			case 't':
+				return OPS_APPEND_TAB_AND_RETURN_TO_QUOTED;
 			default:
 				throw new RuntimeException("Unrecognized escape sequence: \"\\"+(char)character+"\"");
 			}

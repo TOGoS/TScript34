@@ -40,6 +40,7 @@ public class Tokenizer implements Danducer<CharSequence, Token[]> {
 	}
 	
 	static final Pattern SET_MODE_TO_CONST_PATTERN = Pattern.compile("mode = (\\d+)");
+	static final Pattern BUFFER_APPEND_PATTERN = Pattern.compile("buffer.append (\\d+|current-char)");
 	
 	public static int[] compileOps(String[] asm) {
 		ArrayList<Integer> ops = new ArrayList<Integer>();
@@ -51,8 +52,13 @@ public class Tokenizer implements Danducer<CharSequence, Token[]> {
 				continue;
 			} else if( "acc = buffer.length".equals(line) ) {
 				ops.add(OP_BUFFER_LENGTH);
-			} else if( "buffer.append current-char".equals(line) ) {
-				ops.add(OP_APPEND_CHAR);
+			} else if( (m = BUFFER_APPEND_PATTERN.matcher(line)).matches() ) {
+				if( "current-char".equals(m.group(1)) ) {
+					ops.add(OP_APPEND_CHAR);
+				} else {
+					System.err.println(line+" says to append '"+(char)Integer.parseInt(m.group(1))+"'");
+					ops.add(mkDataOp(OP_APPEND_DATA, Integer.parseInt(m.group(1))));
+				}
 			} else if( "flush-token".equals(line) ) {
 				ops.add(OP_FLUSH_TOKEN);
 			} else if( "if acc != 0 {".equals(line) ) {
