@@ -33,7 +33,7 @@
 - [[./P0011/][P0011]] :: Hopefully-more-minimal-than-P0005 lisp-in-Java, because
   I still want one, and P0005 got bogged down with continuation stuff.
 - [[./P0012/][P0012]] :: Proof-of-concept Maven library and thing to use it
-
+- [[./P0013/][P0013]] :: CPS-based interpreter demo
 
 ** OIDs
 
