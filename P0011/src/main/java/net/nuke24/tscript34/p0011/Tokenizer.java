@@ -57,7 +57,6 @@ public class Tokenizer implements Danducer<CharSequence, Token[]> {
 				if( "current-char".equals(m.group(1)) ) {
 					ops.add(OP_APPEND_CHAR);
 				} else {
-					System.err.println(line+" says to append '"+(char)Integer.parseInt(m.group(1))+"'");
 					ops.add(mkDataOp(OP_APPEND_DATA, Integer.parseInt(m.group(1))));
 				}
 			} else if( "flush-token".equals(line) ) {
