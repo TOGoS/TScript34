@@ -5,7 +5,6 @@ public class Symbols {
 	
 	public static final String S_NIL = "http://ns.nuke24.net/TScript34/P0011/Values/Nil";
 	public static final String S_MACRO = "http://ns.nuke24.net/TScript34/P0011/X/Macro";
-	public static final String S_QUOTE = "http://ns.nuke24.net/TScript34/P0011/Macro/Quote";
 	public static final String FN_CONCAT = "http://ns.nuke24.net/TOGVM/Functions/Concatenate";
 	public static final String FN_CONS = "http://ns.nuke24.net/TScript34/P0011/Functions/Cons";
 	public static final String FN_HEAD = "http://ns.nuke24.net/TScript34/P0011/Functions/Head";
