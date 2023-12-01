@@ -205,6 +205,18 @@ class Evaluator {
 			};
 		}
 	}
+	
+	static class Quote implements Macro<Object,Object> {
+		public static final Quote instance = new Quote();
+		
+		@Override
+		public Object apply(Object arg, Function<String, Object> defs) throws EvalException {
+			if(!isNil(cdr(arg, "rest of quote's argument list", (HasSourceLocation)arg))) {
+				throw new EvalException("Too many arguments to 'quote'", (HasSourceLocation)arg);
+			}
+			return car(arg, "thing to be quoted", (HasSourceLocation)arg);
+		}
+	}
 }
 
 public class EvaluatorTest extends TestCase {
@@ -220,6 +232,8 @@ public class EvaluatorTest extends TestCase {
 				return Evaluator.Tail.instance;
 			} else if( Symbols.MN_LAMBDA.equals(arg) ) {
 				return Evaluator.MakeLambda.instance;
+			} else if( Symbols.MN_QUOTE.equals(arg) ) {
+				return Evaluator.Quote.instance;
 			} else {
 				return null;
 			}
@@ -282,6 +296,18 @@ public class EvaluatorTest extends TestCase {
 			caught = e;
 		};
 		assertNotNull(caught);
+	}
+	
+	public void testQuote() throws EvalException {
+		Object someLiteralThing = Evaluator.list(
+			new Atom("foo"),
+			new Atom("bar")
+		);
+		Object quoted = Evaluator.eval(Evaluator.list(
+			new Atom(Symbols.MN_QUOTE),
+			someLiteralThing
+		), testDefs);
+		assertEquals(someLiteralThing, quoted);
 	}
 	
 	public void testLambda() throws EvalException {

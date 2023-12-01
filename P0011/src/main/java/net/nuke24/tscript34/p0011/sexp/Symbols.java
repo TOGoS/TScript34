@@ -10,6 +10,7 @@ public class Symbols {
 	public static final String FN_HEAD = "http://ns.nuke24.net/TScript34/P0011/Functions/Head";
 	public static final String FN_TAIL = "http://ns.nuke24.net/TScript34/P0011/Functions/Tail";
 	public static final String MN_LAMBDA = "http://ns.nuke24.net/TScript34/P0011/Macros/Lambda";
+	public static final String MN_QUOTE  = "http://ns.nuke24.net/TScript34/P0011/Macros/Quote";
 	
 	public static final Atom NIL = new Atom(S_NIL);
 	
