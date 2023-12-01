@@ -92,33 +92,17 @@ class Evaluator {
 	public static Object evalConsPair(ConsPair cp, Function<String,Object> defs) throws EvalException {
 		HasSourceLocation funcExpr = (HasSourceLocation)cp.left;
 		Object fun = eval(funcExpr, defs);
-		boolean isMacro = false;
-		if( fun instanceof ConsPair && isSymbol( ((ConsPair)fun).left, Symbols.S_MACRO )) {
-			// I must have earlier been thinking that relying on 'marker interface' alone
-			// is bad for some reason, so macros should be marked instead
-			// by being represented as (macro-marker macro-implementation).
-			// That might be silly.
-			isMacro = true;
-			fun = ((ConsPair)fun).right;
-		} else if( fun instanceof Macro ) {
-			// A more straightforward rpresentation:
-			isMacro = true;
-		}
-		if( isMacro ) {
-			if( !(fun instanceof Macro) ) {
-				throw new EvalException(funcExpr+" is not a macro", cp);
-			}
+		if( fun instanceof Macro ) {
 			@SuppressWarnings("unchecked")
 			Macro<HasSourceLocation,Object> mac = (Macro<HasSourceLocation, Object>)fun;
 			return mac.apply((HasSourceLocation)cp.right, defs);
-		} else {
-			if( !(fun instanceof Function) ) {
-				throw new EvalException(funcExpr+" is not a function", cp);
-			}
+		}
+		if( fun instanceof Function ) {
 			@SuppressWarnings("unchecked")
 			Function<HasSourceLocation,Object> func = (Function<HasSourceLocation,Object>)fun;
 			return func.apply(evalList((HasSourceLocation)cp.right, defs));
 		}
+		throw new EvalException(funcExpr+" is not a function", cp);
 	}
 	
 	public static Object eval(HasSourceLocation expr, Function<String,Object> defs) throws EvalException {
@@ -314,7 +298,8 @@ public class EvaluatorTest extends TestCase {
 				new Atom("right")
 			)
 		), testDefs);
-		Object result = ((Function)lambda).apply(Evaluator.list("foo","bar"));
+		@SuppressWarnings("unchecked")
+		Object result = ((Function<Object,Object>)lambda).apply(Evaluator.list("foo","bar"));
 		assertEquals("foo and bar", result);
 	}
 }
