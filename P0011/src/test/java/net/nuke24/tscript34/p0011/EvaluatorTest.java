@@ -5,7 +5,6 @@ import java.io.IOException;
 import javax.script.ScriptException;
 
 import junit.framework.TestCase;
-
 import net.nuke24.tscript34.p0011.sexp.Atom;
 import net.nuke24.tscript34.p0011.sexp.ConsPair;
 import net.nuke24.tscript34.p0011.sexp.LiteralValue;
@@ -138,7 +137,7 @@ class Evaluator {
 	}
 	
 	static class Concat implements Function<Object,Object> {
-		public static Concat instance = new Concat();
+		public static final Concat instance = new Concat();
 		
 		public Object apply(Object arg) {
 			StringBuilder result = new StringBuilder();
@@ -156,7 +155,7 @@ class Evaluator {
 	};
 	
 	static class Cons implements Function<Object,Object> {
-		public static Cons instance = new Cons();
+		public static final Cons instance = new Cons();
 		
 		public Object apply(Object args) throws EvalException {
 			return cons(
@@ -167,7 +166,7 @@ class Evaluator {
 	};
 	
 	static class Head implements Function<Object,Object> {
-		public static Head instance = new Head();
+		public static final Head instance = new Head();
 		
 		public Object apply(Object args) throws EvalException {
 			return car(car(args, "'head' argument list", (HasSourceLocation)args), "'head' argument 0", (HasSourceLocation)args);
@@ -175,7 +174,7 @@ class Evaluator {
 	};
 	
 	static class Tail implements Function<Object,Object> {
-		public static Tail instance = new Tail();
+		public static final Tail instance = new Tail();
 		
 		public Object apply(Object args) throws EvalException {
 			return cdr(car(args, "'tail' argument list", (HasSourceLocation)args), "'tail' argument 0", (HasSourceLocation)args);
