@@ -78,23 +78,32 @@ class Evaluator {
 				listObj.getSourceEndLineIndex(), listObj.getSourceEndColumnIndex()
 			);
 		}
-		if( isSymbol(listObj, Symbols.S_NIL) ) {
-			return (Atom)listObj;
-		}
+		if( isNil(listObj) ) return (Atom)listObj;
 		throw new EvalException("Argument list is not a pair", listObj);
 	}
 	
 	static boolean isSymbol(Object obj, String name) {
 		return (obj instanceof Atom) && name.equals(((Atom)obj).text);
 	}
-		
+	
+	static boolean isNil(Object obj) {
+		return isSymbol(obj, Symbols.S_NIL);
+	}
+	
 	public static Object evalConsPair(ConsPair cp, Function<String,Object> defs) throws EvalException {
 		HasSourceLocation funcExpr = (HasSourceLocation)cp.left;
 		Object fun = eval(funcExpr, defs);
 		boolean isMacro = false;
 		if( fun instanceof ConsPair && isSymbol( ((ConsPair)fun).left, Symbols.S_MACRO )) {
+			// I must have earlier been thinking that relying on 'marker interface' alone
+			// is bad for some reason, so macros should be marked instead
+			// by being represented as (macro-marker macro-implementation).
+			// That might be silly.
 			isMacro = true;
 			fun = ((ConsPair)fun).right;
+		} else if( fun instanceof Macro ) {
+			// A more straightforward rpresentation:
+			isMacro = true;
 		}
 		if( isMacro ) {
 			if( !(fun instanceof Macro) ) {
@@ -172,6 +181,47 @@ class Evaluator {
 			return cdr(car(args, "'tail' argument list", (HasSourceLocation)args), "'tail' argument 0", (HasSourceLocation)args);
 		};
 	};
+	
+	static class MakeLambda implements Macro<Object,Object> {
+		public static final MakeLambda instance = new MakeLambda();
+		
+		static Function<String,Object> bindParams(Object params, Object values, Function<String,Object> parent) throws EvalException {
+			while( !isNil(params) ) {
+				Object param = car(params, "argument name", (HasSourceLocation)params);
+				// May allow more complex parameter definitions later,
+				// but for now, assume they are all symbols.
+				final String name = ((Atom)param).text;
+				if( isNil(values) ) {
+					throw new RuntimeException("Unexpected end of argument list at "+name);
+				}
+				final Object value = car(values, "value for parameter '"+name+"'", (HasSourceLocation)values);
+				final Function<String,Object> _p = parent;
+				parent = new Function<String,Object>() {
+					@Override
+					public Object apply(String arg) throws EvalException {
+						return (name.equals(arg)) ? value : _p.apply(arg);
+					}
+				};
+				params = cdr(params, "rest of parameter list", (HasSourceLocation)params);
+				values = cdr(values, "rest of argument list", (HasSourceLocation)values);
+			}
+			return parent;
+		}
+		
+		@Override
+		public Object apply(Object arg, final Function<String, Object> defs) throws EvalException {
+			HasSourceLocation sLoc = (HasSourceLocation)arg;
+			Object params = car(arg, "lambda argument list", sLoc);
+			HasSourceLocation body = (HasSourceLocation)cadr(arg, "lambda body", sLoc);
+			return new Function<Object,Object>() {
+				@Override
+				public Object apply(Object arg) throws EvalException {
+					Function<String,Object> innerDefs = bindParams(params, arg, defs);
+					return eval(body, innerDefs);
+				}
+			};
+		}
+	}
 }
 
 public class EvaluatorTest extends TestCase {
@@ -185,6 +235,8 @@ public class EvaluatorTest extends TestCase {
 				return Evaluator.Head.instance;
 			} else if( Symbols.FN_TAIL.equals(arg) ) {
 				return Evaluator.Tail.instance;
+			} else if( Symbols.MN_LAMBDA.equals(arg) ) {
+				return Evaluator.MakeLambda.instance;
 			} else {
 				return null;
 			}
@@ -247,5 +299,23 @@ public class EvaluatorTest extends TestCase {
 			caught = e;
 		};
 		assertNotNull(caught);
+	}
+	
+	public void testLambda() throws EvalException {
+		Object lambda = Evaluator.eval(Evaluator.list(
+			new Atom(Symbols.MN_LAMBDA),
+			Evaluator.list(
+				new Atom("left"),
+				new Atom("right")
+			),
+			Evaluator.list(
+				new Atom(Symbols.FN_CONCAT),
+				new Atom("left"),
+				new LiteralValue(" and "),
+				new Atom("right")
+			)
+		), testDefs);
+		Object result = ((Function)lambda).apply(Evaluator.list("foo","bar"));
+		assertEquals("foo and bar", result);
 	}
 }
