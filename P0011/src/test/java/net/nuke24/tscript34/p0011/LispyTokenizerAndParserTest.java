@@ -6,7 +6,7 @@ import net.nuke24.tscript34.p0011.sexp.ConsPair;
 import net.nuke24.tscript34.p0011.sexp.LiteralValue;
 import net.nuke24.tscript34.p0011.sexp.Symbols;
 
-public class LispyIntegrationTest extends XXTestCase {
+public class LispyTokenizerAndParserTest extends XXTestCase {
 	public void testParseNilSource() {
 		String source = "()";
 		Tokenizer t = new Tokenizer(LispyCharDecoder.instance, "test.sexp");
