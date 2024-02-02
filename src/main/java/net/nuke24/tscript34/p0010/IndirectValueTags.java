@@ -12,7 +12,7 @@ public class IndirectValueTags
 	/** The tagged object itself, with no semantics whatsoever aside from being equal only to itself and nothing else */
 	public static final int ANONYMOUS_CONCEPT = 3;
 	/**
-	 * A concept named by Supplier#get(), the 'reference',
+	 * A concept named by URIReference#getUri(), the 'reference',
 	 * which is probably, but not necessarily, a String.
 	 * 
 	 * Has the connotation that this concept cannot be meaningfully represented
@@ -25,7 +25,7 @@ public class IndirectValueTags
 	 */
 	public static final int PURE_REFERENCE = 4;
 	/**
-	 * A concept named by Supplier#get(), the 'reference',
+	 * A concept named by URIReference#getUri(), the 'reference',
 	 * which is probably, but not necessarily, a String.
 	 * 
 	 * Semantics are identical to those of PURE_REFERENCE with the exception
@@ -53,8 +53,10 @@ public class IndirectValueTags
 	// 8.. are list types
 	public static final int EMPTY_LIST  = 8;
 	/**
+	 * Value is a list represented by a cons pair.
 	 * Pair#getLeft() returns the head, Pair#getRight() returns the tail
 	 * e.g. (first . (second . (third . ())
+	 * Empty list can be represented by <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>
 	 **/
 	public static final int LINKED_LIST = 9;
 	
@@ -100,9 +102,9 @@ public class IndirectValueTags
 	 */
 	public static final int TS34_ENCODED = 1040;
 	/**
-	 * Supplier#get() returns some representation of a functional expression
-	 * (probably TOGVM-compatible) that can be unambiguously evaluated
-	 * to provide the value.
+	 * Indirect value is some representation of a functional expression
+	 * (probably some TOGVM-compatible thing) that can be unambiguously
+	 * evaluated to provide the value.
 	 */
 	public static final int EXPRESSION_VALUE = 1040;
 }

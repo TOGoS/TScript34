@@ -13,11 +13,26 @@ public interface IndirectValue {
 	 */
 	public int getTag();
 	/**
-	 * Returns a representation of this IndirectValue (NOT of the object it represents!).
+	 * Converts this IndirectValue to some other representation.
+	 * What classes are recognized and how they represent the concept
+	 * is left to the implementation, but there should be conventions
+	 * for common types:
 	 * 
-	 * e.g. an indirect value with tag = 5 (REFERENCE) should be able to as(Supplier and/or JTSupplier)
-	 * so that you can get() the reference.  Whether the IndirectValue instance /is/ or /has/
-	 * the [JT]Supplier is left to the IndirectValue implementation.
+	 * - for references, as(URIReference.class).get() returns the name of the referenced concept
+	 * - for lists/cons pairs, as(Pair.class) returns a pair representing the first
+	 *   node of a linked list.
+	 * 
+	 * While IndirectValue itself is simultaneously precise and abstract,
+	 * the meaning of objects returned by as depends on implementation.
+	 * e.g. a system that uses IndirectValues may use one to store a rational
+	 * number, where as(Long.class) returns a 64-bit number that unconventionally
+	 * encodes both the numerator and denominator; i.e. not the usual
+	 * meaning of a `Long`!  It's probably good practice to avoid overriding
+	 * classes that have an 'obvious' alternate meaning, and to represent
+	 * such encodings using the IndirectValue system itself;
+	 * i.e. using a tag that specifically means 'rational number represented
+	 * as an integer using funny encoding X', and then as(Long.class) or
+	 * as(Integer.class) would return that encoding.
 	 */
 	public <T> T as(Class<T> repClass);
 }
