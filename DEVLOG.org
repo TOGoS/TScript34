@@ -69,3 +69,68 @@ expressions, and lispy expressions can be defined to return commands.
   - [ ] Syntax
   - [ ] Semantics of basic datatypes
     - Use the P0010 model?
+
+** [2024-02-02] Thoughts on meaning of S-expressions
+
+Lisp S-expressions don't have a single, unambiguous 'meaning'.
+I think that has made tricky this job of trying to reason about them
+in a larger non-lisp-specific context.
+
+A question:
+When evaluating an S-expression,
+is it the 'eval' function or the expression object itself
+(e.g. an atom, or a cons pair, or maybe something else)
+that knows how to evaluate S-expresions?
+Or, put another way, do we have a special eval function
+that knows to interpret a list as a function application,
+or a special list that knows to eval itself in that way?
+Or do they need to both be special?
+
+Related:
+When our 'eval' function is asked to evaluate a cons pair,
+what does it see?  Does it see a cons pair?
+Does it see it as a sequence that happens to be implemented as a linked list?
+Does it see an 'evaluatable' object?
+Maybe the answer depends on which evaluate function we're using!
+An abstract, general-purpose 'evaluate' ('AGPEval', let's call it)
+might require the cons pair (or vector, or whatever) to be wrapped
+in another object that somehow indicates what to do with the S-expression.
+This may the way to go for TOGVM compatibility.
+So then
+    AGPEval( SExpression[ Atom("foo"), Atom("Bar") ] )
+  = SExpEval[ Atom("foo"), Atom("Bar") ]
+  = AGPEval( FunctionApplication{ functionExpr: Variable("foo"), argExprs = [ Variable("bar") ] } )
+
+For TScript34.11 or whatever, would it be cleaner to translate
+S-expressions to TOGVM expressions before evaluating them,
+to remove the ambiguity?
+
+
+*** Proposed answers
+
+Lacking context, a cons pair is just a cons pair.
+
+But in different contexts, it can mean different things!
+The solution is to be explicit about what context we are in.
+
+In the context of a lisp function that is expecting a linked
+list as an argument, the interpretation is implicit.
+
+The purpose of ~net.nuke24.tscript34.p0010.IndirectValue~ is to explicitly
+indicate (with the 'tag') the meaning of the value in the context
+of a Java program that operates on arbitrary ~Object~s.
+In this case, the 'context' is simply that the program is aware
+that instances of ~IndirectValue~ can represent something other than
+themselves (just as other Java objects do, though often in a more direct way)!
+
+What is the maning of a cons pair in the context of an IndirectValue?
+
+- If tag = QUOTED_LITERAL, then the cons pair (in this case returned by #get()) is just a cons pair!
+- If tag = LINKED_LIST, then the cons pair represents a list.
+- If tag = 1025, the cons pair represents the concatenation of its
+  left and right values
+- If tag = EXPRESSION_VALUE, the cons pair...is presumably an S-expression
+  to be evaluated to produce some value
+
+I think the reason I'm enfatuated with RDF is that it, too,
+provides a general way to talk about arbitrary concepts.
