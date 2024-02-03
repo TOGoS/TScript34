@@ -70,7 +70,7 @@ expressions, and lispy expressions can be defined to return commands.
   - [ ] Semantics of basic datatypes
     - Use the P0010 model?
 
-** [2024-02-02] Thoughts on meaning of S-expressions
+** [2024-02-02] Thoughts on meaning of S-expressions, for example
 
 Lisp S-expressions don't have a single, unambiguous 'meaning'.
 I think that has made tricky this job of trying to reason about them
@@ -134,3 +134,40 @@ What is the maning of a cons pair in the context of an IndirectValue?
 
 I think the reason I'm enfatuated with RDF is that it, too,
 provides a general way to talk about arbitrary concepts.
+
+
+*** Other ambiguoids
+
+~Promise~s in JavaScript.  If a function takes a promise,
+will it treat it as referring to the promise's value,
+or will it operate on the promise itself?
+
+Should ~typeOf(Promise.resolve(2)).then( console.log )~
+print "object" or "number"?
+
+They call this a problem of 'coloring' in the JavaScript world.
+Color indicating the implicit meaning of values.
+I've always thought it might be nice for a language
+to make that explicit, though in languages like C++ with
+stack-allocated objects, it's maybe less of a problem because
+functions that care about color can just demand that you pass
+them a struct that explicitly indicates it.
+
+
+*** Why is this useful?
+
+Allows us to write functions that operate on arbitrarily-colored values
+so that we don't have to have a different function for each
+variation of input/output.
+
+Let's say you want to provide a 'concatenate' service.
+For simplicity, let's say the result is a byte array,
+but that we want to allow inputs to be specified
+either directly, or by URI reference.
+
+In this case, having a function accept an `IndirectValue`
+as an argument allows the concatenation function to
+reason about the inputs in terms of their representation.
+If one of the arguments is itself a concatenation,
+we could do somethign special ahndajknsdkjn
+not a great examnple, but maybe you get the idea.
