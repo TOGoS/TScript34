@@ -14,6 +14,7 @@ public class LLChunks {
 			return new NewEntryLine(typeString, idString);
 		}
 	}
+	public static record Header(String key, String value) implements Chunk { }
 	public static record HeaderKey(String key) implements Chunk { }
 	public static record HeaderValuePiece(String data) implements Chunk {}
 	public static record ContentPiece(byte[] data) implements Chunk {

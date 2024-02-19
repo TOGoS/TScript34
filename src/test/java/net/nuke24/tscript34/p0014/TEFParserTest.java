@@ -1,6 +1,5 @@
 package net.nuke24.tscript34.p0014;
 
-import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,9 +9,9 @@ import java.util.Random;
 import junit.framework.TestCase;
 import net.nuke24.tscript34.p0010.ducer.DucerChunk;
 import net.nuke24.tscript34.p0010.ducer.DucerState;
-import net.nuke24.tscript34.p0014.TEFParser;
 import net.nuke24.tscript34.p0014.LLChunks.Chunk;
 import net.nuke24.tscript34.p0014.LLChunks.ContentPiece;
+import net.nuke24.tscript34.p0014.LLChunks.Header;
 import net.nuke24.tscript34.p0014.LLChunks.HeaderKey;
 import net.nuke24.tscript34.p0014.LLChunks.HeaderValuePiece;
 import net.nuke24.tscript34.p0014.LLChunks.NewEntryLine;
@@ -24,6 +23,12 @@ public class TEFParserTest extends TestCase
 	
 	// Merge the chunks, or return null if not mergeable
 	protected static Chunk merge( Chunk a, Chunk b ) {
+		if( a instanceof HeaderKey hka && b instanceof HeaderValuePiece vcb ) {
+			return new Header(hka.key(), vcb.data());
+		}
+		if( a instanceof Header ha && b instanceof HeaderValuePiece vcb ) {
+			return new Header(ha.key(), ha.value()+vcb.data());
+		}
 		if( a instanceof HeaderValuePiece vca && b instanceof HeaderValuePiece vcb ) {
 			return new HeaderValuePiece(vca.data() + vcb.data());
 		}
@@ -39,6 +44,8 @@ public class TEFParserTest extends TestCase
 		for( Chunk c : chunks ) {
 			if( c instanceof HeaderValuePiece hvc && hvc.data().length() == 0 ) continue;
 			if( c instanceof ContentPiece cc && cc.data().length == 0 ) continue;
+			
+			if( c instanceof HeaderKey hk ) c = new Header(hk.key(), "");
 			
 			if( previousChunk == null ) {
 				previousChunk = c;
@@ -124,7 +131,7 @@ public class TEFParserTest extends TestCase
 	}
 	public void testParseHeader() {
 		testParsesAs(
-			new Chunk[] { new HeaderKey("hi there"), new HeaderValuePiece("foo bar") },
+			new Chunk[] { new Header("hi there", "foo bar") },
 			"hi there: foo bar"
 		);
 	}
@@ -132,7 +139,7 @@ public class TEFParserTest extends TestCase
 		testParsesAs(
 			new Chunk[] {
 				new NewEntryLine("foo", "bar baz"),
-				new HeaderKey("hi there"), new HeaderValuePiece("foo bar")
+				new Header("hi there", "foo bar")
 			},
 			"=foo bar baz\n"+
 			"hi there: foo bar"
@@ -142,8 +149,7 @@ public class TEFParserTest extends TestCase
 		testParsesAs(
 			new Chunk[] {
 				new NewEntryLine("foo", "bar baz"),
-				new HeaderKey("hi there"),
-				new HeaderValuePiece("foo bar\nbaz quux"),
+				new Header("hi there", "foo bar\nbaz quux"),
 			},
 			"=foo bar baz\n"+
 			"hi there: foo bar\n"+
@@ -154,14 +160,10 @@ public class TEFParserTest extends TestCase
 		testParsesAs(
 			new Chunk[] {
 				new NewEntryLine("foo", "bar baz"),
-				new HeaderKey("hi:there"),
-				new HeaderValuePiece("foo bar\nbaz quux"),
-				new HeaderKey("bill"),
-				new HeaderValuePiece("ted"),
-				new HeaderKey("kyanu"),
-				new HeaderValuePiece("\nhorsey"),
-				new HeaderKey("kevin"),
-				new HeaderValuePiece("\n"),
+				new Header("hi:there", "foo bar\nbaz quux"),
+				new Header("bill", "ted"),
+				new Header("kyanu", "\nhorsey"),
+				new Header("kevin", "\n"),
 			},
 			"=foo bar baz\n"+
 			"hi:there: foo bar\n"+
@@ -182,6 +184,12 @@ public class TEFParserTest extends TestCase
 			"=foo bar\n"+
 			"\n"+
 			"baz"
+		);
+	}
+	public void testParseEntryWithBareKey() {
+		testParsesAs(
+			new Chunk[] { new Header("foo", "") },
+			"foo:"
 		);
 	}
 	
