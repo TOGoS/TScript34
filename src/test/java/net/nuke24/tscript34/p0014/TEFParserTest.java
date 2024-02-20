@@ -119,6 +119,8 @@ public class TEFParserTest extends TestCase
 				new NewEntryLine("foo", "bar baz"),
 				new Header("hi:there", "foo bar\nbaz quux"),
 				new Header("bill", "ted"),
+				new Header("empty", ""),
+				new Header("empty", ""),
 				new Header("kyanu", "\nhorsey"),
 				new Header("kevin", "\n"),
 			},
@@ -126,6 +128,8 @@ public class TEFParserTest extends TestCase
 			"hi:there: foo bar\n"+
 			"\tbaz quux\n"+
 			"bill: ted\n"+
+			"empty:\n"+
+			"empty: \n"+
 			"kyanu:\n"+
 			"\thorsey\n"+
 			"kevin: \n"+
