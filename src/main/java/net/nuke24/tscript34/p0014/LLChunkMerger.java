@@ -23,6 +23,7 @@ import net.nuke24.tscript34.p0014.util.ArrayUtil;
  */
 class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState<Chunk[],Chunk[]>> {
 	protected static final Chunk[] EMPTY_CHUNK_LIST = new Chunk[0];
+	protected static final DucerChunk<Chunk[]> EMPTY_OPEN_OUTPUT = new DucerChunk<Chunk[]>(EMPTY_CHUNK_LIST, false);
 	protected static final InputPortState<Chunk[]> EMPTY_OPEN_INPUT = new InputPortState<Chunk[]>(false, EMPTY_CHUNK_LIST);
 	protected static final InputPortState<Chunk[]> EMPTY_CLOSED_INPUT = new InputPortState<Chunk[]>(true, EMPTY_CHUNK_LIST);
 	
@@ -30,12 +31,14 @@ class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState<Chunk[],
 	 * Only merges header chunks together, but leaves
 	 * [nonzero-length] content chunks alone.
 	 */
-	public static final LLChunkMerger FULL = new LLChunkMerger(null, true);
+	public static final DucerState<Chunk[],Chunk[]> FULL = new DucerState<Chunk[],Chunk[]>(
+		new LLChunkMerger(null, true), EMPTY_OPEN_INPUT, EMPTY_OPEN_OUTPUT);
 	/**
 	 * One that leaves content chunks alone; may be desirable
 	 * if content might be very large.
 	 */
-	public static final LLChunkMerger HEADERS_ONLY = new LLChunkMerger(null, false);
+	public static final DucerState<Chunk[],Chunk[]> HEADERS_ONLY = new DucerState<Chunk[],Chunk[]>(
+		new LLChunkMerger(null, false), EMPTY_OPEN_INPUT, EMPTY_OPEN_OUTPUT);
 	
 	final Chunk previousChunk;
 	final boolean mergeContentChunks;
@@ -93,7 +96,7 @@ class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState<Chunk[],
 		}
 		return new DucerState<Chunk[],Chunk[]>(
 			new LLChunkMerger(previousChunk, mergeContentChunks),
-			EMPTY_CLOSED_INPUT,
+			input.isEnd() ? EMPTY_CLOSED_INPUT : EMPTY_OPEN_INPUT,
 			new DucerChunk<Chunk[]>(merged.toArray(new Chunk[merged.size()]), input.isEnd())
 		);
 	}

@@ -17,6 +17,7 @@ import net.nuke24.tscript34.p0014.LLChunks.HeaderKey;
 import net.nuke24.tscript34.p0014.LLChunks.HeaderValuePiece;
 import net.nuke24.tscript34.p0014.LLChunks.NewEntryLine;
 import net.nuke24.tscript34.p0014.LLChunks.SyntaxError;
+import net.nuke24.tscript34.p0014.TEFParser.State;
 import net.nuke24.tscript34.p0014.util.ArrayUtil;
 
 public record TEFParser(
@@ -27,7 +28,15 @@ public record TEFParser(
 )
 implements Function<DucerChunk<byte[]>,DucerState<byte[],Chunk[]>>
 {
-	public static final TEFParser INIT = new TEFParser(State.HEADER, 1, new byte[0], 0);
+	protected static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+	protected static final Chunk[] EMPTY_CHUNK_ARRAY = new Chunk[0];
+	protected static final byte[] LF_SEQ = new byte[]{'\n'};
+
+	public static final DucerState<byte[],Chunk[]> INIT = new DucerState<byte[],Chunk[]>(
+		new TEFParser(State.HEADER, 1, EMPTY_BYTE_ARRAY, 0),
+		new InputPortState<byte[]>(false, EMPTY_BYTE_ARRAY),
+		new DucerChunk<Chunk[]>(EMPTY_CHUNK_ARRAY, false)
+	);
 	
 	enum State {
 		// What are we ready to parse?
@@ -39,9 +48,6 @@ implements Function<DucerChunk<byte[]>,DucerState<byte[],Chunk[]>>
 		CONTENT_BEGIN, // First line of content, which neeeds to handle initial '=' specially
 		CONTENT,
 	}
-	
-	protected static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-	protected static final byte[] LF_SEQ = new byte[]{'\n'};
 	
 	protected static final Pattern NEW_ENTRY_LINE_PATTERN = Pattern.compile("^=([^\\s]*)(?:$|\\s+(.*))");
 	//protected static final Pattern HEADER_PATTERN = Pattern.compile("^((?:[^\\s:]|:[^\\s])):):(?:$|\\s+(.*))");

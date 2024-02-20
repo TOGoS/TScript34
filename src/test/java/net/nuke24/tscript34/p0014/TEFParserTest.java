@@ -13,13 +13,14 @@ import net.nuke24.tscript34.p0014.LLChunks.Chunk;
 import net.nuke24.tscript34.p0014.LLChunks.ContentPiece;
 import net.nuke24.tscript34.p0014.LLChunks.Header;
 import net.nuke24.tscript34.p0014.LLChunks.NewEntryLine;
+import net.nuke24.tscript34.p0014.util.DucerUtil;
 
 public class TEFParserTest extends TestCase
 {
 	static final Charset UTF8 = Charset.forName("UTF-8");
 	
 	protected static List<Chunk> normalize(List<Chunk> chunks) {
-		DucerState<Chunk[],Chunk[]> ds = LLChunkMerger.FULL.apply(new DucerChunk<Chunk[]>(chunks.toArray(new Chunk[chunks.size()]), true));
+		DucerState<Chunk[],Chunk[]> ds = LLChunkMerger.FULL.process(new DucerChunk<Chunk[]>(chunks.toArray(new Chunk[chunks.size()]), true));
 		assert ds.isDone();
 		assert ds.input.queued.length == 0;
 		return Arrays.asList(ds.output.payload);
@@ -53,10 +54,15 @@ public class TEFParserTest extends TestCase
 		Chunk[] expected,
 		String source
 	) {
+		List<Chunk> normExpected = normalize(expected);
+		
 		byte[] sourceBytes = source.getBytes(UTF8);
 		for( int s=0; s<20; ++s ) {
 			byte[][] chunks = randomlyChunk(sourceBytes, new Random(s));
-			DucerState<byte[],Chunk[]> parseState = TEFParser.INIT.apply(new DucerChunk<byte[]>(new byte[0], false));
+			DucerState<byte[],Chunk[]> parseState = DucerUtil.chain(
+				TEFParser.INIT,
+				LLChunkMerger.FULL
+			);
 			List<Chunk> output = new ArrayList<Chunk>();
 			for( int i=0; i<chunks.length; ++i ) {
 				parseState = parseState.process(new DucerChunk<byte[]>(chunks[i], i == chunks.length-1));
@@ -64,7 +70,7 @@ public class TEFParserTest extends TestCase
 					output.add(c);
 				}
 			}
-			assertEquals(normalize(expected), normalize(output));
+			assertEquals(normExpected, normalize(output));
 		}
 	}
 	
