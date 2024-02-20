@@ -9,15 +9,13 @@ import java.util.regex.Pattern;
 
 import net.nuke24.tscript34.p0010.Function;
 import net.nuke24.tscript34.p0010.ducer.DucerChunk;
-import net.nuke24.tscript34.p0010.ducer.DucerState;
-import net.nuke24.tscript34.p0010.ducer.InputPortState;
+import net.nuke24.tscript34.p0010.ducer.DucerState2;
 import net.nuke24.tscript34.p0014.LLChunks.Chunk;
 import net.nuke24.tscript34.p0014.LLChunks.ContentPiece;
 import net.nuke24.tscript34.p0014.LLChunks.HeaderKey;
 import net.nuke24.tscript34.p0014.LLChunks.HeaderValuePiece;
 import net.nuke24.tscript34.p0014.LLChunks.NewEntryLine;
 import net.nuke24.tscript34.p0014.LLChunks.SyntaxError;
-import net.nuke24.tscript34.p0014.TEFParser.State;
 import net.nuke24.tscript34.p0014.util.ArrayUtil;
 
 public record TEFParser(
@@ -26,15 +24,17 @@ public record TEFParser(
 	byte[] remaining,
 	int remainingOffset
 )
-implements Function<DucerChunk<byte[]>,DucerState<byte[],Chunk[]>>
+implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 {
 	protected static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 	protected static final Chunk[] EMPTY_CHUNK_ARRAY = new Chunk[0];
 	protected static final byte[] LF_SEQ = new byte[]{'\n'};
+	// We never pass anything!
+	protected static final DucerChunk<byte[]> PASSED = new DucerChunk<byte[]>(EMPTY_BYTE_ARRAY, true);
 
-	public static final DucerState<byte[],Chunk[]> INIT = new DucerState<byte[],Chunk[]>(
+	public static final DucerState2<byte[],Chunk[]> INIT = new DucerState2<byte[],Chunk[]>(
 		new TEFParser(State.HEADER, 1, EMPTY_BYTE_ARRAY, 0),
-		new InputPortState<byte[]>(false, EMPTY_BYTE_ARRAY),
+		PASSED,
 		new DucerChunk<Chunk[]>(EMPTY_CHUNK_ARRAY, false)
 	);
 	
@@ -68,15 +68,15 @@ implements Function<DucerChunk<byte[]>,DucerState<byte[],Chunk[]>>
 
 	
 	@Override
-	public DucerState<byte[], Chunk[]> apply(DucerChunk<byte[]> chunk) {
+	public DucerState2<byte[], Chunk[]> apply(DucerChunk<byte[]> input) {
 		State state = this.state;
 		int lineNum = this.lineNum;
 		byte[] remaining = this.remaining;
 		int remainingOffset = this.remainingOffset;
-		final boolean isEnd = chunk.isEnd;
+		final boolean isEnd = input.isEnd;
 		// Combine current state with input
-		if( chunk.payload.length > 0 ) {
-			remaining = ArrayUtil.concat(remaining, remainingOffset, chunk.payload);
+		if( input.payload.length > 0 ) {
+			remaining = ArrayUtil.concat(remaining, remainingOffset, input.payload);
 			remainingOffset = 0;
 		}
 		
@@ -281,9 +281,9 @@ implements Function<DucerChunk<byte[]>,DucerState<byte[],Chunk[]>>
 			}
 		}
 		
-		return new DucerState<>(
+		return new DucerState2<>(
 			new TEFParser(state, lineNum, remaining, remainingOffset),
-			new InputPortState<byte[]>(isEnd, EMPTY_BYTE_ARRAY),
+			PASSED,
 			new DucerChunk<Chunk[]>(output.toArray(new Chunk[output.size()]), isEnd)
 		);
 	}

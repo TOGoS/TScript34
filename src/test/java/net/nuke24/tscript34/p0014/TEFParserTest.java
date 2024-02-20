@@ -8,7 +8,7 @@ import java.util.Random;
 
 import junit.framework.TestCase;
 import net.nuke24.tscript34.p0010.ducer.DucerChunk;
-import net.nuke24.tscript34.p0010.ducer.DucerState;
+import net.nuke24.tscript34.p0010.ducer.DucerState2;
 import net.nuke24.tscript34.p0014.LLChunks.Chunk;
 import net.nuke24.tscript34.p0014.LLChunks.ContentPiece;
 import net.nuke24.tscript34.p0014.LLChunks.Header;
@@ -20,9 +20,7 @@ public class TEFParserTest extends TestCase
 	static final Charset UTF8 = Charset.forName("UTF-8");
 	
 	protected static List<Chunk> normalize(List<Chunk> chunks) {
-		DucerState<Chunk[],Chunk[]> ds = LLChunkMerger.FULL.process(new DucerChunk<Chunk[]>(chunks.toArray(new Chunk[chunks.size()]), true));
-		assert ds.isDone();
-		assert ds.input.queued.length == 0;
+		DucerState2<Chunk[],Chunk[]> ds = LLChunkMerger.FULL.process(new DucerChunk<Chunk[]>(chunks.toArray(new Chunk[chunks.size()]), true));
 		return Arrays.asList(ds.output.payload);
 	}
 	static List<Chunk> normalize(Chunk[] chunks) {
@@ -59,7 +57,7 @@ public class TEFParserTest extends TestCase
 		byte[] sourceBytes = source.getBytes(UTF8);
 		for( int s=0; s<20; ++s ) {
 			byte[][] chunks = randomlyChunk(sourceBytes, new Random(s));
-			DucerState<byte[],Chunk[]> parseState = DucerUtil.chain(
+			DucerState2<byte[],Chunk[]> parseState = DucerUtil.chain(
 				TEFParser.INIT,
 				LLChunkMerger.FULL
 			);
