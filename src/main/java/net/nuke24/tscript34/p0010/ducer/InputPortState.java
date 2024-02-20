@@ -10,6 +10,17 @@ package net.nuke24.tscript34.p0010.ducer;
  * 
  * Counterpart to a DucerChunk,
  * which can be thought to represent the state of an output port.
+ * 
+ * 2024-02-09 Note: This is a bad way to model this because
+ * the case where input is NOT closed, but there is data queued,
+ * is hard to handle, especially in an abstract way.
+ * When updating a DucerState, one would need to be careful to always process
+ * any queued data before processing new data.
+ * 
+ * If input data is only ever completely rejected
+ * (as opposed to rejected only for now),
+ * this problem goes away.  The earlier Ducer scheme
+ * was in this way better than the current one.
  */
 public class InputPortState<I> {
 	/**
