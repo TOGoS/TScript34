@@ -21,6 +21,12 @@ package net.nuke24.tscript34.p0010.ducer;
  * (as opposed to rejected only for now),
  * this problem goes away.  The earlier Ducer scheme
  * was in this way better than the current one.
+ * 
+ * It is probably best to remove the idea of queued input data entirely.
+ * 
+ * That said, we could have an auxiliary output pipe, whose chunks
+ * are the same type as input chunks, and use that as a way
+ * to pass on unprocessed input.
  */
 public class InputPortState<I> {
 	/**
