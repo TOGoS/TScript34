@@ -49,7 +49,7 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 		CONTENT,
 	}
 	
-	protected static final Pattern NEW_ENTRY_LINE_PATTERN = Pattern.compile("^=([^\\s]*)(?:$|\\s+(.*))");
+	protected static final Pattern NEW_ENTRY_LINE_PATTERN = Pattern.compile("^=([^\\s]*)(?:$|\\s+([^\\r\\n]*))[\\r\\n]?$");
 	//protected static final Pattern HEADER_PATTERN = Pattern.compile("^((?:[^\\s:]|:[^\\s])):):(?:$|\\s+(.*))");
 	//protected static final Pattern COMMENT_LINE_PATTERN = Pattern.compile("^#.*");
 	//protected static final Pattern EMPTY_LINE_PATTERN = Pattern.compile("^$*");
@@ -110,7 +110,9 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 				else if( eolIndex < 0 ) break parse;
 				String line = new String(remaining, remainingOffset, eolIndex-remainingOffset, UTF8);
 				m = NEW_ENTRY_LINE_PATTERN.matcher(line);
-				assert m.matches();
+				if( !m.matches() ) {
+					throw new RuntimeException("Somehow line match pattern didn't match; line={"+line+"}; pattern={"+NEW_ENTRY_LINE_PATTERN.toString()+"}");
+				}
 				
 				output.add(NewEntryLine.of(m.group(1), m.group(2)));
 				

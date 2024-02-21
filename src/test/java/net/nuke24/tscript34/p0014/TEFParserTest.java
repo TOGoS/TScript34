@@ -78,6 +78,12 @@ public class TEFParserTest extends TestCase
 			"=hi Hello, world!"
 		);
 	}
+	public void testParseNewEntryLineAndCrLf() {
+		testParsesAs(
+			new Chunk[] { new NewEntryLine("file", "bar.txt") },
+			"=file bar.txt\r\n"
+		);
+	}
 	public void testParseNewEntryLineAndLf() {
 		testParsesAs(
 			new Chunk[] { new NewEntryLine("hi", "Hello, world!") },
