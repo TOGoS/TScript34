@@ -96,6 +96,14 @@ public class TEFParserTest extends TestCase
 			"=hi Hello, world!\n\n"
 		);
 	}
+	public void testParseHeaderComment() {
+		for( String terminator : List.of("", "\n", "\r\n", "\n\n", "\r\n\r\n") ) {
+			testParsesAs(
+				new Chunk[] {},
+				"# A comment line!" + terminator
+			);
+		}
+	}
 	public void testParseHeader() {
 		testParsesAs(
 			new Chunk[] { new Header("hi there", "foo bar") },
@@ -199,6 +207,18 @@ public class TEFParserTest extends TestCase
 				},
 				newline + "hello"
 			);
+		}
+	}
+	public void testParseCommentContentEof() {
+		for( String commentLine : List.of("", "# A comment\n", "# A comment\r\n")) {
+			for( String newline : List.of("\r\n","\n") ) {
+				testParsesAs(
+					new Chunk[] {
+						new ContentPiece("hello:".getBytes(UTF8))
+					},
+					commentLine + newline + "hello:"
+				);
+			}
 		}
 	}
 	public void testParseEntryEntry() {

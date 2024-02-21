@@ -41,6 +41,7 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 	enum State {
 		// What are we ready to parse?
 		NEW_ENTRY,
+		HEADER_LINE_COMMENT, // Ignoring everything until after the next \n
 		HEADER,
 		HEADER_OR_CONTINUATION_LF,
 		HEADER_OR_CONTINUATION_CRLF,
@@ -127,6 +128,15 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 				++lineNum;
 				state = State.HEADER;
 				continue parse;
+			case HEADER_LINE_COMMENT:
+				while( remainingOffset < remaining.length ) {
+					if( remaining[remainingOffset++] == '\n' ) {
+						++lineNum;
+						state = State.HEADER;
+						continue parse;
+					}
+				}
+				break parse;
 			case HEADER: case HEADER_OR_CONTINUATION_LF: case HEADER_OR_CONTINUATION_CRLF:
 				// At beginning of a line; may be a header, a header continuation, a comment, or a blank line
 				if( isHorizontalWhitespace(char0) ) {
@@ -157,10 +167,8 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 						break parse;
 					}
 				} else if( char0 == '#' ) {
-					int eol = ArrayUtil.find(remaining, remainingOffset, LF_SEQ, isEnd);
-					++lineNum;
-					remainingOffset = eol == -1 ? remaining.length : eol+1;
-					state = State.HEADER;
+					++remainingOffset;
+					state = State.HEADER_LINE_COMMENT;
 					continue parse;
 				} else if( char0 == '\r' ) {
 					// For now, assume that the next one is a '\n'
