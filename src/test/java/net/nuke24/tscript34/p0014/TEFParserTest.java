@@ -102,6 +102,12 @@ public class TEFParserTest extends TestCase
 			"hi there: foo bar"
 		);
 	}
+	public void testParseHeaderWithCrLf() {
+		testParsesAs(
+			new Chunk[] { new Header("hi there", "foo bar") },
+			"hi there: foo bar\r\n"
+		);
+	}
 	public void testParseNewEntryAndHeader() {
 		testParsesAs(
 			new Chunk[] {
@@ -127,7 +133,7 @@ public class TEFParserTest extends TestCase
 		testParsesAs(
 			new Chunk[] {
 				new NewEntryLine("foo", "bar baz"),
-				new Header("hi:there", "foo bar\nbaz quux"),
+				new Header("hi:there", "foo bar\r\nbaz quux"),
 				new Header("bill", "ted"),
 				new Header("empty", ""),
 				new Header("empty", ""),
@@ -135,9 +141,9 @@ public class TEFParserTest extends TestCase
 				new Header("kevin", "\n"),
 			},
 			"=foo bar baz\n"+
-			"hi:there: foo bar\n"+
+			"hi:there: foo bar\r\n"+
 			"\tbaz quux\n"+
-			"bill: ted\n"+
+			"bill: ted\r\n"+
 			"empty:\n"+
 			"empty: \n"+
 			"kyanu:\n"+
@@ -161,6 +167,16 @@ public class TEFParserTest extends TestCase
 		testParsesAs(
 			new Chunk[] { new Header("foo", "") },
 			"foo:"
+		);
+	}
+	public void testParseEntryEntry() {
+		testParsesAs(
+			new Chunk[] {
+				new NewEntryLine("foo", "bar"),
+				new NewEntryLine("baz", "quux")
+			},
+			"=foo bar\r\n"+
+			"=baz quux\n"
 		);
 	}
 	

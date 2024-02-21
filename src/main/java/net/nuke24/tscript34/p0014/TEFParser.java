@@ -42,11 +42,19 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 		// What are we ready to parse?
 		NEW_ENTRY,
 		HEADER,
-		HEADER_OR_CONTINUATION,
+		HEADER_OR_CONTINUATION_LF,
+		HEADER_OR_CONTINUATION_CRLF,
 		HEADER_VALUE,
 		POST_HEADER_KEY, // Just past the colon; might be newline or whitespace+data
 		CONTENT_BEGIN, // First line of content, which neeeds to handle initial '=' specially
 		CONTENT,
+	}
+	
+	static final String joiner(State state) {
+		switch(state) {
+		case HEADER_OR_CONTINUATION_CRLF: return "\r\n";
+		default: return "\n";
+		}
 	}
 	
 	protected static final Pattern NEW_ENTRY_LINE_PATTERN = Pattern.compile("^=([^\\s]*)(?:$|\\s+([^\\r\\n]*))[\\r\\n]?$");
@@ -65,7 +73,6 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 		default: return false;
 		}
 	}
-
 	
 	@Override
 	public DucerState2<byte[], Chunk[]> apply(DucerChunk<byte[]> input) {
@@ -120,7 +127,7 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 				++lineNum;
 				state = State.HEADER;
 				continue parse;
-			case HEADER: case HEADER_OR_CONTINUATION:
+			case HEADER: case HEADER_OR_CONTINUATION_LF: case HEADER_OR_CONTINUATION_CRLF:
 				// At beginning of a line; may be a header, a header continuation, a comment, or a blank line
 				if( isHorizontalWhitespace(char0) ) {
 					if( state == State.HEADER ) {
@@ -128,7 +135,7 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 					}
 					// But continue anyway, I guess (TODO: bad; fix)
 					// Continuation!  Add the newline
-					output.add(new HeaderValuePiece("\n"));
+					output.add(new HeaderValuePiece(joiner(state)));
 					++remainingOffset;
 					state = State.HEADER_VALUE;
 					continue parse;
@@ -194,7 +201,7 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 				if( char0 == '\n' ) {
 					++lineNum;
 					++remainingOffset;
-					state = State.HEADER_OR_CONTINUATION;
+					state = State.HEADER_OR_CONTINUATION_LF;
 					continue parse;
 				} else {
 					++remainingOffset;
@@ -207,11 +214,20 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 				// Preceding whitespace already skipped;
 				// "\n" + everything from here to EOL is more value
 				if( eolIndex == -1 ) eolIndex = remaining.length;
+				int nextLineStartIndex = eolIndex+1;
+				
+				if( eolIndex > remainingOffset && remaining[eolIndex-1] == '\r' ) {
+					eolIndex = eolIndex-1;
+					state = State.HEADER_OR_CONTINUATION_CRLF;
+				} else {
+					state = State.HEADER_OR_CONTINUATION_LF;
+				}
+				
 				if( eolIndex - remainingOffset > 0 ) output.add(new HeaderValuePiece(new String(remaining, remainingOffset, eolIndex-remainingOffset, UTF8)));
 				
 				++lineNum;
-				remainingOffset = Math.min(remaining.length, eolIndex+1);
-				state = State.HEADER_OR_CONTINUATION;
+				remainingOffset = Math.min(remaining.length, nextLineStartIndex);
+				
 				continue parse;
 			case CONTENT_BEGIN:
 				if( char0 == '=' ) {
