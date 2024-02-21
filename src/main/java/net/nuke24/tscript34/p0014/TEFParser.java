@@ -262,13 +262,19 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 						checkForEnd: switch( char1 ) {
 						case -2:
 							// "\n" + ?; need more info
-							remainingOffset = i;
+							if( i > remainingOffset ) {
+								output.add(new ContentPiece(Arrays.copyOfRange(remaining, remainingOffset, i)));
+								remainingOffset = i;
+							}
 							break parse;
 						case '=':
 							switch( char2 ) {
 							case -2:
 								// "\n=" + ?; Need more info
-								remainingOffset = i;
+								if( i > remainingOffset ) {
+									output.add(new ContentPiece(Arrays.copyOfRange(remaining, remainingOffset, i)));
+									remainingOffset = i;
+								}
 								break parse;
 							case '=':
 								// "\n=="

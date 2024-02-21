@@ -169,6 +169,38 @@ public class TEFParserTest extends TestCase
 			"foo:"
 		);
 	}
+	public void testParseContentNewlineEof() {
+		for( String newline : List.of("\r\n","\n") ) {
+			testParsesAs(
+				new Chunk[] {
+					new ContentPiece("hello\n".getBytes(UTF8))
+				},
+				newline + "hello\n"
+			);
+		}
+	}
+	public void testParseContentNewlineNewEntry() {
+		for( String newline : List.of("\r\n","\n") ) {
+			testParsesAs(
+				new Chunk[] {
+					new ContentPiece("hello".getBytes(UTF8)),
+					new NewEntryLine("foo", "bar"),
+				},
+				// Should content+CRLF+"=foo..." actually omit the CR from content, also?
+				newline + "hello\n=foo bar"
+			);
+		}
+	}
+	public void testParseContentEof() {
+		for( String newline : List.of("\r\n","\n") ) {
+			testParsesAs(
+				new Chunk[] {
+					new ContentPiece("hello".getBytes(UTF8))
+				},
+				newline + "hello"
+			);
+		}
+	}
 	public void testParseEntryEntry() {
 		testParsesAs(
 			new Chunk[] {
@@ -189,6 +221,25 @@ public class TEFParserTest extends TestCase
 			"=foo bar\r\n"+
 			"=baz quux\r\n\r\n"+
 			"some content"
+		);
+	}
+	public void testParseFiole() {
+		testParsesAs(
+			new Chunk[] {
+				new NewEntryLine("foo.txt", ""),
+				new NewEntryLine("fiole", ""),
+				new NewEntryLine("file", "foo.txt"),
+				new NewEntryLine("file", "bar.txt"),
+				new NewEntryLine("file", "baz.txt"),
+				new ContentPiece("Hello, this is baz.txt\n".getBytes(UTF8))
+			},
+			"=foo.txt\n"+
+			"=fiole\n"+
+			"=file foo.txt\n"+
+			"=file bar.txt\n"+
+			"=file baz.txt\n"+
+			"\n"+
+			"Hello, this is baz.txt\n"
 		);
 	}
 	
