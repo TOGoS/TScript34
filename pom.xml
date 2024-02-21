@@ -7,7 +7,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.nuke24.tscript34</groupId>
 	<artifactId>tscript34-p0014</artifactId>
-	<version>0.0.2</version>
+	<version>0.0.4</version>
 	<packaging>jar</packaging>
 	<name>TEFParser</name>
 	<description>Library for parsing TEF files using Danducers</description>

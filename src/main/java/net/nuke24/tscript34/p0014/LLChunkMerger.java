@@ -20,7 +20,7 @@ import net.nuke24.tscript34.p0014.util.ArrayUtil;
  * Useful for canonicalization or for generating
  * a simplified chunk stream.
  */
-class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState2<Chunk[],Chunk[]>> {
+public class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState2<Chunk[],Chunk[]>> {
 	protected static final Chunk[] EMPTY_CHUNK_LIST = new Chunk[0];
 	protected static final DucerChunk<Chunk[]> EMPTY_OPEN_OUTPUT = new DucerChunk<Chunk[]>(EMPTY_CHUNK_LIST, false);
 	protected static final DucerChunk<Chunk[]> EMPTY_OPEN_INPUT = new DucerChunk<Chunk[]>(EMPTY_CHUNK_LIST, false);
