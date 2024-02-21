@@ -162,6 +162,11 @@ implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 					remainingOffset = eol == -1 ? remaining.length : eol+1;
 					state = State.HEADER;
 					continue parse;
+				} else if( char0 == '\r' ) {
+					// For now, assume that the next one is a '\n'
+					// TODO: Otherwise, throw an error!
+					++remainingOffset;
+					continue parse;
 				} else if( char0 == '\n' ) {
 					++lineNum;
 					++remainingOffset;

@@ -179,6 +179,18 @@ public class TEFParserTest extends TestCase
 			"=baz quux\n"
 		);
 	}
+	public void testParseEntryEntryContentEof() {
+		testParsesAs(
+			new Chunk[] {
+				new NewEntryLine("foo", "bar"),
+				new NewEntryLine("baz", "quux"),
+				new ContentPiece("some content".getBytes(UTF8))
+			},
+			"=foo bar\r\n"+
+			"=baz quux\r\n\r\n"+
+			"some content"
+		);
+	}
 	
 	public static void main(String[] args) {
 		new TEFParserTest().testParseEntryWithContent();
