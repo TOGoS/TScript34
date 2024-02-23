@@ -45,7 +45,7 @@
   see [[./P0010/src/main/java/net/nuke24/tscript34/p0010/IndirectValueTags.java]]
   for the list of tags!
 
-** Language
+** Language(s)
 
 I should probably specify it, huh?
 With test cases and stuff.
@@ -156,7 +156,7 @@ as first-class objects, somewhat more conventional operation names,
 symmetrical string syntax '(foo)' instead of '" foo"', and fewer assumptions
 that it is running very close to the metal.
 
-*** Other languages/VMs to consider implementing
+** Other languages/VMs to consider implementing
 
 **** WebAssembly
 
@@ -177,3 +177,43 @@ and that allows us to run the same application on a variety of systems.
 
 Sounds very similar to what I'm going for,
 so why not!
+
+
+** Related
+
+*** [[https://news.ycombinator.com/user?id=dkjaudyeqooe][Some guy on HN]] seems to be after something similar
+
+#+begin_quote
+I've been working on something centered around extensibility, or
+metaprogramming, coming from a strictly imperative angle, with the
+belief that anything else (functional, relational/logic based,
+whatever) can be built on top of that.
+
+A few guiding principles are:
+
+- simplicity above all, with as few fundamental elements as possible
+
+- the parser is a separate issue, just write your own syntax to avoid
+  the most divisive bikeshed element of PL design, or pick the C like
+  or ALGOL like one out of the box. You very likely want your own
+  syntax anyway as you write extensions.
+
+- every language element, from modules down to function calls, are
+  first class, ie have an (implementing) type, can be stored in
+  variables and used in expressions, be introspected and
+  evaluated/deployed.
+
+- runs at compile time, compiles at run time (code generation/partial
+  evaluation/dynamic code)
+
+- generates C, Java, Python and various bytecodes to maximise
+  interoperability, code availability and deployability
+
+- has no standard runtime or standard library of its own, is entirely
+  parasitic on other environments
+
+Even if it ends up being completely useless, it's a really interesting
+exercise in design.
+#+end_quote
+
+([[https://news.ycombinator.com/item?id=39455060][HN comment]])
