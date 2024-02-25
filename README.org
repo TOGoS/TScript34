@@ -36,6 +36,7 @@
 - [[./P0013/][P0013]] :: CPS-based interpreter demo
 - P0014 :: TEF parser java library
 - P0015 :: RDF parser java library
+- P0016 :: An implementation of [[https://craftinginterpreters.com/the-lox-language.html][Lox]]
 
 ** OIDs
 
@@ -217,3 +218,25 @@ exercise in design.
 #+end_quote
 
 ([[https://news.ycombinator.com/item?id=39455060][HN comment]])
+
+*** [[https://github.com/candy-lang/candy][Candy]] - a functional language with assertions in place of types
+
+Seems similar to what I was thinking w.r.t. a scheme-like where
+you could define constraints like so:
+
+#+begin_src scheme
+  (define (divide a b)
+    (assert (is-number a))
+    (assert (is-number b))
+    (assert (is-nonzero b))
+    (...logic to do the division here))
+#+end_src
+
+That said, not sure if it follow the *other* principles I have in
+mind about there being no types distinct from behavior.
+The README indicates there are some 'predefined types',
+such as int, text, list, struct.
+Can I define my own thing that 'looks like' a list?
+
+(My current thinking is that lists should just be values
+that can be ~car~red and ~cdr~ed and ~cons~ed.)
