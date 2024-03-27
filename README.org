@@ -182,6 +182,12 @@ so why not!
 
 ** Related
 
+*** [[https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-philosophy/][Clark Greenend on coroutines]]
+
+He's the author of PuTTY.
+He talks about what I call 'the reader-writer problem' and
+how coroutines solve it in '[[https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-philosophy/#use-cases][use cases]]'
+
 *** [[https://news.ycombinator.com/user?id=dkjaudyeqooe][Some guy on HN]] seems to be after something similar
 
 #+begin_quote
@@ -240,3 +246,5 @@ Can I define my own thing that 'looks like' a list?
 
 (My current thinking is that lists should just be values
 that can be ~car~red and ~cdr~ed and ~cons~ed.)
+
+*** [[https://github.com/refaktor/rye][Rye]] - A mostly-pure, low-syntax homoiconic scriping langyuage
