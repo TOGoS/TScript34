@@ -248,3 +248,19 @@ Can I define my own thing that 'looks like' a list?
 that can be ~car~red and ~cdr~ed and ~cons~ed.)
 
 *** [[https://github.com/refaktor/rye][Rye]] - A mostly-pure, low-syntax homoiconic scriping langyuage
+
+*** [[https://without.boats/blog/coroutines-and-effects/][Coroutines and Effects]]
+
+Relevant to my thought that we can "just use monads" for I/O:
+
+#+begin_quote
+These are not the only language features that can be used to model
+effects, and other features also fall into one of these buckets. For
+example, monads are also statically typed and lexically
+scoped. However, a major objection to monads is that they model
+effects in a specifically layered way, so that for example there is a
+distinction between an IO<Result<T, E>> and a Result<IO<T>,
+E>. Coroutines on the other hand are order-independent: all coroutine
+that yield Pending and Exception have the same type, there is no
+distinction of order. The same is true of effect handlers.
+#+end_quote
