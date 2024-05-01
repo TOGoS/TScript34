@@ -37,6 +37,7 @@
 - P0014 :: TEF parser java library
 - P0015 :: RDF parser java library
 - P0016 :: An implementation of [[https://craftinginterpreters.com/the-lox-language.html][Lox]]
+- P0017 :: A design for a hybrid command/functional language
 
 ** OIDs
 
