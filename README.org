@@ -160,6 +160,28 @@ as first-class objects, somewhat more conventional operation names,
 symmetrical string syntax '(foo)' instead of '" foo"', and fewer assumptions
 that it is running very close to the metal.
 
+*** Why the focus on state machines / 'reactive' / 'push-based' parsers?
+
+Because I want them to be 'stackless'.
+
+(See https://kyju.org/blog/piccolo-a-stackless-lua-interpreter/)
+
+Basically I was bitten by the continuation-passing-style bug long long ago,
+and find the idea of a parsing function taking a whole thread hostage distasteful.
+
+Why?
+
+- A non-IO function blocking on I/O breaks the single-responsibility principle;
+  now callers need to know not only your functional API, but also
+  the blocking behavior of I/O streams
+- Not relying on any given I/O system makes processing functions
+  more generally useful
+
+The 'Danducer' pattern breaks all stream-processing routines down into
+state machines that 'never block' (except to do computation),
+but only handle input by returning output, an updated version
+of themselves, and whether they are waiting for more input.
+
 ** Other languages/VMs to consider implementing
 
 **** WebAssembly
