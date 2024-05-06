@@ -18,14 +18,26 @@ import net.nuke24.tscript34.p0014.LLChunks.NewEntryLine;
 import net.nuke24.tscript34.p0014.LLChunks.SyntaxError;
 import net.nuke24.tscript34.p0014.util.ArrayUtil;
 
-public record TEFParser(
-	State state,
-	int lineNum,
-	byte[] remaining,
-	int remainingOffset
-)
+public class TEFParser
 implements Function<DucerChunk<byte[]>,DucerState2<byte[],Chunk[]>>
 {
+	final State state;
+	final int lineNum;
+	final byte[] remaining;
+	final int remainingOffset;
+	
+	public TEFParser(
+		State state,
+		int lineNum,
+		byte[] remaining,
+		int remainingOffset
+	) {
+		this.state = state;
+		this.lineNum = lineNum;
+		this.remaining = remaining;
+		this.remainingOffset = remainingOffset;
+	}
+	
 	protected static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 	protected static final Chunk[] EMPTY_CHUNK_ARRAY = new Chunk[0];
 	protected static final byte[] LF_SEQ = new byte[]{'\n'};

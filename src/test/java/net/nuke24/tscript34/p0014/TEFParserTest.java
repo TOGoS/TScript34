@@ -97,7 +97,7 @@ public class TEFParserTest extends TestCase
 		);
 	}
 	public void testParseHeaderComment() {
-		for( String terminator : List.of("", "\n", "\r\n", "\n\n", "\r\n\r\n") ) {
+		for( String terminator : Arrays.asList("", "\n", "\r\n", "\n\n", "\r\n\r\n") ) {
 			testParsesAs(
 				new Chunk[] {},
 				"# A comment line!" + terminator
@@ -178,7 +178,7 @@ public class TEFParserTest extends TestCase
 		);
 	}
 	public void testParseContentNewlineEof() {
-		for( String newline : List.of("\r\n","\n") ) {
+		for( String newline : Arrays.asList("\r\n","\n") ) {
 			testParsesAs(
 				new Chunk[] {
 					new ContentPiece("hello\n".getBytes(UTF8))
@@ -188,7 +188,7 @@ public class TEFParserTest extends TestCase
 		}
 	}
 	public void testParseContentNewlineNewEntry() {
-		for( String newline : List.of("\r\n","\n") ) {
+		for( String newline : Arrays.asList("\r\n","\n") ) {
 			testParsesAs(
 				new Chunk[] {
 					new ContentPiece("hello".getBytes(UTF8)),
@@ -200,7 +200,7 @@ public class TEFParserTest extends TestCase
 		}
 	}
 	public void testParseContentEof() {
-		for( String newline : List.of("\r\n","\n") ) {
+		for( String newline : Arrays.asList("\r\n","\n") ) {
 			testParsesAs(
 				new Chunk[] {
 					new ContentPiece("hello".getBytes(UTF8))
@@ -210,8 +210,8 @@ public class TEFParserTest extends TestCase
 		}
 	}
 	public void testParseCommentContentEof() {
-		for( String commentLine : List.of("", "# A comment\n", "# A comment\r\n")) {
-			for( String newline : List.of("\r\n","\n") ) {
+		for( String commentLine : Arrays.asList("", "# A comment\n", "# A comment\r\n")) {
+			for( String newline : Arrays.asList("\r\n","\n") ) {
 				testParsesAs(
 					new Chunk[] {
 						new ContentPiece("hello:".getBytes(UTF8))

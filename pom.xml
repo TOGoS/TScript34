@@ -7,21 +7,36 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.nuke24.tscript34</groupId>
 	<artifactId>tscript34-p0014</artifactId>
-	<version>0.0.9</version>
+	<version>0.0.10</version>
 	<packaging>jar</packaging>
 	<name>TEFParser</name>
 	<description>Library for parsing TEF files using Danducers</description>
-	<properties>
-		<java.version>17</java.version>
-		<maven.compiler.source>17</maven.compiler.source>
-		<maven.compiler.target>17</maven.compiler.target>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-	</properties>
+	<url>http://github.com/TOGoS/TScript34-P0014</url>
+
+	<licenses>
+		<license>
+			<name>MIT License</name>
+			<url>http://opensource.org/licenses/mit/</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<name>TOGoS</name>
+			<email>togos00@gmail.com</email>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git:git://github.com/TOGoS/TScript34-P0014.git</connection>
+		<developerConnection>scm:git:ssh://github.com:TOGoS/TScript34-P0014.git</developerConnection>
+		<url>http://github.com/TOGoS/TScript34-P0014</url>
+	</scm>
+
 	<dependencies>
 		<dependency>
 			<groupId>net.nuke24.tscript34</groupId>
 			<artifactId>tscript34-p0010</artifactId>
-			<version>0.0.6</version>
+			<version>0.0.8</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -29,5 +44,98 @@
 			<version>3.8.2</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>net.nuke24.tscript34.p0018</groupId>
+			<artifactId>tscript34-p0018</artifactId>
+			<version>0.0.1</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<!-- This one is just to compile the Java -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<!--
+						I'd like 1.6 compatibility, but the oldest that the JDK on ETF-LT17572.accounts.wistate.us
+						is willing to compile is 1.7.  So use that for now.
+					-->
+					<source>1.7</source>
+					<target>1.7</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<!-- This one is to make `mvn test` run JUnit, I think. -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.0.0-M5</version>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.2.1</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar-no-fork</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>2.9.1</version>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-gpg-plugin</artifactId>
+				<version>1.5</version>
+				<executions>
+					<execution>
+						<id>sign-artifacts</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>sign</goal>
+						</goals>
+						<configuration>
+							<keyname>${gpg.keyname}</keyname>
+							<passphraseServerId>${gpg.keyname}</passphraseServerId>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- Proof-of-concept 'plugin execution' to create hash files after signature file are generated -->
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.0.0</version>
+				<executions>
+					<execution>
+						<id>generate-the-package</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>java</goal>
+						</goals>
+						<configuration>
+							<mainClass>net.nuke24.tscript34.p0018.Packager</mainClass>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 </project>

@@ -49,17 +49,17 @@ public class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState2<
 	
 	// Merge the chunks, or return null if not mergeable
 	protected static Chunk merge( Chunk a, Chunk b ) {
-		if( a instanceof HeaderKey hka && b instanceof HeaderValuePiece vcb ) {
-			return new Header(hka.key(), vcb.data());
+		if( a instanceof HeaderKey && b instanceof HeaderValuePiece ) {
+			return new Header(((HeaderKey)a).key, ((HeaderValuePiece)b).data);
 		}
-		if( a instanceof Header ha && b instanceof HeaderValuePiece vcb ) {
-			return new Header(ha.key(), ha.value()+vcb.data());
+		if( a instanceof Header && b instanceof HeaderValuePiece ) {
+			return new Header(((Header)a).key, ((Header)a).value+((HeaderValuePiece)b).data);
 		}
-		if( a instanceof HeaderValuePiece vca && b instanceof HeaderValuePiece vcb ) {
-			return new HeaderValuePiece(vca.data() + vcb.data());
+		if( a instanceof HeaderValuePiece && b instanceof HeaderValuePiece ) {
+			return new HeaderValuePiece(((HeaderValuePiece)a).data + ((HeaderValuePiece)b).data);
 		}
-		if( a instanceof ContentPiece vca && b instanceof ContentPiece vcb ) {
-			return new ContentPiece(ArrayUtil.concat(vca.data(), 0, vcb.data()));
+		if( a instanceof ContentPiece && b instanceof ContentPiece ) {
+			return new ContentPiece(ArrayUtil.concat(((ContentPiece)a).data, 0, ((ContentPiece)b).data));
 		}
 		return null;
 	}
@@ -69,10 +69,10 @@ public class LLChunkMerger implements Function<DucerChunk<Chunk[]>, DucerState2<
 		Chunk previousChunk = this.previousChunk;
 		List<Chunk> merged = new ArrayList<Chunk>();
 		for( Chunk c : input.payload ) {
-			if( c instanceof HeaderValuePiece hvc && hvc.data().length() == 0 ) continue;
-			if( c instanceof ContentPiece cc && cc.data().length == 0 ) continue;
+			if( c instanceof HeaderValuePiece && ((HeaderValuePiece)c).data.length() == 0 ) continue;
+			if( c instanceof ContentPiece && ((ContentPiece)c).data.length == 0 ) continue;
 			
-			if( c instanceof HeaderKey hk ) c = new Header(hk.key(), "");
+			if( c instanceof HeaderKey ) c = new Header(((HeaderKey)c).key, "");
 			
 			if( previousChunk == null ) {
 				previousChunk = c;
