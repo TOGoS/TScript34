@@ -56,7 +56,7 @@ public class IndirectValueTags
 	 * Value is a list represented by a cons pair.
 	 * Pair#getLeft() returns the head, Pair#getRight() returns the tail
 	 * e.g. (first . (second . (third . ())
-	 * Empty list can be represented by <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>
+	 * Empty list can be represented by the symbol "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"
 	 **/
 	public static final int LINKED_LIST = 9;
 	
