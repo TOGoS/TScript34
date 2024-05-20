@@ -358,7 +358,7 @@ public class P0019 {
 			--dsp;
 			return;
 		case OC_PRINT:
-			System.out.print(dataStack[--dsp]);
+			System.out.print(toString(dataStack[--dsp]));
 			return;
 		case OC_PUSH_MARK:
 			dataStack[dsp++] = MARK;
