@@ -39,6 +39,7 @@
 - P0016 :: An implementation of [[https://craftinginterpreters.com/the-lox-language.html][Lox]]
 - P0017 :: A design for a hybrid command/functional language
 - P0018 :: Java library to help publish Maven packages
+- P0019 :: A TScript34.2 interpreter based on P0009
 
 ** OIDs
 
