@@ -1,17 +1,19 @@
-package net.nuke24.tscript34.p0009;
+package net.nuke24.tscript34.p0019;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class P0009Test {
+import net.nuke24.tscript34.p0019.P0019;
+
+public class P0019Test {
 	protected static boolean equals(Object a, Object b) {
 		if( a == null && b == null ) return true;
 		if( a == null || b == null ) {
 			return false;
 		}
 				
-		if( a instanceof String && P0009.isSpecial(b) ) {
-			b = P0009.toString(b);
+		if( a instanceof String && P0019.isSpecial(b) ) {
+			b = P0019.toString(b);
 		}
 		
 		if( (a instanceof Object[]) && (b instanceof Object[]) ) {
@@ -53,7 +55,7 @@ public class P0009Test {
 	protected static void toString(Object obj, Appendable dest) throws IOException {
 		if( obj == null ) {
 			dest.append("null");
-		} else if( obj == P0009.SPECIAL_MARK ) {
+		} else if( obj == P0019.SPECIAL_MARK ) {
 			dest.append("SPECIAL_MARK");
 		} else if( obj instanceof Object[] ) {
 			toString((Object[])obj, 0, ((Object[])obj).length, dest);
@@ -123,14 +125,14 @@ public class P0009Test {
 		assertSubArrayEquals(a, 0, a.length, b, 0, b.length);
 	}
 	
-	protected void assertProgramEquals(int[] expected, P0009 interp) {
+	protected void assertProgramEquals(int[] expected, P0019 interp) {
 		assertSubArrayEquals(
 			expected, 0, expected.length,
 			interp.program, 0, interp.programLength
 		);
 	}
 	
-	protected void assertDataStackEquals(Object[] expected, P0009 interp) {
+	protected void assertDataStackEquals(Object[] expected, P0019 interp) {
 		assertSubArrayEquals(
 			expected, 0, expected.length,
 			interp.dataStack, 0, interp.dsp
@@ -138,12 +140,12 @@ public class P0009Test {
 	}
 
 	public void testConcat() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OP_PUSH_MARK);
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE, "data:,foo");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE, "data:,bar");
-		interp.doTs34Line(P0009.OP_COUNT_TO_MARK);
-		interp.doTs34Line(P0009.OP_CONCAT_N);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OP_PUSH_MARK);
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE, "data:,foo");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE, "data:,bar");
+		interp.doTs34Line(P0019.OP_COUNT_TO_MARK);
+		interp.doTs34Line(P0019.OP_CONCAT_N);
 		
 		assertSubArrayEquals(
 			new Object[] { "foobar" }, 0, 1,
@@ -152,12 +154,12 @@ public class P0009Test {
 	}
 	
 	public void testCompileDecimalNumber() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OP_OPEN_PROC);
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE, "data:,1025", P0009.DATATYPE_DECIMAL);
-		interp.doTs34Line(P0009.OP_CLOSE_PROC);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OP_OPEN_PROC);
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE, "data:,1025", P0019.DATATYPE_DECIMAL);
+		interp.doTs34Line(P0019.OP_CLOSE_PROC);
 		assertProgramEquals(
-			new int[] { P0009.mkLiteralIntOc(1025), P0009.OC_RETURN },
+			new int[] { P0019.mkLiteralIntOc(1025), P0019.OC_RETURN },
 			interp
 		);
 		interp.pop();
@@ -166,24 +168,24 @@ public class P0009Test {
 		assertDataStackEquals(new Object[] { Integer.valueOf(1025) }, interp);
 	}
 
-	protected P0009 mkInterp() {
-		P0009 interp = new P0009();
-		interp.definitions.putAll(P0009.STANDARD_DEFINITIONS);
+	protected P0019 mkInterp() {
+		P0019 interp = new P0019();
+		interp.definitions.putAll(P0019.STANDARD_DEFINITIONS);
 		return interp;
 	}
 	
 	public void testParsePushValue() {
-		P0009 interp = mkInterp();
-		Object parsed = interp.parseTs34Op(new String[] { P0009.OPC_PUSH_VALUE, "data:,hi%20there" });
+		P0019 interp = mkInterp();
+		Object parsed = interp.parseTs34Op(new String[] { P0019.OPC_PUSH_VALUE, "data:,hi%20there" });
 		assertEquals(
-			P0009.mkSpecial(P0009.ST_INTRINSIC_OP, P0009.mkOc(P0009.HOC_PUSH_OBJ, interp.findConstant("hi there"))),
+			P0019.mkSpecial(P0019.ST_INTRINSIC_OP, P0019.mkOc(P0019.HOC_PUSH_OBJ, interp.findConstant("hi there"))),
 			parsed
 		);
 	}
 	
 	public void testDoPushValue() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,hi%20there");
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,hi%20there");
 		assertSubArrayEquals(
 			new Object[] { "hi there" }, 0, 1,
 			interp.dataStack, 0, 1
@@ -191,14 +193,14 @@ public class P0009Test {
 	}
 
 	public void testMakeArray() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OP_PUSH_MARK);
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
-		interp.doTs34Line(P0009.OP_COUNT_TO_MARK);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OP_PUSH_MARK);
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34Line(P0019.OP_COUNT_TO_MARK);
 		//interp.doTs34Line(P0009.OP_PRINT_STACK_THUNKS);
-		interp.doTs34Line(P0009.OP_ARRAY_FROM_STACK);
+		interp.doTs34Line(P0019.OP_ARRAY_FROM_STACK);
 		//interp.doTs34Line(P0009.OP_PRINT_STACK_THUNKS);
 		assertSubArrayEquals(
 			new Object[] { new Object[] { "abc","def","ghi" } }, 0, 1,
@@ -207,10 +209,10 @@ public class P0009Test {
 	}
 	
 	public void testDup() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34Line(P0009.OP_DUP);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0019.OP_DUP);
 		assertSubArrayEquals(
 			new Object[] { "abc","def","def" }, 0, 3,
 			interp.dataStack, 0, interp.dsp
@@ -218,11 +220,11 @@ public class P0009Test {
 	}
 	
 	public void testPop() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,abc");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,def");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE+" data:,ghi");
-		interp.doTs34Line(P0009.OP_POP);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,abc");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,def");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE+" data:,ghi");
+		interp.doTs34Line(P0019.OP_POP);
 		assertSubArrayEquals(
 			new Object[] { "abc","def" }, 0, 2,
 			interp.dataStack, 0, interp.dsp
@@ -230,11 +232,11 @@ public class P0009Test {
 	}
 	
 	public void testExch() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,abc");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,def");
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,ghi");
-		interp.doTs34Line(P0009.OP_EXCH);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE,"data:,abc");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE,"data:,def");
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE,"data:,ghi");
+		interp.doTs34Line(P0019.OP_EXCH);
 		assertSubArrayEquals(
 			new Object[] { "abc", "ghi", "def" }, 0, 3,
 			interp.dataStack, 0, interp.dsp
@@ -242,46 +244,46 @@ public class P0009Test {
 	}
 	
 	public void testAlias() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OPC_ALIAS,"push",P0009.OPC_PUSH_VALUE);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OPC_ALIAS,"push",P0019.OPC_PUSH_VALUE);
 		interp.doTs34Line("push","data:,abc");
 		assertDataStackEquals(new Object[] { "abc" }, interp);
 	}
 	
 	public void testProc() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OP_OPEN_PROC);
-		interp.doTs34Line(P0009.OP_CLOSE_PROC);
-		assertProgramEquals(new int[] { P0009.OC_RETURN }, interp);
-		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(0) }, interp);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OP_OPEN_PROC);
+		interp.doTs34Line(P0019.OP_CLOSE_PROC);
+		assertProgramEquals(new int[] { P0019.OC_RETURN }, interp);
+		assertDataStackEquals(new Object[] { P0019.mkProcByAddress(0) }, interp);
 	}
 	
 	public void testMoreProc() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OP_OPEN_PROC);
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,Henry");
-		interp.doTs34Line(P0009.OP_CLOSE_PROC);
-		assertProgramEquals(new int[] { P0009.mkOc(P0009.HOC_PUSH_OBJ, interp.findConstant("Henry")), P0009.OC_RETURN }, interp);
-		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(0) }, interp);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OP_OPEN_PROC);
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE,"data:,Henry");
+		interp.doTs34Line(P0019.OP_CLOSE_PROC);
+		assertProgramEquals(new int[] { P0019.mkOc(P0019.HOC_PUSH_OBJ, interp.findConstant("Henry")), P0019.OC_RETURN }, interp);
+		assertDataStackEquals(new Object[] { P0019.mkProcByAddress(0) }, interp);
 
-		interp.doTs34Line(P0009.OP_EXECUTE);
+		interp.doTs34Line(P0019.OP_EXECUTE);
 		assertDataStackEquals(new Object[] { "Henry" }, interp);
 	}
 	public void testNestedProc() {
-		P0009 interp = mkInterp();
-		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		P0019 interp = mkInterp();
+		interp.doTs34Line(P0019.OP_OPEN_PROC);
 		int outerProcAddress = interp.programLength;
-		interp.doTs34Line(P0009.OP_OPEN_PROC);
+		interp.doTs34Line(P0019.OP_OPEN_PROC);
 		int innerProcAddress = interp.programLength;
-		interp.doTs34Line(P0009.OPC_PUSH_VALUE,"data:,Henry");
-		interp.doTs34Line(P0009.OP_CLOSE_PROC);
-		interp.doTs34Line(P0009.OP_CLOSE_PROC);
-		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(outerProcAddress) }, interp);
+		interp.doTs34Line(P0019.OPC_PUSH_VALUE,"data:,Henry");
+		interp.doTs34Line(P0019.OP_CLOSE_PROC);
+		interp.doTs34Line(P0019.OP_CLOSE_PROC);
+		assertDataStackEquals(new Object[] { P0019.mkProcByAddress(outerProcAddress) }, interp);
 
-		interp.doTs34Line(P0009.OP_EXECUTE);
-		assertDataStackEquals(new Object[] { P0009.mkProcByAddress(innerProcAddress) }, interp);
+		interp.doTs34Line(P0019.OP_EXECUTE);
+		assertDataStackEquals(new Object[] { P0019.mkProcByAddress(innerProcAddress) }, interp);
 
-		interp.doTs34Line(P0009.OP_EXECUTE);
+		interp.doTs34Line(P0019.OP_EXECUTE);
 		assertDataStackEquals(new Object[] { "Henry" }, interp);
 	}
 	
@@ -301,6 +303,6 @@ public class P0009Test {
 	}
 	
 	public static void main(String[] args) {
-		new P0009Test().run();
+		new P0019Test().run();
 	}
 }

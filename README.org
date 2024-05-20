@@ -1,75 +1,37 @@
-#+TITLE: TScript34 P0009
+#+TITLE: TScript34 P0019
 
-Based on P0006.  P0006 was nice and simple and I didn't want to pollute it.
-This one I can pollute.
+** Goal
 
-First goal: Become self-hosting.
-As in able to run a script that makes directories,
-runs processes, and checks that they return with code 0.
+An embeddable, general-purpose TS34 interpreter,
+possibly with support for alternate, PostScript-like syntax.
 
-In the meantime, to run tests on Windows:
+Intended primary use cases:
+- Horsing with RDF structures, especially TOGVM expressions
+- Serve as a protocol for scripting and communication between
+  random programs like ContentCouch that seem to
+  "want to have a simple scripting language"
 
-#+begin_src bat
-mkdir target\classes & javac -d target\classes src\main\java\net\nuke24\tscript34\p0009\P0009.java src\test\java\net\nuke24\tscript34\p0009\P0009Test.java && java -cp target\classes net.nuke24.tscript34.p0009.P0009Test
-#+end_src
+The VM design seems a good one, as it allows side-effects
+to be handled orthogonally to interpretation.
+I want the core interpreter logic to be 100% pure functional.
 
-** Tasks
+The 'single-class' concept has been proved well enough;
+I can back down on that.  Though it may still be wise
+to choose fewer instad of more classes.  I haven't quite
+figured out how to balance my approach.  Java makes it difficult, I think.
 
-*** TODO Run processes
+** Origins
 
-#+begin_src ps
-[ "command" "arg1" ... ] % argv; list of strings
-env % a map
-pwd % current working dir, as string
-[
-	stdin
-	stdout
-	stderr
-] % I/O streams to be used by the spawned process
-process-builder/create5
-process-builder/start-process
-process/get-pid % get PID of running process
-process/wait % wait for process to exit, pushes a process result object
-process-result/get-exit-code % get exit code of completed process
-#+end_src
+Based on P0009, which was in turn based on P0006.
+"This one I can pollute."
 
-Or something.
+First step was to split P0006 and P0009 subtrees,
+so that this could be a nice self-contained tree,
+which is what I decided is the way to go for new
+sub-projects.
 
-*** TODO Compile self
+Git commits:
 
-Such that I can run a script:
-
-#+begin_src sh
-java -jar TS34.9.jar build.ts34
-#+end_src
-
-that will, on Linux or Windows,
-recompile class files,
-run the unit tests,
-and build a jar file.
-
-*** TODO Compile self incrementally
-
-i.e. only rebuild when sources have changed
-
-Can use that make.php project (called 'PHPXMLEmitter')
-to generate the script if that's easier.
-
-** Completed Tasks
-
-*** DONE Replace string opcodes with a nice compact int[] format
-
-In order to ~switch~ instead of if-else chain for interpreting compiled ops
-
-*** DONE Include a version number
-
-#+begin_src ts34
-# This ts34 script will do the job
-http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo
-http://ns.nuke24.net/TScript34/Ops/PrintLine
-#+end_src
-
-#+begin_src sh
-# Alternatively (assuming ts34.9 is aliased to some java command to run it):
-ts34.9 --version
-#+end_src
+| original p0009-master                   | 248d236ebf20600249d7a26125aa0eaeeeb09480 |
+| subtrees/p0006/split-from-master        | 891e25d0bc32d6558a5026c1e6a6dac969c93f8a |
+| subtrees/p0009/split+rebased-onto-p0006 | 62c68e7c1422a849bb54b09c2fdba76bc042d038 |

@@ -1,4 +1,4 @@
-package net.nuke24.tscript34.p0009;
+package net.nuke24.tscript34.p0019;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class P0009 {
-	public static String NAME = "TS34.9";
+public class P0019 {
+	public static String NAME = "TS34.19";
 	public static String VERSION = "0.0.3";
 
 	// Any Object[] { specialMark, tag, ... } is to be interpreted in some special way, based on tag
@@ -497,7 +497,7 @@ public class P0009 {
 					String name = words[1];
 					Object value = get(name);
 					// TODO: resolve the encoding URIs
-					if( words.length == 3 && P0009.DATATYPE_DECIMAL.equals(words[2]) ) {
+					if( words.length == 3 && P0019.DATATYPE_DECIMAL.equals(words[2]) ) {
 						value = Integer.valueOf(value.toString());
 					} else if( words.length > 2 ) {
 						throw new RuntimeException(OPC_PUSH_VALUE+": arbitrarily encoded values not yet supported!");
@@ -572,7 +572,7 @@ public class P0009 {
 		OP_QUIT_WITH_CODE  , mkIntrinsic(OC_QUIT_WITH_CODE)
 	);
 	
-	public P0009() {
+	public P0019() {
 		// Const 0 - the mark
 		addConstant(MARK, CONST_INDEX_MARK);
 		// Const 1 - newline string
@@ -580,7 +580,7 @@ public class P0009 {
 	}
 	
 	public static void main(String[] args) throws Exception {
-		P0009 interpreter = new P0009();
+		P0019 interpreter = new P0019();
 		interpreter.definitions.putAll(STANDARD_DEFINITIONS);
 		
 		for( int i=0; i<args.length; ++i ) {
