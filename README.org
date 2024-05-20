@@ -22,6 +22,8 @@ figured out how to balance my approach.  Java makes it difficult, I think.
 
 ** Origins
 
+See WSITEM-3408 p155.
+
 Based on P0009, which was in turn based on P0006.
 "This one I can pollute."
 
