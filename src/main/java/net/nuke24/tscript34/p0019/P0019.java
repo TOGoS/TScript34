@@ -256,6 +256,10 @@ public class P0019 {
 		}
 	}
 	
+	// Thought: Add a 'returnTo' and rename to Continuation.
+	// Then the readAndJumpOps could simply create
+	// a new continuation pointer instead of having
+	// to append return ops to the block.
 	static final class BlockInstructionPointer<I> {
 		public final List<I> block;
 		public final int index;
