@@ -2,19 +2,13 @@ package net.nuke24.tscript34.p0019;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import net.nuke24.tscript34.p0019.effect.Absorb;
@@ -149,12 +143,33 @@ public class P0019 {
 		 */
 		public E execute(List<A> stack);
 	}
-	class EmitOp<V> implements StackyBlockOp<V,Object> {
-		public final EmitOp<Object> instance = new EmitOp<Object>();
+	static class PushOp<V> implements StackyBlockOp<V,Object> {
+		public static <V> PushOp<V> of(V value) {
+			return new PushOp<V>(value);
+		}
+		final V value;
+		protected PushOp(V value) {
+			this.value = value;
+		}
+		@Override public Object execute(List<V> stack) {
+			stack.add(value);
+			return null;
+		}
+	}
+	static class EmitOp<V> implements StackyBlockOp<V,Object> {
+		public static final EmitOp<Object> instance = new EmitOp<Object>();
 		private EmitOp() {}
 		@Override public Object execute(List<V> stack) {
 			Object v = stack.remove(stack.size()-1);
-			return new Emit<Object, Object>(null, v); // TODO y u no compile
+			return new Emit<Object, Object>(null, v);
+		}
+	}
+	static class ReturnOp<V> implements StackyBlockOp<V,Object> {
+		public static final ReturnOp<Object> instance = new ReturnOp<Object>();
+		private ReturnOp() {}
+		@Override public Object execute(List<V> stack) {
+			Object v = stack.remove(stack.size()-1);
+			return new Return<Object>(v);
 		}
 	}
 	
@@ -265,7 +280,9 @@ public class P0019 {
 					emitter.accept(((Emit<?,?>)request).value);
 					decoded = ResumeWith.blank;
 				}
-				if( decoded instanceof ResumeWith<?> ) {
+				if( decoded == null ) {
+					interpState = interpState.advance(null, 100);
+				} else if( decoded instanceof ResumeWith<?> ) {
 					interpState = interpState.advance(((ResumeWith<?>)decoded).value, 100);
 				} else if( decoded instanceof Return<?> ) {
 					return toInt( ((Return<?>)decoded).value );
@@ -273,6 +290,8 @@ public class P0019 {
 					System.err.println("Exception while interpreting program");
 					((Exception)decoded).printStackTrace(System.err);
 					return EXITCODE_EXCEPTION;
+				} else {
+					throw new RuntimeException("Don't know how to handle "+decoded);
 				}
 			}
 		}
@@ -301,21 +320,25 @@ public class P0019 {
 				final OutputStream os = System.out;
 				Consumer<Object> emitter = new Consumer<Object>() {
 					public void accept(Object obj) {
-						writeTo(obj, os);
+						try {
+							writeTo(obj, os);
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
 					}
 				};
 				
 				List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
-				program.add(new StackyBlockOp<Object, Object>() {
-					@Override
-					public Object execute(List<Object> stack) {
-						stack.add("Hello, world!");
-						return null;
-					}
-				});
+				program.add(PushOp.of("Hello, world!\n"));
+				program.add(EmitOp.instance);
+				program.add(PushOp.of(0));
+				program.add(ReturnOp.instance);
 				
-				System.err.println("Ruh oh, need to set up interpreterstate!");
-				InterpreterState<Object,Object> interpreterState = null; // TODO!!
+				InterpreterState<Object,Object> interpreterState = new StackyBlockInterpreterState<Object, Object>(
+					null,
+					new BlockInstructionPointer<>(program, 0),
+					new ArrayList<Object>()
+				);
 				
 				SimpleExecutable<Integer> proc = new BabbyInterpreterHarness(br, interpreterState, emitter);
 				System.exit(proc.execute().intValue());
