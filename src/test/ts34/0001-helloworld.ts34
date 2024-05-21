@@ -1,0 +1,6 @@
+#lang tscript34.2
+http://ns.nuke24.net/TScript34/Op/PushValue data:,Hello,%20world!
+http://ns.nuke24.net/TScript34/Ops/PrintLine
+
+http://ns.nuke24.net/TScript34/Op/PushValue data:,101 http://www.w3.org/2001/XMLSchema#decimal
+http://ns.nuke24.net/TScript34/Ops/QuitWithCode
