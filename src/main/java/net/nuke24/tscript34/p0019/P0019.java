@@ -19,7 +19,7 @@ import net.nuke24.tscript34.p0019.effect.Emit;
 import net.nuke24.tscript34.p0019.effect.EndOfProgramReacher;
 import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
-import net.nuke24.tscript34.p0019.effect.Return;
+import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
 import net.nuke24.tscript34.p0019.util.Charsets;
 
 // TODO: Use P0010's interfaces
@@ -158,7 +158,11 @@ public class P0019 {
 		return new FileInputStream(pathOrUri);
 	}
 	
-	class ReturnInterpreterState<A, E> implements InterpreterState<A, E> {
+	/**
+	 * State of an interpreter that only returns a value
+	 * and can't be advanced.
+	 */
+	static class ReturnInterpreterState<A, E> implements InterpreterState<A, E> {
 		final E request;
 		public ReturnInterpreterState(E request) {
 			this.request = request;
@@ -169,6 +173,9 @@ public class P0019 {
 		}
 	}
 	
+	// TODO: For this system to work at all
+	// the stack elements and effects are all of type Object.
+	// Maybe just remove the type parameters.  :P
 	interface StackyBlockOp<A,E> {
 		/**
 		 * Instructions can directly read and modify the stack.
@@ -223,20 +230,30 @@ public class P0019 {
 			return effect;
 		}
 	}
-	// Pops a list of ops from the stack and jumps to it!
+	// Pops a return continuation and list of ops from the stack and jumps to it!
+	// (op-list return-continuation --)  
 	static class PopAndJumpOp<V> implements StackyBlockOp<V,Object> {
 		public static final PopAndJumpOp<Object> instance = new PopAndJumpOp<Object>();
 		private PopAndJumpOp() {}
 		@SuppressWarnings({ "unchecked", "rawtypes" })
 		@Override public Object execute(List<V> stack) {
-			Object v = stack.remove(stack.size()-1);
+			Object contObj = stack.remove(stack.size()-1);
+			Object opsObj = stack.remove(stack.size()-1);
 			try {
-				List<?> ops = (List<?>)v;
-				return new BlockInstructionPointer(ops, 0);
+				Continuation<StackyBlockOp<V,Object>> cont = (Continuation<StackyBlockOp<V,Object>>)contObj;
+				List<?> ops = (List<?>)opsObj;
+				return new Continuation(ops, 0, cont);
 			} catch( ClassCastException e ) {
 				// TODO: Maybe wrap in a ScriptException or something
 				return e;
 			}
+		}
+	}
+	static class ReturnOp<V> implements StackyBlockOp<V,Object> {
+		public static final ReturnOp<Object> instance = new ReturnOp<Object>();
+		private ReturnOp() {}
+		@Override public Object execute(List<V> stack) {
+			return new ReturnWithValue<Object>(null);
 		}
 	}
 	static class PopAndReturnOp<V> implements StackyBlockOp<V,Object> {
@@ -244,7 +261,7 @@ public class P0019 {
 		private PopAndReturnOp() {}
 		@Override public Object execute(List<V> stack) {
 			Object v = stack.remove(stack.size()-1);
-			return new Return<Object>(v);
+			return new ReturnWithValue<Object>(v);
 		}
 	}
 	static class PopAndQuitWithCodeOp<V> implements StackyBlockOp<V,Object> {
@@ -256,28 +273,41 @@ public class P0019 {
 		}
 	}
 	
-	// Thought: Add a 'returnTo' and rename to Continuation.
-	// Then the readAndJumpOps could simply create
-	// a new continuation pointer instead of having
-	// to append return ops to the block.
-	static final class BlockInstructionPointer<I> {
+	static final class Continuation<I> {
+		enum SpecialReturnTo {
+			RETURN_TO_SELF
+		}
+		
 		public final List<I> block;
 		public final int index;
-		public BlockInstructionPointer(List<I> block, int index) {
+		// Why just one returnTo?
+		// Maybe we should allow multiple ways to return!
+		// (without involving the data stack)
+		// e.g. might want separate destinations for
+		// explicit return vs fall-through when at top-level
+		// (return quitting, falling through resuming the read-execute loop)
+		public final Continuation<I> returnTo;
+		public Continuation(List<I> block, int index, Continuation<I> returnTo) {
 			this.block = block;
 			this.index = index;
+			this.returnTo = returnTo;
+		}
+		public Continuation(List<I> block, int index, SpecialReturnTo returnTo) {
+			this.block = block;
+			this.index = index;
+			this.returnTo = this;
 		}
 	}
 	
 	static class StackyBlockInterpreterState<A,E> implements InterpreterState<A, E> {
 		// Might replace this with a stack of them, i.e. the return stack
 		final E request;
-		final BlockInstructionPointer<StackyBlockOp<A,E>> next;
+		final Continuation<StackyBlockOp<A,E>> next;
 		final List<A> dataStack;
 		
 		public StackyBlockInterpreterState(
 			E request,
-			BlockInstructionPointer<StackyBlockOp<A,E>> next,
+			Continuation<StackyBlockOp<A,E>> next,
 			List<A> dataStack
 		) {
 			this.request = request;
@@ -290,6 +320,7 @@ public class P0019 {
 		public InterpreterState<A,E> advance(A arg, int maxSteps) {
 			List<StackyBlockOp<A,E>> instructions = next.block;
 			List<A> stack = new ArrayList<A>(dataStack);
+			Continuation<StackyBlockOp<A,E>> returnTo = next.returnTo;
 			if( arg != null ) {
 				stack.add(arg);
 			}
@@ -297,127 +328,63 @@ public class P0019 {
 			E request = null;
 			while( request == null && ip < instructions.size() && maxSteps-- > 0 ) {
 				request = instructions.get(ip++).execute(stack);
-				if( request instanceof BlockInstructionPointer ) {
-					BlockInstructionPointer<StackyBlockOp<A,E>> bip = (BlockInstructionPointer<StackyBlockOp<A,E>>)request;
-					instructions = bip.block;
-					ip = bip.index;
+				if( request instanceof ReturnWithValue<?> ) {
+					ReturnWithValue<A> ret = (ReturnWithValue<A>)request;
+					if( returnTo == null ) {
+						// TODO: In this case I guess we return an effect;
+						// should we make sure there's a value?
+						return new ReturnInterpreterState<A,E>(request);
+					} else {
+						// Then the return is *to* somewhere.
+						if( ret.value != null ) {
+							// Push it to the stack
+							stack.add(ret.value);
+						}
+						request = (E) returnTo;
+					}
+				}
+				// Continuation = JumpTo(Continuation);
+				// I just was lazy and didn't want to add a new object.
+				if( request instanceof Continuation ) {
+					Continuation<StackyBlockOp<A,E>> continuation = (Continuation<StackyBlockOp<A,E>>)request;
+					instructions = continuation.block;
+					ip = continuation.index;
+					returnTo = continuation.returnTo;
 					request = null;
 				}
 			}
+			Continuation<StackyBlockOp<A,E>> continuation;
 			if( request == null ) {
+				assert ip == instructions.size();
+				continuation = returnTo;
 				// Reached to end of program!
 				// Let's say for now that this is an error.
-				request = (E)new EndOfProgramReacher();
+				// If you want to return, add a return op.
+				//request = (E)new EndOfProgramReacher();
+				// actually for now, let reaching end of program
+				// is an implicit return, to make the read-execute loop
+				// work even though it's not explicitly adding
+				// return ops to the end of op lists
+				// (since it doesn't know if it's immediately executing
+				// or making a procedure, asjndkajsndkaj)
+			} else {
+				continuation = new Continuation<StackyBlockOp<A, E>>(instructions, ip, returnTo);
 			}
 			return new StackyBlockInterpreterState<A,E>(
 				request,
-				new BlockInstructionPointer<StackyBlockOp<A, E>>(instructions, ip),
+				continuation,
 				Collections.unmodifiableList(stack)
 			);
 		}
 	}
 	
-	// TODO: Could this whole interpreter just be a 'read more ops and do whatever with them' op?
-	// It seems like readAndJumpOps is doing...all the work!
-	// THIS NEVER ACTUALLY GETS INTO COMPILE STATE
-	static class ScriptInterpreter<A,E> implements InterpreterState<A,E> {
-		enum State {
-			RUN,
-			COMPILE,
-		};
-		static class Block<Op> {
-			Block<Op> parent;
-			List<Op> ops;
-		}
-		
-		// The request this interpreter should return
-		// when it needs to read an operation from the script.
-		final State state;
-		final E readOpsRequest;
-		final Block<StackyBlockOp<A, E>> currentlyCompilingTo;
-		final InterpreterState<? super A,? extends E> programState;
-		
-		ScriptInterpreter(
-			State state,
-			E readOpRequest,
-			Block<StackyBlockOp<A, E>> currentlyCompilingTo,
-			InterpreterState<? super A,? extends E> programState
-		) {
-			this.state = state;
-			this.readOpsRequest = readOpRequest;
-			this.currentlyCompilingTo = currentlyCompilingTo;
-			this.programState = programState;
-		}
-		
-		@Override public E getRequest() {
-			switch( this.state ) {
-			case COMPILE:
-				return this.readOpsRequest;
-			default:
-				return this.programState.getRequest();
-			}
-		}
-		
-		@SuppressWarnings("unchecked")
-		static <A,E> List<StackyBlockOp<A,E>> readAndJumpOps(E readOpsRequest, boolean appendSelf) {
-			final ArrayList<StackyBlockOp<A,E>> rjOps = new ArrayList<StackyBlockOp<A,E>>(); 
-			rjOps.add(new EffectOp<A,E>(readOpsRequest));
-			// If on repeat, then insert an op that once again
-			// adds the list of readAndJumpOps to the newly-read list!
-			if( appendSelf ) rjOps.add(new StackyBlockOp<A,E>() {
-				@Override
-				public E execute(List<A> stack) {
-					int topIdx = stack.size()-1;
-					List<StackyBlockOp<A,E>> newOps = new ArrayList<StackyBlockOp<A,E>>();
-					newOps.addAll((List<StackyBlockOp<A,E>>)stack.get(topIdx));
-					newOps.addAll(rjOps);
-					stack.set(topIdx, (A)newOps);
-					return null;
-				}
-			});
-			rjOps.add((StackyBlockOp<A,E>)PopAndJumpOp.instance);
-			return rjOps;
-		}
-		
-		@SuppressWarnings("unchecked")
-		InterpreterState<? super A,? extends E> handleOps(List<StackyBlockOp<A,E>> ops, int maxSteps) {
-			// TODO: Check for open block ops, transition to compile state
-			if( this.state == State.RUN ) {
-				// Then presumably the programState requested some ops,
-				// and we can just feed them back to it
-				List<StackyBlockOp<A,E>> toExecute = new ArrayList<StackyBlockOp<A,E>>(ops);
-				toExecute.addAll(readAndJumpOps(this.readOpsRequest, true));
-				return this.programState.advance((A)toExecute, maxSteps);
-			} else {
-				throw new RuntimeException("Block compiling not yet implemented");
-				// Append to op list
-				//List<StackyBlockOp<A,E>> opList = new ArrayList<StackyBlockOp<A,E>>(currentlyCompilingTo.ops);
-			}
-		}
-		
-		protected InterpreterState<A,E> advanceProgram(A arg, int maxSteps) {
-			InterpreterState<? super A,? extends E> newInterpState = programState.advance(arg, maxSteps);
-			return new ScriptInterpreter<A,E>(
-				State.RUN,
-				this.readOpsRequest,
-				this.currentlyCompilingTo,
-				newInterpState
-			);
-		}
-		
-		// Hmm, this looks an awful lot like setting up an effect handler.
-		public InterpreterState<? super A,? extends E> advance(A arg, int maxSteps) {
-			if( this.state == State.COMPILE ) {
-				if( !(arg instanceof List) ) {
-					throw new RuntimeException("Expected list of ops because in compile state");
-				}
-				@SuppressWarnings("unchecked")
-				List<StackyBlockOp<A,E>> ops = (List<StackyBlockOp<A,E>>)arg;
-				return handleOps( ops, maxSteps );
-			} else {
-				return advanceProgram(arg, maxSteps);
-			}
-		}
+	@SuppressWarnings("unchecked")
+	static List<StackyBlockOp<Object,Object>> readAndJumpOps(Object readOpsRequest, Continuation<StackyBlockOp<Object,Object>> returnContinuation) {
+		final ArrayList<StackyBlockOp<Object,Object>> rjOps = new ArrayList<StackyBlockOp<Object,Object>>();
+		rjOps.add(new EffectOp<Object,Object>(readOpsRequest));
+		rjOps.add(new PushOp<Object>(returnContinuation));
+		rjOps.add((StackyBlockOp<Object,Object>)PopAndJumpOp.instance);
+		return rjOps;
 	}
 	
 	interface SimpleExecutable<R> {
@@ -537,8 +504,8 @@ public class P0019 {
 					interpState = interpState.advance(null, 100);
 				} else if( decoded instanceof ResumeWith<?> ) {
 					interpState = interpState.advance(((ResumeWith<?>)decoded).value, 100);
-				} else if( decoded instanceof Return<?> ) {
-					Object rVal = ((Return<?>)decoded).value;
+				} else if( decoded instanceof ReturnWithValue<?> ) {
+					Object rVal = ((ReturnWithValue<?>)decoded).value;
 					this.emitter.accept("# Exiting due to return with value: "+rVal);
 					return toInt( rVal );
 				} else if( decoded instanceof QuitWithCode ) {
@@ -599,7 +566,8 @@ public class P0019 {
 					program.add(PushOp.of("# Please enter your program, below.\n"));
 					program.add(PopAndEmitOp.instance);
 				}
-				program.addAll(ScriptInterpreter.readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, true));
+				Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<>(program, program.size(), Continuation.SpecialReturnTo.RETURN_TO_SELF);
+				program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop));
 				/*
 				program.add(PushOp.of(0));
 				program.add(PopAndReturnOp.instance);
@@ -607,7 +575,7 @@ public class P0019 {
 				
 				InterpreterState<Object,Object> interpreterState = new StackyBlockInterpreterState<Object, Object>(
 					null,
-					new BlockInstructionPointer<>(program, 0),
+					new Continuation<StackyBlockOp<Object,Object>>(program, 0, reLoop),
 					new ArrayList<Object>()
 				);
 				
