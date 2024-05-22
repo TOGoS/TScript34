@@ -187,6 +187,13 @@ signature: -- mark
 Pushes 'the mark' (as used by CountToMark) onto the stack.
 
 
+=op http://ns.nuke24.net/TScript34/Ops/Return
+
+Return from the current procedure.
+
+Equivalent to PostScript's 'exit'.
+
+
 =op http://ns.nuke24.net/TScript34/Ops/Quit
 signature: --
 
