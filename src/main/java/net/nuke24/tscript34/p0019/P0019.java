@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 
 import net.nuke24.tscript34.p0019.effect.Absorb;
 import net.nuke24.tscript34.p0019.effect.Emit;
-import net.nuke24.tscript34.p0019.effect.EndOfProgramReacher;
+import net.nuke24.tscript34.p0019.effect.EndOfProgramReached;
 import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
@@ -58,7 +58,7 @@ public class P0019 {
 	public static String OP_PRINT_STACK_THUNKS = "http://ns.nuke24.net/TScript34/Ops/PrintStackThunks";
 	public static String OP_QUIT = "http://ns.nuke24.net/TScript34/Ops/Quit";
 	public static String OP_QUIT_WITH_CODE = "http://ns.nuke24.net/TScript34/Ops/QuitWithCode";
-	public static String OP_RETURN = "return:0:0:0";
+	public static String OP_RETURN = "http://ns.nuke24.net/TScript34/Ops/Return";
 	
 	public static String DATATYPE_DECIMAL = "http://www.w3.org/2001/XMLSchema#decimal";
 	
@@ -272,10 +272,27 @@ public class P0019 {
 			return new QuitWithCode(toInt(v));
 		}
 	}
+	// (sequence item -- sequence+item)
+	static class AppendOp implements StackyBlockOp<Object,Object> {
+		public static final AppendOp instance = new AppendOp();
+		@Override
+		public Object execute(List<Object> stack) {
+			Object item = stack.remove(stack.size()-1);
+			List<Object> list = (List<Object>)stack.remove(stack.size()-1);
+			List<Object> newList = new ArrayList<Object>(list);
+			newList.add(item);
+			stack.add(newList);
+			return null;
+		}
+	}
 	
 	static final class Continuation<I> {
-		enum SpecialReturnTo {
-			RETURN_TO_SELF
+		public static final Continuation<?> RETURN_TO_NONE = new Continuation<Object>(Collections.emptyList(), 0);
+		public static final Continuation<?> RETURN_TO_SELF = new Continuation<Object>(Collections.emptyList(), 0);
+		
+		@SuppressWarnings("unchecked")
+		public static <T> Continuation<T> returnToNone() {
+			return (Continuation<T>)RETURN_TO_NONE;
 		}
 		
 		public final List<I> block;
@@ -287,19 +304,27 @@ public class P0019 {
 		// explicit return vs fall-through when at top-level
 		// (return quitting, falling through resuming the read-execute loop)
 		public final Continuation<I> returnTo;
+		private Continuation(List<I> block, int index) {
+			this.block = block;
+			this.index = index;
+			this.returnTo = null;
+		}
 		public Continuation(List<I> block, int index, Continuation<I> returnTo) {
 			this.block = block;
 			this.index = index;
-			this.returnTo = returnTo;
-		}
-		public Continuation(List<I> block, int index, SpecialReturnTo returnTo) {
-			this.block = block;
-			this.index = index;
-			this.returnTo = this;
+			if( returnTo == RETURN_TO_NONE ) {
+				this.returnTo = null;
+			} else if( returnTo == RETURN_TO_SELF ) {
+				this.returnTo = this;
+			} else {
+				this.returnTo = returnTo;
+			}
 		}
 	}
 	
 	static class StackyBlockInterpreterState<A,E> implements InterpreterState<A, E> {
+		public static final Object PushCurrentReturnContinuation = new Object();
+		
 		// Might replace this with a stack of them, i.e. the return stack
 		final E request;
 		final Continuation<StackyBlockOp<A,E>> next;
@@ -328,14 +353,24 @@ public class P0019 {
 			E request = null;
 			while( request == null && ip < instructions.size() && maxSteps-- > 0 ) {
 				request = instructions.get(ip++).execute(stack);
-				if( request instanceof ReturnWithValue<?> ) {
+				if( request == PushCurrentReturnContinuation ) {
+					stack.add((A)returnTo);
+					request = null;
+				} else if( request instanceof ReturnWithValue<?> ) {
 					ReturnWithValue<A> ret = (ReturnWithValue<A>)request;
 					if( returnTo == null ) {
-						// TODO: In this case I guess we return an effect;
-						// should we make sure there's a value?
-						return new ReturnInterpreterState<A,E>(request);
+						// By convention, the top value on the stack is 'the return value'.
+						// Since we're exiting stack-land, reflect it by putting
+						// it into the Return effect:
+						if( ret.value == null && this.dataStack.size() > 0 ) {
+							ret = new ReturnWithValue<A>(dataStack.get(dataStack.size()-1));
+						}
+						return new ReturnInterpreterState<A,E>((E)ret);
 					} else {
 						// Then the return is *to* somewhere.
+						// If the return had a value, put it on the stack.
+						// (Maybe this would all be clearer if return-with-explicit-value and
+						// return-with-implicit-value-on-stack were different types, idk)
 						if( ret.value != null ) {
 							// Push it to the stack
 							stack.add(ret.value);
@@ -360,7 +395,7 @@ public class P0019 {
 				// Reached to end of program!
 				// Let's say for now that this is an error.
 				// If you want to return, add a return op.
-				//request = (E)new EndOfProgramReacher();
+				request = (E)new EndOfProgramReached();
 				// actually for now, let reaching end of program
 				// is an implicit return, to make the read-execute loop
 				// work even though it's not explicitly adding
@@ -379,10 +414,18 @@ public class P0019 {
 	}
 	
 	@SuppressWarnings("unchecked")
-	static List<StackyBlockOp<Object,Object>> readAndJumpOps(Object readOpsRequest, Continuation<StackyBlockOp<Object,Object>> returnContinuation) {
+	static List<StackyBlockOp<Object,Object>> readAndJumpOps(Object readOpsRequest, Continuation<StackyBlockOp<Object,Object>> andThen) {
 		final ArrayList<StackyBlockOp<Object,Object>> rjOps = new ArrayList<StackyBlockOp<Object,Object>>();
 		rjOps.add(new EffectOp<Object,Object>(readOpsRequest));
-		rjOps.add(new PushOp<Object>(returnContinuation));
+		// newOps
+		rjOps.add(new PushOp<Object>(
+			new EffectOp<Object,Object>(andThen)
+		));
+		// newOps jumpToContinuatoin 
+		rjOps.add(AppendOp.instance);
+		// newOps+jumpToContinuation
+		rjOps.add(new EffectOp<Object,Object>(StackyBlockInterpreterState.PushCurrentReturnContinuation));
+		// newOps+jumpToContinuation returnTo
 		rjOps.add((StackyBlockOp<Object,Object>)PopAndJumpOp.instance);
 		return rjOps;
 	}
@@ -452,6 +495,8 @@ public class P0019 {
 				} else if( OPC_PUSH_VALUE.equals(tokens[0]) ) {
 					Object value = decodeTs34(tokens,1);
 					ops.add(new PushOp<Object>(value));
+				} else if( OP_RETURN.equals(tokens[0]) ) {
+					ops.add(ReturnOp.instance);
 				} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
 					ops.add(PopAndQuitWithCodeOp.instance);
 				} else {
@@ -506,7 +551,7 @@ public class P0019 {
 					interpState = interpState.advance(((ResumeWith<?>)decoded).value, 100);
 				} else if( decoded instanceof ReturnWithValue<?> ) {
 					Object rVal = ((ReturnWithValue<?>)decoded).value;
-					this.emitter.accept("# Exiting due to return with value: "+rVal);
+					this.emitter.accept("# Exiting due to "+decoded);
 					return toInt( rVal );
 				} else if( decoded instanceof QuitWithCode ) {
 					this.emitter.accept("# Exiting due to "+decoded );
@@ -522,10 +567,29 @@ public class P0019 {
 		}
 	}
 	
+	enum TopLevelReturnHandlingMode {
+		QUIT_PROC,
+		RETURN_EFFECT
+	}
+	
 	public static void main(String[] args) throws Exception {
+		// There are two seemingly valid ways to handle
+		// a 'return' at the top level of the program.
+		// - QUIT_PROC :: Provide a returnTo continuation which
+		//   is a procedure that simply quits (with the assumption
+		//   that you put a number on top of the stack beforehand)
+		// - RETURN_EFFECT :: Provide no returnTo, forcing the
+		//   interpreter to request a return effect, which the
+		//   harness handles in the same way it handles a quit effect.
+		TopLevelReturnHandlingMode tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
+		
 		for( int i=0; i<args.length; ++i ) {
 			if( "--version".equals(args[i]) ) {
 				System.out.println(NAME+"-v"+VERSION);
+			} else if( "--return-handling=return-effect".equals(args[i]) ) {
+				tlrhm = TopLevelReturnHandlingMode.RETURN_EFFECT;
+			} else if( "--return-handling=quit-procedure".equals(args[i]) ) {
+				tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
 			} else if( args[i].startsWith("-") && !"-".equals(args[i]) && !"-i".equals(args[i])) {
 				System.err.println("Bad arg: "+args[i]);
 				System.exit(1);
@@ -557,6 +621,9 @@ public class P0019 {
 					}
 				};
 				
+				List<StackyBlockOp<Object,Object>> onReturn = new ArrayList<StackyBlockOp<Object,Object>>();
+				onReturn.add(PopAndQuitWithCodeOp.instance);
+				
 				List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
 				if( interactive ) {
 					program.add(PushOp.of("# Hello, world!\n"));
@@ -566,7 +633,12 @@ public class P0019 {
 					program.add(PushOp.of("# Please enter your program, below.\n"));
 					program.add(PopAndEmitOp.instance);
 				}
-				Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<>(program, program.size(), Continuation.SpecialReturnTo.RETURN_TO_SELF);
+				Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<StackyBlockOp<Object,Object>>(program, program.size(),
+					tlrhm == TopLevelReturnHandlingMode.QUIT_PROC
+						? new Continuation<StackyBlockOp<Object,Object>>(onReturn, 0, Continuation.returnToNone())
+						: Continuation.returnToNone()
+					
+				);
 				program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop));
 				/*
 				program.add(PushOp.of(0));
