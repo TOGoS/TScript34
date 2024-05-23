@@ -21,6 +21,7 @@ import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
 import net.nuke24.tscript34.p0019.util.Charsets;
+import net.nuke24.tscript34.p0019.value.Concatenation;
 
 // TODO: Use P0010's interfaces
 interface Consumer<T> {

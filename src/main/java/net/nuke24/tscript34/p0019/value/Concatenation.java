@@ -1,4 +1,4 @@
-package net.nuke24.tscript34.p0019;
+package net.nuke24.tscript34.p0019.value;
 
 /**
  * Abstract representation of a sequence made by concatenating
@@ -11,12 +11,12 @@ package net.nuke24.tscript34.p0019;
  * concatenation of any element type.
  * */
 public class Concatenation<T> {
-	final Object[] children; 
+	public final Object[] children;
 	public Concatenation(Object[] children) {
 		this.children = children;
 	}
 	
-	public String toString() {
+	@Override public String toString() {
 		StringBuilder sb = new StringBuilder();
 		String sep = "";
 		sb.append("Concatenation[");
