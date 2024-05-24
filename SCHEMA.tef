@@ -194,6 +194,23 @@ Return from the current procedure.
 Equivalent to PostScript's 'exit'.
 
 
+=op http://ns.nuke24.net/TScript34/Ops/RDFObjectFromStack
+signature: key1 value1 ... value(N/2) n -- object
+
+Create an RDFObject with N properties from the stack.
+Keys are symbols or URIResources, or something identified by a name.
+A given key may appear multiple times in the properties list,
+though multiple key/value pairs with the same key *and* value
+might not mean anything.
+
+
+=op http://ns.nuke24.net/TScript34/Ops/GetPropertyValues
+signature: object prop -- values
+
+Given an object and a property symbol, return all the values
+for that property, as an array.
+
+
 =op http://ns.nuke24.net/TScript34/Ops/Quit
 signature: --
 
