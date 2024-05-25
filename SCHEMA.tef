@@ -131,10 +131,12 @@ The object may be an op, procedure, or other object with similar
 ('alter the interpreter state somehow') semantics.
 
 
-=op http://ns.nuke24.net/TScript34/Ops/FetchUri
+=op http://ns.nuke24.net/TScript34/Ops/FetchURI
 signature: uri -- value
 
 Pops a URI from the stack and pushes the value named by that URI.
+
+Formerly known as http://ns.nuke24.net/TScript34/Ops/FetchUri.
 
 
 =op http://ns.nuke24.net/TScript34/Ops/FlattenStringList
