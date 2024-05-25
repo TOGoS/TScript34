@@ -244,10 +244,13 @@ Value space: numbers.
 =datatype http://ns.nuke24.net/TScript34/Datatypes/Symbol
 
 Lexical value names an abstract concept.
+Value is the concept itself, but implemented as a symbolic reference
+to it that will not be automatically dereferenced as a URIResource would be.
 
 =datatype http://ns.nuke24.net/Datatypes/URIResource
 
 Lexical value names a resource.
+Value is the resource itself.
 
 
 =value http://www.w3.org/1999/02/22-rdf-syntax-ns#nil
