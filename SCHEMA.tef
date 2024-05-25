@@ -32,6 +32,15 @@ but when stringified, should be a string containing name and version
 like "AcmeTS34Interpreter-v1.2.3"
 
 
+=op-constructor http://ns.nuke24.net/TScript34/Op/PushSymbol
+parameters: symbol
+signature: -- symbol
+
+Push a pure symbol with the name given.
+This is the same conceptual semantics as PushValue,
+except that the symbol pushed cannot be dereferenced.
+
+
 =op-constructor http://ns.nuke24.net/TScript34/Op/PushValue
 parameters: data encodingN encodingN-1 encodingN-2 ...
 signature: -- value
@@ -226,5 +235,27 @@ In practice this is probably a 'throw QuitException'.
 
 
 =datatype http://www.w3.org/2001/XMLSchema#decimal
+
+Lexical space: strings of decimal representations of numbers.
+Value space: numbers.
+
 =datatype http://ns.nuke24.net/TScript34/Datatypes/Symbol
+
+Lexical value names an abstract concept.
+
 =datatype http://ns.nuke24.net/Datatypes/URIResource
+
+Lexical value names a resource.
+
+
+=value http://www.w3.org/1999/02/22-rdf-syntax-ns#nil
+
+The empty list.
+
+=value http://ns.nuke24.net/TOGVM/Constants/True
+
+The boolean 'true' value.
+
+=value http://ns.nuke24.net/TOGVM/Constants/False
+
+The boolean 'false' value.
