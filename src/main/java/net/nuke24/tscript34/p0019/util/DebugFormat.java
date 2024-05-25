@@ -1,5 +1,7 @@
 package net.nuke24.tscript34.p0019.util;
 
+import net.nuke24.tscript34.p0019.value.Symbol;
+
 public class DebugFormat {
 	private DebugFormat() { }
 	
@@ -8,6 +10,8 @@ public class DebugFormat {
 			return "null";
 		} else if( o instanceof CharSequence ) {
 			return "\"" + o.toString().replace("\"", "\\\"").replace("\\", "\\\\") + "\"";
+		} else if( o instanceof Symbol ) {
+			return "<"+((Symbol)o).name+">";
 		} else {
 			return o.toString();
 		}

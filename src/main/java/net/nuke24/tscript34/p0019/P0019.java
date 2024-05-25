@@ -21,7 +21,9 @@ import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
 import net.nuke24.tscript34.p0019.util.Charsets;
+import net.nuke24.tscript34.p0019.util.DebugFormat;
 import net.nuke24.tscript34.p0019.value.Concatenation;
+import net.nuke24.tscript34.p0019.value.Symbol;
 
 // TODO: Use P0010's interfaces
 interface Consumer<T> {
@@ -42,6 +44,7 @@ public class P0019 {
 	
 	public static String OPC_ALIAS = "http://ns.nuke24.net/TScript34/Op/Alias";
 	public static String OPC_PUSH_VALUE = "http://ns.nuke24.net/TScript34/Op/PushValue";
+	public static String OPC_PUSH_SYMBOL = "http://ns.nuke24.net/TScript34/Op/PushSymbol";
 	
 	// <name>:<op constructor arg count>:<pop count>:<push count>
 	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
@@ -50,6 +53,7 @@ public class P0019 {
 	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
 	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
 	public static String OP_EXECUTE = "http://ns.nuke24.net/TScript34/Ops/Execute";
+	public static String OP_GET_PROPERTY_VALUES = "http://ns.nuke24.net/TScript34/Ops/GetPropertyValues"; 
 	public static String OP_GET_INTERPRETER_INFO = "http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo";
 	public static String OP_JUMP = "http://ns.nuke24.net/TScript34/P0009/Ops/Jump";
 	public static String OP_POP = "http://ns.nuke24.net/TScript34/Ops/Pop";
@@ -57,6 +61,7 @@ public class P0019 {
 	public static String OP_PRINT = "http://ns.nuke24.net/TScript34/Ops/Print";
 	public static String OP_PRINT_LINE = "http://ns.nuke24.net/TScript34/Ops/PrintLine";
 	public static String OP_PRINT_STACK_THUNKS = "http://ns.nuke24.net/TScript34/Ops/PrintStackThunks";
+	public static String OP_RDF_OBJECT_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/RDFObjectFromStack"; 
 	public static String OP_QUIT = "http://ns.nuke24.net/TScript34/Ops/Quit";
 	public static String OP_QUIT_WITH_CODE = "http://ns.nuke24.net/TScript34/Ops/QuitWithCode";
 	public static String OP_RETURN = "http://ns.nuke24.net/TScript34/Ops/Return";
@@ -105,7 +110,7 @@ public class P0019 {
 				append(elem, dest);
 			}
 		} else {
-			dest.append(obj.toString());
+			dest.append(toString(obj));
 		}
 	}
 	public static String toString(Object obj) {
@@ -118,7 +123,7 @@ public class P0019 {
 			}
 			return sb.toString();
 		} else {
-			return obj.toString();
+			return DebugFormat.toDebugString(obj)+" (debug string)";
 		}
 	}
 	
@@ -141,13 +146,10 @@ public class P0019 {
 		} else if( obj instanceof CharSequence ) {
 			os.write(((CharSequence)obj).toString().getBytes(Charsets.UTF8));
 		} else {
-			System.err.println("Outputting "+obj+" to stream by toString()ing it, which might be wack");
-			// TODO: Any other special cases?
-			// togos.blob.OutputStreamable, etc?
 			if( os instanceof Appendable ) {
 				append(obj, (Appendable)os );
 			} else {
-				os.write(obj.toString().getBytes(Charsets.UTF8));
+				os.write(toString(obj).getBytes(Charsets.UTF8));
 			}
 		}
 	}
@@ -283,6 +285,21 @@ public class P0019 {
 			List<Object> newList = new ArrayList<Object>(list);
 			newList.add(item);
 			stack.add(newList);
+			return null;
+		}
+	}
+	static class ConcatNOp implements StackyBlockOp<Object,Object> {
+		public static final ConcatNOp instance = new ConcatNOp();
+		@Override public Object execute(List<Object> stack) {
+			int n = toInt(stack.remove(stack.size()-1));
+			Object[] children = new Object[n];
+			for( int i=0; i<n; ++i ) {
+				children[i] = stack.get(stack.size()-n+i);
+			}
+			for( int i=0; i<n; ++i ) {
+				stack.remove(stack.size()-1);
+			}
+			stack.add(new Concatenation<Object>(children));
 			return null;
 		}
 	}
@@ -485,7 +502,9 @@ public class P0019 {
 				String[] tokens = line.split("\\s+");
 				if( tokens.length == 0 ) continue; // Probably shouldn't happen
 				
-				if( OP_PRINT.equals(tokens[0]) ) {
+				if( OP_CONCAT_N.equals(tokens[0]) ) {
+					ops.add(ConcatNOp.instance);
+				} else if( OP_PRINT.equals(tokens[0]) ) {
 					// For now, print is just an emit
 					ops.add(PopAndEmitOp.instance);
 				} else if( OP_PRINT_LINE.equals(tokens[0]) ) {
@@ -496,6 +515,11 @@ public class P0019 {
 				} else if( OPC_PUSH_VALUE.equals(tokens[0]) ) {
 					Object value = decodeTs34(tokens,1);
 					ops.add(new PushOp<Object>(value));
+				} else if( OPC_PUSH_SYMBOL.equals(tokens[0]) ) {
+					if( tokens.length != 2 ) {
+						throw new RuntimeException(OPC_PUSH_SYMBOL+" requires exactly one argument");
+					}
+					ops.add(new PushOp<Symbol>(new Symbol(tokens[1])));
 				} else if( OP_RETURN.equals(tokens[0]) ) {
 					ops.add(ReturnOp.instance);
 				} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
