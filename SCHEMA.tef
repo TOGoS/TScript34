@@ -104,6 +104,12 @@ signature: value name --
 Adds a new entry to the interpreter's dictionary.
 
 
+=op http://ns.nuke24.net/TScript34/Ops/Drop
+signature: x --
+forth-equivalent: drop
+postscript-equivalent: pop
+
+
 =op http://ns.nuke24.net/TScript34/Ops/Dup
 signature: x -- x x
 
