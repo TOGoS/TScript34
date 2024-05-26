@@ -10,7 +10,9 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,6 +22,7 @@ import net.nuke24.tscript34.p0019.effect.EndOfProgramReached;
 import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
+import net.nuke24.tscript34.p0019.effect.StackUnderflowException;
 import net.nuke24.tscript34.p0019.util.Charsets;
 import net.nuke24.tscript34.p0019.util.DebugFormat;
 import net.nuke24.tscript34.p0019.value.Concatenation;
@@ -31,6 +34,8 @@ interface Consumer<T> {
 }
 
 public class P0019 {
+	public static final Symbol MARK = new Symbol("http://ns.nuke24.net/TScript34/P0019/Constants/Mark");
+	
 	public static String NAME = "TS34.19";
 	public static String VERSION = "0.0.3";
 	
@@ -50,9 +55,10 @@ public class P0019 {
 	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
 	public static String OP_CONCAT_N = "http://ns.nuke24.net/TScript34/P0009/Ops/ConcatN"; // item0 item1 ... itemN n -- concatenated
 	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
+	public static String OP_DROP = "http://ns.nuke24.net/TScript34/Ops/Drop";
 	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
 	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
-	public static String OP_EXECUTE = "http://ns.nuke24.net/TScript34/Ops/Execute";
+	public static String OP_EXECUTE = "http://ns.nuke24.net/TScript34/Ops/Exec";
 	public static String OP_GET_PROPERTY_VALUES = "http://ns.nuke24.net/TScript34/Ops/GetPropertyValues"; 
 	public static String OP_GET_INTERPRETER_INFO = "http://ns.nuke24.net/TScript34/Ops/GetInterpreterInfo";
 	public static String OP_JUMP = "http://ns.nuke24.net/TScript34/P0009/Ops/Jump";
@@ -161,6 +167,8 @@ public class P0019 {
 		return new FileInputStream(pathOrUri);
 	}
 	
+	//// Stack-based interpreter and ops
+	
 	/**
 	 * State of an interpreter that only returns a value
 	 * and can't be advanced.
@@ -192,8 +200,43 @@ public class P0019 {
 	static class BeginBlockOp<V> implements StackyBlockOp<V,Object> {
 		public final EndBlockOp<Object> instance = new EndBlockOp<Object>();
 		private BeginBlockOp() { }
-		public Object execute(List<V> stack) {
+		@Override public Object execute(List<V> stack) {
 			return new RuntimeException("Begin block op should not be executed");
+		}
+	}
+	static class DropOp<V> implements StackyBlockOp<V,Object> {
+		public static final DropOp<Object> instance = new DropOp<Object>();
+		private DropOp() { }
+		@Override public Object execute(List<V> stack) {
+			if( stack.size() < 1 ) {
+				return new StackUnderflowException("Stack underflow; Drop requires one item");
+			}
+			stack.remove(stack.size()-1);
+			return null;
+		}
+	}
+	static class DupOp<V> implements StackyBlockOp<V,Object> {
+		public static final DupOp<Object> instance = new DupOp<Object>();
+		private DupOp() { }
+		@Override public Object execute(List<V> stack) {
+			if( stack.size() < 1 ) {
+				return new StackUnderflowException("Stack underflow; Dup requires one item");
+			}
+			stack.add(stack.get(stack.size()-1));
+			return null;
+		}
+	}
+	static class ExchOp<V> implements StackyBlockOp<V,Object> {
+		public static final ExchOp<Object> instance = new ExchOp<Object>();
+		private ExchOp() { }
+		@Override public Object execute(List<V> stack) {
+			if( stack.size() < 2 ) {
+				return new StackUnderflowException("Stack underflow; Exch requires two items");
+			}
+			V a = stack.get(stack.size()-1);
+			stack.set(stack.size()-1, stack.get(stack.size()-2));
+			stack.set(stack.size()-1, a);
+			return null;
 		}
 	}
 	static class EndBlockOp<V> implements StackyBlockOp<V,Object> {
@@ -203,6 +246,7 @@ public class P0019 {
 			return new RuntimeException("End block op should not be executed");
 		}
 	}
+	/** -- value */
 	static class PushOp<V> implements StackyBlockOp<V,Object> {
 		public static <V> PushOp<V> of(V value) {
 			return new PushOp<V>(value);
@@ -216,10 +260,14 @@ public class P0019 {
 			return null;
 		}
 	}
+	/** thing --{ emit thing }-- */
 	static class PopAndEmitOp<V> implements StackyBlockOp<V,Object> {
 		public static final PopAndEmitOp<Object> instance = new PopAndEmitOp<Object>();
 		private PopAndEmitOp() {}
 		@Override public Object execute(List<V> stack) {
+			if( stack.size() < 1 ) {
+				return new StackUnderflowException("Emit requires one item on the stack");
+			}
 			Object v = stack.remove(stack.size()-1);
 			return new Emit<Object, Object>(null, v);
 		}
@@ -302,6 +350,29 @@ public class P0019 {
 			stack.add(new Concatenation<Object>(children));
 			return null;
 		}
+	}
+	static class CountToOp implements StackyBlockOp<Object,Object> {
+		public static final CountToOp countToMark = new CountToOp(MARK);
+		protected final Object mark;
+		public CountToOp(Object mark) {
+			this.mark = mark;
+		}
+		@Override public Object execute(List<Object> stack) {
+			for( int i=stack.size(); i-- > 0; ) {
+				if( stack.get(i) == mark ) {
+					stack.add(stack.size()-i-1);
+					return null;
+				}
+			}
+			return new RuntimeException(mark+" not found in stack");
+		}
+	}
+	
+	static final Map<String,StackyBlockOp<Object,Object>> STANDARD_OPS = new HashMap<String,StackyBlockOp<Object,Object>>();
+	static {
+		STANDARD_OPS.put(OP_DROP, DropOp.instance);
+		STANDARD_OPS.put(OP_DUP ,  DupOp.instance);
+		STANDARD_OPS.put(OP_EXCH, ExchOp.instance);
 	}
 	
 	static final class Continuation<I> {
@@ -465,6 +536,7 @@ public class P0019 {
 		// and it's from where the script is read
 		// TODO: Pass a separate ops reader
 		private final boolean interactive;
+		// TODO: Replace lineReader with an op reader
 		private final BufferedReader lineReader;
 		private InterpreterState<Object, ?> interpState;
 		private final Consumer<Object> emitter;
@@ -501,9 +573,18 @@ public class P0019 {
 				
 				String[] tokens = line.split("\\s+");
 				if( tokens.length == 0 ) continue; // Probably shouldn't happen
-				
-				if( OP_CONCAT_N.equals(tokens[0]) ) {
+
+				Object op = STANDARD_OPS.get(tokens[0]);
+				if( op != null ) {
+					if( tokens.length > 1 ) {
+						throw new RuntimeException("Too many arguments to non-constructor op '"+tokens[0]+"'");
+					}
+					ops.add(op);
+				} else if( OP_CONCAT_N.equals(tokens[0]) ) {
+					// TODO: Move these to STANDARD_OPS
 					ops.add(ConcatNOp.instance);
+				} else if( OP_COUNT_TO_MARK.equals(tokens[0]) ) {
+					ops.add(new CountToOp(MARK));
 				} else if( OP_PRINT.equals(tokens[0]) ) {
 					// For now, print is just an emit
 					ops.add(PopAndEmitOp.instance);
@@ -520,6 +601,8 @@ public class P0019 {
 						throw new RuntimeException(OPC_PUSH_SYMBOL+" requires exactly one argument");
 					}
 					ops.add(new PushOp<Symbol>(new Symbol(tokens[1])));
+				} else if( OP_PUSH_MARK.equals(tokens[0]) ) {
+					ops.add(new PushOp<Symbol>(MARK));
 				} else if( OP_RETURN.equals(tokens[0]) ) {
 					ops.add(ReturnOp.instance);
 				} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
