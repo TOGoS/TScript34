@@ -376,14 +376,6 @@ public class P0019 {
 	}
 	
 	static final class Continuation<I> {
-		public static final Continuation<?> RETURN_TO_NONE = new Continuation<Object>(Collections.emptyList(), 0);
-		public static final Continuation<?> RETURN_TO_SELF = new Continuation<Object>(Collections.emptyList(), 0);
-		
-		@SuppressWarnings("unchecked")
-		public static <T> Continuation<T> returnToNone() {
-			return (Continuation<T>)RETURN_TO_NONE;
-		}
-		
 		public final List<I> block;
 		public final int index;
 		// Why just one returnTo?
@@ -401,13 +393,11 @@ public class P0019 {
 		public Continuation(List<I> block, int index, Continuation<I> returnTo) {
 			this.block = block;
 			this.index = index;
-			if( returnTo == RETURN_TO_NONE ) {
-				this.returnTo = null;
-			} else if( returnTo == RETURN_TO_SELF ) {
-				this.returnTo = this;
-			} else {
-				this.returnTo = returnTo;
-			}
+			this.returnTo = null;
+		}
+		
+		@Override public String toString() {
+			return "Continuation["+block.size()+" instructions, index="+index+", returnTo="+(returnTo == this ? "self" : returnTo)+"]";
 		}
 	}
 	
@@ -447,6 +437,8 @@ public class P0019 {
 					request = null;
 				} else if( request instanceof ReturnWithValue<?> ) {
 					ReturnWithValue<A> ret = (ReturnWithValue<A>)request;
+					// A continuation with returnTo = null
+					// means 'return from program'.
 					if( returnTo == null ) {
 						// By convention, the top value on the stack is 'the return value'.
 						// Since we're exiting stack-land, reflect it by putting
@@ -481,6 +473,7 @@ public class P0019 {
 			if( request == null ) {
 				assert ip == instructions.size();
 				continuation = returnTo;
+				System.err.println("Reached end of program at ip = "+ip);
 				// Reached to end of program!
 				// Let's say for now that this is an error.
 				// If you want to return, add a return op.
@@ -503,9 +496,24 @@ public class P0019 {
 	}
 	
 	@SuppressWarnings("unchecked")
-	static List<StackyBlockOp<Object,Object>> readAndJumpOps(Object readOpsRequest, Continuation<StackyBlockOp<Object,Object>> andThen) {
+	static List<StackyBlockOp<Object,Object>> readAndJumpOps(
+		Object readOpsRequest,
+		Continuation<StackyBlockOp<Object,Object>> andThen,
+		Continuation<StackyBlockOp<Object,Object>> onEof
+	) {
 		final ArrayList<StackyBlockOp<Object,Object>> rjOps = new ArrayList<StackyBlockOp<Object,Object>>();
 		rjOps.add(new EffectOp<Object,Object>(readOpsRequest));
+		rjOps.add(new StackyBlockOp<Object,Object>() {
+			@Override public Object execute(List<Object> stack) {
+				List<Object> opsRead = (List<Object>)stack.get(stack.size()-1);
+				if( opsRead.size() == 0 ) {
+					System.err.println("Reached eof; return to "+onEof+"...");
+					stack.remove(stack.size()-1);
+					return onEof;
+				}
+				return null;
+			}
+		});
 		// newOps
 		rjOps.add(new PushOp<Object>(
 			new EffectOp<Object,Object>(andThen)
@@ -729,9 +737,23 @@ public class P0019 {
 					}
 				};
 				
-				List<StackyBlockOp<Object,Object>> onReturn = new ArrayList<StackyBlockOp<Object,Object>>();
-				onReturn.add(PopAndQuitWithCodeOp.instance);
+				// Q: Why do these two programs look different?
+				// "Well, it's because onReturn is used as the onReturn for another continuation,
+				// and continuations are also treated as effects, and...."
+				// Q: Is there a way to make this less confusing?
+				//    Maybe disallow null continuations?
 				
+				List<StackyBlockOp<Object,Object>> onReturnProgram = new ArrayList<StackyBlockOp<Object,Object>>();
+				onReturnProgram.add(PopAndQuitWithCodeOp.instance);
+				
+				List<StackyBlockOp<Object,Object>> onEofProgram = new ArrayList<StackyBlockOp<Object,Object>>();
+				if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
+					onEofProgram.add(PushOp.of(0));
+					onEofProgram.add(PopAndQuitWithCodeOp.instance);
+				} else {
+					onEofProgram.add(new EffectOp<Object,Object>(new ReturnWithValue<Object>(0)));
+				}
+
 				List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
 				if( interactive ) {
 					program.add(PushOp.of("# Hello, world!\n"));
@@ -741,13 +763,15 @@ public class P0019 {
 					program.add(PushOp.of("# Please enter your program, below.\n"));
 					program.add(PopAndEmitOp.instance);
 				}
-				Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<StackyBlockOp<Object,Object>>(program, program.size(),
-					tlrhm == TopLevelReturnHandlingMode.QUIT_PROC
-						? new Continuation<StackyBlockOp<Object,Object>>(onReturn, 0, Continuation.returnToNone())
-						: Continuation.returnToNone()
-					
-				);
-				program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop));
+				Continuation<StackyBlockOp<Object,Object>> onReturn =
+					tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ? new Continuation<StackyBlockOp<Object,Object>>(onReturnProgram, 0) :
+					null;
+				Continuation<StackyBlockOp<Object,Object>> onEof =  new Continuation<StackyBlockOp<Object,Object>>(onEofProgram, 0);
+				
+				Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<StackyBlockOp<Object,Object>>(program, program.size(), onReturn);
+				
+				program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop, onEof));
+				
 				/*
 				program.add(PushOp.of(0));
 				program.add(PopAndReturnOp.instance);
