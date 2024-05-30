@@ -37,3 +37,33 @@ Git commits:
 | original p0009-master                   | 248d236ebf20600249d7a26125aa0eaeeeb09480 |
 | subtrees/p0006/split-from-master        | 891e25d0bc32d6558a5026c1e6a6dac969c93f8a |
 | subtrees/p0009/split+rebased-onto-p0006 | 62c68e7c1422a849bb54b09c2fdba76bc042d038 |
+
+** Log / thoughts
+
+*** 2024-05-30
+
+Having just refactored so that the 'return with value' effect within
+a stack-based program returns the entire stack, which is 'passed to'
+continuations, I think has given me an idea about...monoidification.
+
+i.e. how to make ~instruction1.then(instruction2).then(instruction3)~ work.
+
+Each instruction is a function of stack -> stack.
+
+Most instructions have a null ~next~ pointer, meaning they don't care where you go next.
+~.then~ replaces null ~next~ pointers.
+But if an instruction already has a ~next~ pointer, meaning it jumps out of the
+normal control flow, then ~.then~ has no effect on it!
+
+As the current implementation shows, this doesn't need to be
+implemented by looking inside the instructions.
+If instructions return their next pointer,
+then ~.then~ can be implemented by simply adding instructions to a list
+which is by default executed in order by the interpreter, until
+some instruction returns non-null.
+
+I'm not 100% convinced this works correctly, but if it does,
+I think it solves the "need to know the next step before calling instruction constructors"
+problem that I ran into with TScript34-P0013,
+which lacked representation of continuation-agnostic steps,
+but may have otherwise been on the right track.
