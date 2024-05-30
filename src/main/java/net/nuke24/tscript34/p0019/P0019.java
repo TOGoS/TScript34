@@ -1,6 +1,7 @@
 package net.nuke24.tscript34.p0019;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -507,7 +508,6 @@ public class P0019 {
 			@Override public Object execute(List<Object> stack) {
 				List<Object> opsRead = (List<Object>)stack.get(stack.size()-1);
 				if( opsRead.size() == 0 ) {
-					System.err.println("Reached eof; return to "+onEof+"...");
 					stack.remove(stack.size()-1);
 					return onEof;
 				}
@@ -667,10 +667,10 @@ public class P0019 {
 					interpState = interpState.advance(((ResumeWith<?>)decoded).value, 100);
 				} else if( decoded instanceof ReturnWithValue<?> ) {
 					Object rVal = ((ReturnWithValue<?>)decoded).value;
-					this.emitter.accept("# Exiting due to "+decoded);
+					this.emitter.accept("# Exiting due to "+decoded+"\n");
 					return toInt( rVal );
 				} else if( decoded instanceof QuitWithCode ) {
-					this.emitter.accept("# Exiting due to "+decoded );
+					this.emitter.accept("# Exiting due to "+decoded+"\n");
 					return toInt( ((QuitWithCode)decoded).exitCode );
 				} else if( decoded instanceof Exception ) {
 					System.err.println("Exception while interpreting program");
@@ -688,17 +688,157 @@ public class P0019 {
 		RETURN_EFFECT
 	}
 	
-	public static void main(String[] args) throws Exception {
-		// There are two seemingly valid ways to handle
-		// a 'return' at the top level of the program.
-		// - QUIT_PROC :: Provide a returnTo continuation which
-		//   is a procedure that simply quits (with the assumption
-		//   that you put a number on top of the stack beforehand)
-		// - RETURN_EFFECT :: Provide no returnTo, forcing the
-		//   interpreter to request a return effect, which the
-		//   harness handles in the same way it handles a quit effect.
-		TopLevelReturnHandlingMode tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
+	// There are two seemingly valid ways to handle
+	// a 'return' at the top level of the program.
+	// - QUIT_PROC :: Provide a returnTo continuation which
+	//   is a procedure that simply quits (with the assumption
+	//   that you put a number on top of the stack beforehand)
+	// - RETURN_EFFECT :: Provide no returnTo, forcing the
+	//   interpreter to request a return effect, which the
+	//   harness handles in the same way it handles a quit effect.
+	static TopLevelReturnHandlingMode tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
+	
+	public static int runProgramFrom(
+		InputStream inputStream,
+		boolean interactive,
+		Consumer<Object> emitter
+	) {
+		BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
 		
+		// Q: Why do these two programs look different?
+		// "Well, it's because onReturn is used as the onReturn for another continuation,
+		// and continuations are also treated as effects, and...."
+		// Q: Is there a way to make this less confusing?
+		//    Maybe disallow null continuations?
+		
+		List<StackyBlockOp<Object,Object>> onReturnProgram = new ArrayList<StackyBlockOp<Object,Object>>();
+		onReturnProgram.add(PopAndQuitWithCodeOp.instance);
+		
+		List<StackyBlockOp<Object,Object>> onEofProgram = new ArrayList<StackyBlockOp<Object,Object>>();
+		if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
+			onEofProgram.add(PushOp.of(0));
+			onEofProgram.add(PopAndQuitWithCodeOp.instance);
+		} else {
+			onEofProgram.add(new EffectOp<Object,Object>(new ReturnWithValue<Object>(0)));
+		}
+
+		List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
+		if( interactive ) {
+			program.add(PushOp.of("# Hello, world!\n"));
+			program.add(PopAndEmitOp.instance);
+			program.add(PushOp.of("# This program reads ops from input and executes them.\n"));
+			program.add(PopAndEmitOp.instance);
+			program.add(PushOp.of("# Please enter your program, below.\n"));
+			program.add(PopAndEmitOp.instance);
+		}
+		Continuation<StackyBlockOp<Object,Object>> onReturn =
+			tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ? new Continuation<StackyBlockOp<Object,Object>>(onReturnProgram, 0) :
+			null;
+		Continuation<StackyBlockOp<Object,Object>> onEof =  new Continuation<StackyBlockOp<Object,Object>>(onEofProgram, 0);
+		
+		Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<StackyBlockOp<Object,Object>>(program, program.size(), onReturn);
+		
+		program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop, onEof));
+		
+		/*
+		program.add(PushOp.of(0));
+		program.add(PopAndReturnOp.instance);
+		*/
+		
+		InterpreterState<Object,Object> interpreterState = new StackyBlockInterpreterState<Object, Object>(
+			null,
+			new Continuation<StackyBlockOp<Object,Object>>(program, 0, reLoop),
+			new ArrayList<Object>()
+		);
+		
+		SimpleExecutable<Integer> proc = new BabbyInterpreterHarness(
+			interactive,
+			br, interpreterState, emitter
+		);
+		
+		return proc.execute().intValue();
+	}
+	
+	static class TestScriptParameters {
+		public int expectedExitCode = 0;
+	}
+	
+	static final Pattern DIRECTIVE_PATTERN = Pattern.compile("#(\\S+)(?:\\s*(.*))");
+	static TestScriptParameters loadTestScriptParameters(File ts) throws IOException {
+		TestScriptParameters params = new TestScriptParameters();
+		FileInputStream scriptInputStream = new FileInputStream(ts);
+		try {
+			BufferedReader br = new BufferedReader(new InputStreamReader(scriptInputStream));
+			String line;
+			while( (line = br.readLine()) != null ) {
+				Matcher m;
+				if( (m = DIRECTIVE_PATTERN.matcher(line)).matches() ) {
+					if( "lang".equals(m.group(1)) ) {
+						// No-op
+					} else if( "expect-exit-code".equals(m.group(1)) ) {
+						params.expectedExitCode = Integer.parseInt(m.group(2));
+					} else {
+						throw new RuntimeException("Unrecognized directive: "+line);
+					}
+				}
+			}
+		} finally {
+			scriptInputStream.close();
+		}
+		return params;
+	}
+	
+	public static int runTestScript(File ts) {
+		// System.out.println("# Running test script "+ts);
+		try {
+			TestScriptParameters params = loadTestScriptParameters(ts);
+			FileInputStream scriptInputStream = new FileInputStream(ts);
+			try {
+				int exitCode = runProgramFrom(scriptInputStream, false, new Consumer<Object>() {
+					@Override
+					public void accept(Object value) {
+						// TODO Collect output and dump to stderr
+						// if program returns non-zero
+					}
+				});
+				if( params.expectedExitCode == exitCode ) {
+					// System.out.println("# Got correct exit code, "+params.expectedExitCode+", from script "+ts);
+					return 0;
+				} else {
+					System.err.println("Expected exit code "+params.expectedExitCode+" but got "+exitCode+" from script "+ts);
+					return 1;
+				}
+			} finally {
+				scriptInputStream.close();
+			}
+		} catch( IOException e ) {
+			e.printStackTrace();
+			return 1;
+		}
+	}
+	
+	public static int runTestScripts(File dir) {
+		File[] files = dir.listFiles();
+		int count = 0;
+		int errorCount = 0;
+		for( File file : files ) {
+			if( file.getName().endsWith(".ts34") ) {
+				errorCount += (runTestScript(file) != 0) ? 1 : 0;
+				++count;
+			}
+		}
+		if( count == 0 ) {
+			System.err.println("No test scripts found in "+dir);
+			return 1;
+		}
+		System.out.println("# Ran "+count+" test scripts, got "+errorCount+" failures");
+		if( errorCount > 0 ) {
+			System.err.println("Some tests failed");
+		}
+		return errorCount == 0 ? 0 : 1;
+	}
+	
+	public static void main(String[] args) throws Exception {
 		for( int i=0; i<args.length; ++i ) {
 			if( "--version".equals(args[i]) ) {
 				System.out.println(NAME+"-v"+VERSION);
@@ -723,9 +863,13 @@ public class P0019 {
 				} else if( "-".equals(scriptFilePath) ) {
 					inputStream = System.in;
 				} else {
+					File f = new File(scriptFilePath);
+					if( f.isDirectory() ) {
+						System.exit(runTestScripts(f));
+					}
 					inputStream = getInputStream(scriptFilePath);
 				}
-				BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+				
 				final OutputStream os = System.out;
 				Consumer<Object> emitter = new Consumer<Object>() {
 					public void accept(Object obj) {
@@ -737,57 +881,8 @@ public class P0019 {
 					}
 				};
 				
-				// Q: Why do these two programs look different?
-				// "Well, it's because onReturn is used as the onReturn for another continuation,
-				// and continuations are also treated as effects, and...."
-				// Q: Is there a way to make this less confusing?
-				//    Maybe disallow null continuations?
-				
-				List<StackyBlockOp<Object,Object>> onReturnProgram = new ArrayList<StackyBlockOp<Object,Object>>();
-				onReturnProgram.add(PopAndQuitWithCodeOp.instance);
-				
-				List<StackyBlockOp<Object,Object>> onEofProgram = new ArrayList<StackyBlockOp<Object,Object>>();
-				if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
-					onEofProgram.add(PushOp.of(0));
-					onEofProgram.add(PopAndQuitWithCodeOp.instance);
-				} else {
-					onEofProgram.add(new EffectOp<Object,Object>(new ReturnWithValue<Object>(0)));
-				}
 
-				List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
-				if( interactive ) {
-					program.add(PushOp.of("# Hello, world!\n"));
-					program.add(PopAndEmitOp.instance);
-					program.add(PushOp.of("# This program reads ops from input and executes them.\n"));
-					program.add(PopAndEmitOp.instance);
-					program.add(PushOp.of("# Please enter your program, below.\n"));
-					program.add(PopAndEmitOp.instance);
-				}
-				Continuation<StackyBlockOp<Object,Object>> onReturn =
-					tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ? new Continuation<StackyBlockOp<Object,Object>>(onReturnProgram, 0) :
-					null;
-				Continuation<StackyBlockOp<Object,Object>> onEof =  new Continuation<StackyBlockOp<Object,Object>>(onEofProgram, 0);
-				
-				Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<StackyBlockOp<Object,Object>>(program, program.size(), onReturn);
-				
-				program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop, onEof));
-				
-				/*
-				program.add(PushOp.of(0));
-				program.add(PopAndReturnOp.instance);
-				*/
-				
-				InterpreterState<Object,Object> interpreterState = new StackyBlockInterpreterState<Object, Object>(
-					null,
-					new Continuation<StackyBlockOp<Object,Object>>(program, 0, reLoop),
-					new ArrayList<Object>()
-				);
-				
-				SimpleExecutable<Integer> proc = new BabbyInterpreterHarness(
-					interactive,
-					br, interpreterState, emitter
-				);
-				System.exit(proc.execute().intValue());
+				System.exit(runProgramFrom(inputStream, interactive, emitter));
 			}
 		}
 	}

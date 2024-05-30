@@ -1,0 +1,3 @@
+#expect-exit-code 102
+http://ns.nuke24.net/TScript34/Op/PushValue data:,102 http://www.w3.org/2001/XMLSchema#decimal
+http://ns.nuke24.net/TScript34/Ops/QuitWithCode
