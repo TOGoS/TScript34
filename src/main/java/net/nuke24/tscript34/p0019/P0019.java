@@ -376,7 +376,11 @@ public class P0019 {
 		STANDARD_OPS.put(OP_EXCH, ExchOp.instance);
 	}
 	
+	static final int IP_EXIT_INTERP_LOOP = -10;
+	
 	static final class Continuation<I> {
+		private static final Continuation<Object> EXIT_INTERP_LOOP = new Continuation<Object>(Collections.emptyList(), IP_EXIT_INTERP_LOOP);
+		
 		public final List<I> block;
 		public final int index;
 		// Why just one returnTo?
@@ -389,12 +393,25 @@ public class P0019 {
 		private Continuation(List<I> block, int index) {
 			this.block = block;
 			this.index = index;
-			this.returnTo = null;
+			this.returnTo = this;
 		}
-		public Continuation(List<I> block, int index, Continuation<I> returnTo) {
+		private Continuation(List<I> block, int index, Continuation<I> returnTo) {
+			if( returnTo == null ) {
+				throw new RuntimeException("Bad returnTo!");
+			}
 			this.block = block;
 			this.index = index;
-			this.returnTo = null;
+			this.returnTo = returnTo;
+		}
+		
+		@SuppressWarnings("unchecked")
+		public static <I> Continuation<I> exitInterpLoop() {
+			return (Continuation<I>) EXIT_INTERP_LOOP;
+		}
+		
+		public static <I> Continuation<I> to(List<I> block, int index, Continuation<I> returnTo) {
+			assert returnTo != null;
+			return new Continuation<I>(block, index, returnTo);
 		}
 		
 		@Override public String toString() {
@@ -432,33 +449,33 @@ public class P0019 {
 			int ip = next.index;
 			E request = null;
 			while( request == null && ip < instructions.size() && maxSteps-- > 0 ) {
+				if( ip == IP_EXIT_INTERP_LOOP ) {
+					// By convention, the top value on the stack is 'the return value'.
+					// Since we're exiting stack-land, reflect it by putting
+					// it into the Return effect:
+					// (This is a somewhat arbitrary choice, and maybe the
+					// stack -> return value functon should be configurable,
+					// or maybe the return value should just be the entire stack!
+					// ...which might actually make more sense and
+					// give continuation handling better symmetry.)
+					A retVal =
+						stack.size() > 0 ? stack.get(stack.size()-1) : null;
+					return new ReturnInterpreterState<A,E>((E)new ReturnWithValue<A>(retVal));
+				}
+				if( ip < 0 ) {
+					throw new RuntimeException("Bad instruction pointer: "+ip);
+				}
 				request = instructions.get(ip++).execute(stack);
 				if( request == PushCurrentReturnContinuation ) {
 					stack.add((A)returnTo);
 					request = null;
 				} else if( request instanceof ReturnWithValue<?> ) {
 					ReturnWithValue<A> ret = (ReturnWithValue<A>)request;
-					// A continuation with returnTo = null
-					// means 'return from program'.
-					if( returnTo == null ) {
-						// By convention, the top value on the stack is 'the return value'.
-						// Since we're exiting stack-land, reflect it by putting
-						// it into the Return effect:
-						if( ret.value == null && this.dataStack.size() > 0 ) {
-							ret = new ReturnWithValue<A>(dataStack.get(dataStack.size()-1));
-						}
-						return new ReturnInterpreterState<A,E>((E)ret);
-					} else {
-						// Then the return is *to* somewhere.
-						// If the return had a value, put it on the stack.
-						// (Maybe this would all be clearer if return-with-explicit-value and
-						// return-with-implicit-value-on-stack were different types, idk)
-						if( ret.value != null ) {
-							// Push it to the stack
-							stack.add(ret.value);
-						}
-						request = (E) returnTo;
+					if( ret.value != null ) {
+						// Push it to the stack
+						stack.add(ret.value);
 					}
+					request = (E) returnTo;
 				}
 				// Continuation = JumpTo(Continuation);
 				// I just was lazy and didn't want to add a new object.
@@ -705,23 +722,17 @@ public class P0019 {
 	) {
 		BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
 		
-		// Q: Why do these two programs look different?
-		// "Well, it's because onReturn is used as the onReturn for another continuation,
-		// and continuations are also treated as effects, and...."
-		// Q: Is there a way to make this less confusing?
-		//    Maybe disallow null continuations?
-		
 		List<StackyBlockOp<Object,Object>> onReturnProgram = new ArrayList<StackyBlockOp<Object,Object>>();
-		onReturnProgram.add(PopAndQuitWithCodeOp.instance);
+		if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
+			onReturnProgram.add(PopAndQuitWithCodeOp.instance);
+		} else {
+			onReturnProgram.add(PopAndReturnOp.instance);
+		}
 		
 		List<StackyBlockOp<Object,Object>> onEofProgram = new ArrayList<StackyBlockOp<Object,Object>>();
-		if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
-			onEofProgram.add(PushOp.of(0));
-			onEofProgram.add(PopAndQuitWithCodeOp.instance);
-		} else {
-			onEofProgram.add(new EffectOp<Object,Object>(new ReturnWithValue<Object>(0)));
-		}
-
+		onEofProgram.add(PushOp.of(0));
+		onEofProgram.addAll(onReturnProgram);
+		
 		List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
 		if( interactive ) {
 			program.add(PushOp.of("# Hello, world!\n"));
@@ -731,12 +742,11 @@ public class P0019 {
 			program.add(PushOp.of("# Please enter your program, below.\n"));
 			program.add(PopAndEmitOp.instance);
 		}
-		Continuation<StackyBlockOp<Object,Object>> onReturn =
-			tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ? new Continuation<StackyBlockOp<Object,Object>>(onReturnProgram, 0) :
-			null;
-		Continuation<StackyBlockOp<Object,Object>> onEof =  new Continuation<StackyBlockOp<Object,Object>>(onEofProgram, 0);
 		
-		Continuation<StackyBlockOp<Object,Object>> reLoop = new Continuation<StackyBlockOp<Object,Object>>(program, program.size(), onReturn);
+		Continuation<StackyBlockOp<Object,Object>> onReturn = Continuation.to(onReturnProgram, 0, Continuation.exitInterpLoop());
+		Continuation<StackyBlockOp<Object,Object>> onEof =  Continuation.to(onEofProgram, 0, Continuation.exitInterpLoop());
+		
+		Continuation<StackyBlockOp<Object,Object>> reLoop = Continuation.to(program, program.size(), onReturn);
 		
 		program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop, onEof));
 		
@@ -811,8 +821,9 @@ public class P0019 {
 			} finally {
 				scriptInputStream.close();
 			}
-		} catch( IOException e ) {
-			e.printStackTrace();
+		} catch( Exception e ) {
+			System.err.println("Exception while running "+ts);
+			e.printStackTrace(System.err);
 			return 1;
 		}
 	}
