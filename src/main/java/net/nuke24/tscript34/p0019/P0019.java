@@ -305,15 +305,7 @@ public class P0019 {
 		public static final ReturnOp<Object> instance = new ReturnOp<Object>();
 		private ReturnOp() {}
 		@Override public Object execute(List<V> stack) {
-			return new ReturnWithValue<Object>(null);
-		}
-	}
-	static class PopAndReturnOp<V> implements StackyBlockOp<V,Object> {
-		public static final PopAndReturnOp<Object> instance = new PopAndReturnOp<Object>();
-		private PopAndReturnOp() {}
-		@Override public Object execute(List<V> stack) {
-			Object v = stack.remove(stack.size()-1);
-			return new ReturnWithValue<Object>(v);
+			return new ReturnWithValue<Object>(Collections.unmodifiableList(stack));
 		}
 	}
 	static class PopAndQuitWithCodeOp<V> implements StackyBlockOp<V,Object> {
@@ -458,9 +450,7 @@ public class P0019 {
 					// or maybe the return value should just be the entire stack!
 					// ...which might actually make more sense and
 					// give continuation handling better symmetry.)
-					A retVal =
-						stack.size() > 0 ? stack.get(stack.size()-1) : null;
-					return new ReturnInterpreterState<A,E>((E)new ReturnWithValue<A>(retVal));
+					return new ReturnInterpreterState<A,E>((E)new ReturnWithValue<List<A>>(Collections.unmodifiableList(stack)));
 				}
 				if( ip < 0 ) {
 					throw new RuntimeException("Bad instruction pointer: "+ip);
@@ -470,11 +460,11 @@ public class P0019 {
 					stack.add((A)returnTo);
 					request = null;
 				} else if( request instanceof ReturnWithValue<?> ) {
-					ReturnWithValue<A> ret = (ReturnWithValue<A>)request;
-					if( ret.value != null ) {
-						// Push it to the stack
-						stack.add(ret.value);
+					ReturnWithValue<List<A>> ret = (ReturnWithValue<List<A>>)request;
+					if( ret.value == null || !(ret.value instanceof List<?>) ) {
+						throw new RuntimeException("ReturnWithValue value should be a whole stack, a List<Object>; got "+DebugFormat.toDebugString(ret.value));
 					}
+					stack = ret.value;
 					request = (E) returnTo;
 				}
 				// Continuation = JumpTo(Continuation);
@@ -683,9 +673,10 @@ public class P0019 {
 				} else if( decoded instanceof ResumeWith<?> ) {
 					interpState = interpState.advance(((ResumeWith<?>)decoded).value, 100);
 				} else if( decoded instanceof ReturnWithValue<?> ) {
-					Object rVal = ((ReturnWithValue<?>)decoded).value;
+					@SuppressWarnings("unchecked")
+					List<Object> stack = ((ReturnWithValue<List<Object>>)decoded).value;
 					this.emitter.accept("# Exiting due to "+decoded+"\n");
-					return toInt( rVal );
+					return toInt( stack.get(stack.size()-1) );
 				} else if( decoded instanceof QuitWithCode ) {
 					this.emitter.accept("# Exiting due to "+decoded+"\n");
 					return toInt( ((QuitWithCode)decoded).exitCode );
@@ -726,7 +717,7 @@ public class P0019 {
 		if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
 			onReturnProgram.add(PopAndQuitWithCodeOp.instance);
 		} else {
-			onReturnProgram.add(PopAndReturnOp.instance);
+			onReturnProgram.add(ReturnOp.instance);
 		}
 		
 		List<StackyBlockOp<Object,Object>> onEofProgram = new ArrayList<StackyBlockOp<Object,Object>>();
