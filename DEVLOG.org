@@ -171,3 +171,45 @@ reason about the inputs in terms of their representation.
 If one of the arguments is itself a concatenation,
 we could do somethign special ahndajknsdkjn
 not a great examnple, but maybe you get the idea.
+
+** [2024-06-05] Brainstorm on operations
+
+Stuck because putting car before horse.
+
+What are some applications and the operations they need?
+
+- CCouch merge tool
+  Note that these operations should work whether objects are specified
+  by URIReference or otherwise; that is an implementation detail.
+  - isBlob      : any -> boolean ; if URIReference, should be able to tell without dereferencing in relevant cases 
+  - getPropertyValues : any -> predicate -> List<any>
+  - serialize   : any -> any
+    - When input is a URI reference of a certain form, this is easy:
+      `serialize <x-rdf-subject:urn:bitprint:FOO> = <urn:bitprint:FOO>`
+  - car         : List<X> -> X | error
+  - cdr         : List<X> -> List<X> | nil
+  - name        : any -> string
+  - store       : any ->{WritableCCouchRepo} URIReference
+  - concat      : blob[] -> blob
+  - writeFile   : blob -> filename ->{WritableFilesystem} ()
+  - print       : blob ->{StdoutWriter} -> ()
+  More complex but well-defined operations:
+  - mergeTrees   : MergeStrategy -> List<Tree> -> Tree
+  - mergeCommits : MergeStrategy -> List<Commit> -> Commit
+  Merge strategies can just be symbols for now.
+  .../FirstWins, LastWins, Error
+- Photo archiving system
+  High-level operations:
+  - Generate scaled-down versions of image files
+  - Track which files are derived from which others
+    Soemthing like: Derivation { sourceUri, ops: [ ... ], savedUri }
+    Where 'ops' are Scale{scale}, Rotate{amount}, Quality{quality}
+  - Load a list of raw images from....?
+  - Show images on the screen
+  - Allow user to view different scales of an image,
+    rotate them, select which one(s) to archive
+  - Maintain a database of the user's
+    image view -> archived?, any other metadata
+
+Of those two projects, commit/directory merging
+appears much more straightforward - concrete ops are already defined.
