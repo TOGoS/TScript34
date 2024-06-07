@@ -221,6 +221,13 @@ though multiple key/value pairs with the same key *and* value
 might not mean anything.
 
 
+=op http://ns.nuke24.net/TScript34/Ops/MergeRDFObjects
+signature: object-1 object-2 -- merged-object
+
+Creates a new RDF object by merging the property-values
+of the two popped from the top of the stack.
+
+
 =op http://ns.nuke24.net/TScript34/Ops/GetPropertyValues
 signature: object prop -- values
 
