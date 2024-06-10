@@ -73,3 +73,19 @@ I think it solves the "need to know the next step before calling instruction con
 problem that I ran into with TScript34-P0013,
 which lacked representation of continuation-agnostic steps,
 but may have otherwise been on the right track.
+
+*** 2024-06-10
+
+I'm working on a ~JavaProjectBuilder~ class whose purpose shall be to
+help build Java 1.6-compatible JARs of this project,
+which will also be usable by others.
+
+It is not obvious that this needs to be part of TScript34-P0019,
+but since the purpose of both the scripting language and the Java package
+builder is to help solve 'the bootstrapping problem'
+(i.e. cross-platform scripting language for automating parts of the build
+that the JDK, or older versions of it at least, doesn't do,
+which might otherwise be solved by Maven),
+it kind of makes sense to shove them in together, at least for now.
+Theoretically this will obsolete TJBuilder, and perhaps also TJFetcher,
+since the language should have built-in support for hash URNs, anyway.
