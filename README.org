@@ -20,6 +20,12 @@ I can back down on that.  Though it may still be wise
 to choose fewer instad of more classes.  I haven't quite
 figured out how to balance my approach.  Java makes it difficult, I think.
 
+** Package layout
+
+- net.nuke24.tscript34.p0019 :: root package for this project
+- net.nuke24.tscript34.p0019.iface :: generic interface definitions, candidates for moving to p0010
+- net.nuke24.tscript34.p0019.value :: 'value' classes, which may have special meaning to the interpreter
+
 ** Origins
 
 See WSITEM-3408 p155.

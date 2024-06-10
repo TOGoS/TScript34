@@ -24,15 +24,12 @@ import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
 import net.nuke24.tscript34.p0019.effect.StackUnderflowException;
+import net.nuke24.tscript34.p0019.iface.Consumer;
+import net.nuke24.tscript34.p0019.iface.InterpreterState;
 import net.nuke24.tscript34.p0019.util.Charsets;
 import net.nuke24.tscript34.p0019.util.DebugFormat;
 import net.nuke24.tscript34.p0019.value.Concatenation;
 import net.nuke24.tscript34.p0019.value.Symbol;
-
-// TODO: Use P0010's interfaces
-interface Consumer<T> {
-	public void accept(T value);
-}
 
 public class P0019 {
 	public static final Symbol MARK = new Symbol("http://ns.nuke24.net/TScript34/P0019/Constants/Mark");

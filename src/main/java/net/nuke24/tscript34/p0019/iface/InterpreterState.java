@@ -1,5 +1,14 @@
-package net.nuke24.tscript34.p0019;
+package net.nuke24.tscript34.p0019.iface;
 
+/**
+ * Functional interface representing a requested action and
+ * what is to be done with the result.
+ * 
+ * E is the type of effects that can be requested.
+ * A is the type of effect results.
+ * 
+ * Letting A and E both be 'Object' is not unreasonable.
+ */
 public interface InterpreterState<A,E> {
 	/**
 	 * Return an object indicating an effect that the interpreted program
