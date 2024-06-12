@@ -289,3 +289,12 @@ E>. Coroutines on the other hand are order-independent: all coroutine
 that yield Pending and Exception have the same type, there is no
 distinction of order. The same is true of effect handlers.
 #+end_quote
+
+*** [[https://xorvoid.com/forsp.html][Forsp]]
+
+A Forthlike language with some interesting ideas.
+~$foo~ defines (in a lexical scope delimited by..parens, I think)
+the name ~foo~ to mean the thing on top of the stack.
+~'foo~ quotes the symbol, and
+~^foo~ puts the thing identified by ~foo~ onto the stack instead of executing it.
+~'foo pop~ and ~'foo push~ store and load the value defined by ~foo~, respectively.
