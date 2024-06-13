@@ -10,6 +10,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -34,6 +35,10 @@ public class JavaProjectBuilder {
 	}
 	
 	interface BuildContext {
+		public File getPwd();
+		public Map<String,String> getEnv();
+		public BuildContext withEnv(Map<String,String> env);
+		public BuildContext withPwd(File dir);
 		public File tempFile() throws IOException;
 		/** Create directory and any parents if they do not exist */
 		public void mkdir(File dir) throws IOException;
@@ -44,6 +49,30 @@ public class JavaProjectBuilder {
 	}
 	
 	static class HostBuildContext implements BuildContext {
+		final File pwd;
+		final Map<String,String> env;
+		
+		static final HostBuildContext instance = new HostBuildContext(new File("."), Collections.emptyMap());
+		
+		static HostBuildContext fromEnv() {
+			return new HostBuildContext(new File("."), System.getenv());
+		}
+		
+		private HostBuildContext(File pwd, Map<String,String> env) {
+			this.pwd = pwd;
+			this.env = Collections.unmodifiableMap(env);
+		}
+		
+		@Override public Map<String, String> getEnv() { return env; }
+		@Override public File getPwd() { return pwd; }
+		
+		public BuildContext withEnv(Map<String,String> env) {
+			return new HostBuildContext(this.pwd, env);
+		}
+		public BuildContext withPwd(File dir) {
+			return new HostBuildContext(pwd, this.env);
+		}
+		
 		static String fum(Date d) {
 			return d.getYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
 		}
@@ -64,11 +93,6 @@ public class JavaProjectBuilder {
 		}
 		
 		@Override public int runCmd(String[] args, Object[] io) throws IOException {
-			// Maybe BuildContext should have withCwd and withEnv methods
-			// that create a new one with the given stuff.
-			// Until then:
-			File pwd = new File(".");
-			Map<String,String> env = System.getenv();
 			return SysProcRunner.doSysProc(args, 0, pwd, env, io);
 		}
 		
@@ -234,7 +258,12 @@ public class JavaProjectBuilder {
 		File destDir = new File(destPath);
 		ctx.mkdir(destDir);
 		
-		String[] javacCmd = new String[] { "javac", "-source", "1.6", "-target", "1.6" };
+		String sourceVer = ctx.getEnv().get("JAVAC_SOURCE_VERSION");
+		if( sourceVer == null || sourceVer.isEmpty() ) sourceVer = "1.6";
+		String targetVer = ctx.getEnv().get("JAVAC_TARGET_VERSION");
+		if( targetVer == null || targetVer.isEmpty() ) targetVer = "1.6";
+		
+		String[] javacCmd = new String[] { "javac", "-source", sourceVer, "-target", targetVer };
 		String[] javacOpts = new String[] { "-d", destPath };
 		String[] argv = concat(javacCmd, javacOpts, sourceNames);
 		int exitCode = ctx.runCmd(argv, new Object[] {null,null,errout} );
@@ -383,6 +412,6 @@ public class JavaProjectBuilder {
 	}
 	
 	public static void main(String[] args) {
-		System.exit(main(args, 0, System.out, System.err, new HostBuildContext()));
+		System.exit(main(args, 0, System.out, System.err, HostBuildContext.fromEnv()));
 	}
 }
