@@ -37,10 +37,16 @@ public class P0019 {
 	public static String NAME = "TS34.19";
 	public static String VERSION = "0.0.3";
 	
-	public static int EXITCODE_NORMAL = 0;
+	public static final int EXIT_CODE_NORMAL = 0;
+	public static final int EXIT_CODE_EXCEPTION = 1;
+	public static final int EXIT_CODE_USAGE_ERROR = 2; // 'Misuse of shell built-in', also used by JCR36
+	public static final int EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1 = 3;
+	public static final int EXIT_CODE_PIPING_ERROR = 23; // From JCR36
+	// Borrowing some 'standard Linux exit codes':
+	public static final int EXIT_CODE_COMMAND_NOT_FOUND = 127; // From JCR36
+	public static final int EXIT_CODE_INVALID_EXIT_ARGUMENT = 128; // From JCR36
 	// Program tried to read from input, but input's closed
-	public static int EXITCODE_READ_END = -15;
-	public static int EXITCODE_EXCEPTION = 1;
+	public static final int EXIT_CODE_READ_END = -15;
 	
 	public static String OP_OPEN_PROC = "http://ns.nuke24.net/TScript34/Ops/OpenProcedure";
 	public static String OP_CLOSE_PROC = "http://ns.nuke24.net/TScript34/Ops/CloseProcedure";
@@ -680,7 +686,7 @@ public class P0019 {
 				} else if( decoded instanceof Exception ) {
 					System.err.println("Exception while interpreting program");
 					((Exception)decoded).printStackTrace(System.err);
-					return EXITCODE_EXCEPTION;
+					return EXIT_CODE_EXCEPTION;
 				} else {
 					throw new RuntimeException("Don't know how to handle "+decoded);
 				}
@@ -801,10 +807,10 @@ public class P0019 {
 				});
 				if( params.expectedExitCode == exitCode ) {
 					// System.out.println("# Got correct exit code, "+params.expectedExitCode+", from script "+ts);
-					return 0;
+					return EXIT_CODE_NORMAL;
 				} else {
 					System.err.println("Expected exit code "+params.expectedExitCode+" but got "+exitCode+" from script "+ts);
-					return 1;
+					return EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1;
 				}
 			} finally {
 				scriptInputStream.close();
@@ -812,7 +818,7 @@ public class P0019 {
 		} catch( Exception e ) {
 			System.err.println("Exception while running "+ts);
 			e.printStackTrace(System.err);
-			return 1;
+			return EXIT_CODE_EXCEPTION;
 		}
 	}
 	
@@ -828,7 +834,7 @@ public class P0019 {
 		}
 		if( count == 0 ) {
 			System.err.println("No test scripts found in "+dir);
-			return 1;
+			return EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1;
 		}
 		System.out.println("# Ran "+count+" test scripts, got "+errorCount+" failures");
 		if( errorCount > 0 ) {

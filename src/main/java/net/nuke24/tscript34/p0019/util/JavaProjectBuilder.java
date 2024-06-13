@@ -37,7 +37,7 @@ public class JavaProjectBuilder {
 		public File tempFile() throws IOException;
 		/** Create directory and any parents if they do not exist */
 		public void mkdir(File dir) throws IOException;
-		public int runCmd(String[] args) throws IOException;
+		public int runCmd(String[] args, Object[] io) throws IOException;
 		public OutputStreamable getStreamable(File file) throws IOException;
 		public OutputStreamable getStreamable(String name) throws IOException;
 		public void putFile(File f, OutputStreamable blob) throws IOException;
@@ -63,20 +63,13 @@ public class JavaProjectBuilder {
 			}
 		}
 		
-		@Override public int runCmd(String[] args) throws IOException {
-			StringBuilder sb = new StringBuilder("$");
-			for( String arg : args ) {
-				sb.append(" "+arg);
-			}
-			debug("Running "+sb.toString()+"...");
-			ProcessBuilder pb = new ProcessBuilder(args);
-			Process proc = pb.start();
-			try {
-				return proc.waitFor();
-			} catch (InterruptedException e) {
-				proc.destroy();
-				return -1;
-			}
+		@Override public int runCmd(String[] args, Object[] io) throws IOException {
+			// Maybe BuildContext should have withCwd and withEnv methods
+			// that create a new one with the given stuff.
+			// Until then:
+			File pwd = new File(".");
+			Map<String,String> env = System.getenv();
+			return SysProcRunner.doSysProc(args, 0, pwd, env, io);
 		}
 		
 		@Override public OutputStreamable getStreamable(File file) throws IOException {
@@ -237,21 +230,26 @@ public class JavaProjectBuilder {
 		return result;
 	}
 	
-	static void javac(String[] sourceNames, String destPath, BuildContext ctx) throws IOException {
+	static void javac(String[] sourceNames, String destPath, OutputStream errout, BuildContext ctx) throws IOException {
 		File destDir = new File(destPath);
 		ctx.mkdir(destDir);
 		
 		String[] javacCmd = new String[] { "javac", "-source", "1.6", "-target", "1.6" };
 		String[] javacOpts = new String[] { "-d", destPath };
 		String[] argv = concat(javacCmd, javacOpts, sourceNames);
-		int exitCode = ctx.runCmd(argv);
+		int exitCode = ctx.runCmd(argv, new Object[] {null,null,errout} );
 		if( exitCode != 0 ) {
 			throw new IOException("javac exited with status: "+exitCode);
 		}
 	}
 	
 	// TODO: Take a list of source root - javac options objects, to configure java version, etc
-	static <T,E> T compileJar(List<File> sourceRoots, List<File> resourceRoots, Map<String,OutputStreamable> otherContent, BuildContext ctx, Procedure<OutputStreamable,? super BuildContext,? extends IOException,T> dest) throws IOException {
+	static <T,E> T compileJar(List<File> sourceRoots, List<File> resourceRoots,
+			Map<String,OutputStreamable> otherContent,
+			OutputStream errout,
+			BuildContext ctx,
+			Procedure<OutputStreamable,? super BuildContext,? extends IOException,T> dest
+		) throws IOException {
 		final Map<String,OutputStreamable> jarContents = new LinkedHashMap<String,OutputStreamable>();
 		
 		OutputStreamable sourcesList = new OutputStreamable() {
@@ -283,7 +281,8 @@ public class JavaProjectBuilder {
 		} else {
 			File destPath = ctx.tempFile();
 			ctx.mkdir(destPath);
-			javac(new String[] { "@"+sourcesListFile.getPath() }, destPath.getPath(), ctx);
+			// TODO
+			javac(new String[] { "@"+sourcesListFile.getPath() }, destPath.getPath(), errout, ctx);
 			
 			walk(destPath, "", add2Jar);
 			todo("Collect compiled .class files to put into jarContents");
@@ -365,12 +364,16 @@ public class JavaProjectBuilder {
 			}
 			final String _outPath = outPath;
 			
-			compileJar(sourceRoots, resourceRoots, otherContent, ctx, new Procedure<OutputStreamable, BuildContext, IOException, Void>() {
-				public Void apply(OutputStreamable jar, BuildContext context) throws IOException {
-					writeTo(jar, _outPath, stdout, ctx);
-					return null;
+			compileJar(
+				sourceRoots, resourceRoots, otherContent,
+				errout, ctx,
+				new Procedure<OutputStreamable, BuildContext, IOException, Void>() {
+					public Void apply(OutputStreamable jar, BuildContext context) throws IOException {
+						writeTo(jar, _outPath, stdout, ctx);
+						return null;
+					}
 				}
-			});
+			);
 			
 			return 0;
 		} catch( Exception e ) {
