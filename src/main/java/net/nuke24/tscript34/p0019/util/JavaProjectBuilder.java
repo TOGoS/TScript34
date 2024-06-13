@@ -314,7 +314,6 @@ public class JavaProjectBuilder {
 			javac(new String[] { "@"+sourcesListFile.getPath() }, destPath.getPath(), errout, ctx);
 			
 			walk(destPath, "", add2Jar);
-			todo("Collect compiled .class files to put into jarContents");
 		}
 		
 		for( File resourceRoot : resourceRoots ) {
@@ -418,6 +417,8 @@ public class JavaProjectBuilder {
 	}
 	
 	public static void main(String[] args) {
-		System.exit(main(args, 0, System.out, System.err, HostBuildContext.fromEnv()));
+		int exitCode = main(args, 0, System.out, System.err, HostBuildContext.fromEnv());
+		debug("Exiting with code "+exitCode);
+		System.exit(exitCode);
 	}
 }
