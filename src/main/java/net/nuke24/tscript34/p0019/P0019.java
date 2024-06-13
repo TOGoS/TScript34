@@ -188,10 +188,7 @@ public class P0019 {
 		}
 	}
 	
-	// TODO: For this system to work at all
-	// the stack elements and effects are all of type Object.
-	// Maybe just remove the type parameters.  :P
-	interface StackyBlockOp<A,E> {
+	interface StackyBlockOp {
 		/**
 		 * Instructions can directly read and modify the stack.
 		 * Anything else requires returning an effect.
@@ -199,19 +196,19 @@ public class P0019 {
 		 * the return value (if the effect calls for one) pushed onto the stack.
 		 * Return null to not request an effect.
 		 */
-		public E execute(List<A> stack);
+		public Object execute(List<Object> stack);
 	}
-	static class BeginBlockOp<V> implements StackyBlockOp<V,Object> {
-		public final EndBlockOp<Object> instance = new EndBlockOp<Object>();
+	static class BeginBlockOp implements StackyBlockOp {
+		public final EndBlockOp instance = new EndBlockOp();
 		private BeginBlockOp() { }
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			return new RuntimeException("Begin block op should not be executed");
 		}
 	}
-	static class DropOp<V> implements StackyBlockOp<V,Object> {
-		public static final DropOp<Object> instance = new DropOp<Object>();
+	static class DropOp implements StackyBlockOp {
+		public static final DropOp instance = new DropOp();
 		private DropOp() { }
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			if( stack.size() < 1 ) {
 				return new StackUnderflowException("Stack underflow; Drop requires one item");
 			}
@@ -219,10 +216,10 @@ public class P0019 {
 			return null;
 		}
 	}
-	static class DupOp<V> implements StackyBlockOp<V,Object> {
+	static class DupOp<V> implements StackyBlockOp {
 		public static final DupOp<Object> instance = new DupOp<Object>();
 		private DupOp() { }
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			if( stack.size() < 1 ) {
 				return new StackUnderflowException("Stack underflow; Dup requires one item");
 			}
@@ -230,45 +227,45 @@ public class P0019 {
 			return null;
 		}
 	}
-	static class ExchOp<V> implements StackyBlockOp<V,Object> {
+	static class ExchOp<V> implements StackyBlockOp {
 		public static final ExchOp<Object> instance = new ExchOp<Object>();
 		private ExchOp() { }
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			if( stack.size() < 2 ) {
 				return new StackUnderflowException("Stack underflow; Exch requires two items");
 			}
-			V a = stack.get(stack.size()-1);
+			Object a = stack.get(stack.size()-1);
 			stack.set(stack.size()-1, stack.get(stack.size()-2));
 			stack.set(stack.size()-1, a);
 			return null;
 		}
 	}
-	static class EndBlockOp<V> implements StackyBlockOp<V,Object> {
-		public final EndBlockOp<Object> instance = new EndBlockOp<Object>();
+	static class EndBlockOp implements StackyBlockOp {
+		public final EndBlockOp instance = new EndBlockOp();
 		private EndBlockOp() { }
-		public Object execute(List<V> stack) {
+		public Object execute(List<Object> stack) {
 			return new RuntimeException("End block op should not be executed");
 		}
 	}
 	/** -- value */
-	static class PushOp<V> implements StackyBlockOp<V,Object> {
-		public static <V> PushOp<V> of(V value) {
-			return new PushOp<V>(value);
+	static class PushOp implements StackyBlockOp {
+		public static PushOp of(Object value) {
+			return new PushOp(value);
 		}
-		final V value;
-		protected PushOp(V value) {
+		final Object value;
+		private PushOp(Object value) {
 			this.value = value;
 		}
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			stack.add(value);
 			return null;
 		}
 	}
 	/** thing --{ emit thing }-- */
-	static class PopAndEmitOp<V> implements StackyBlockOp<V,Object> {
-		public static final PopAndEmitOp<Object> instance = new PopAndEmitOp<Object>();
+	static class PopAndEmitOp implements StackyBlockOp {
+		public static final PopAndEmitOp instance = new PopAndEmitOp();
 		private PopAndEmitOp() {}
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			if( stack.size() < 1 ) {
 				return new StackUnderflowException("Emit requires one item on the stack");
 			}
@@ -276,26 +273,26 @@ public class P0019 {
 			return new Emit<Object, Object>(null, v);
 		}
 	}
-	static class EffectOp<V,E> implements StackyBlockOp<V,E> {
-		final E effect;
-		public EffectOp(E effect) {
+	static class EffectOp implements StackyBlockOp {
+		final Object effect;
+		public EffectOp(Object effect) {
 			this.effect = effect;
 		}
-		@Override public E execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			return effect;
 		}
 	}
 	// Pops a return continuation and list of ops from the stack and jumps to it!
 	// (op-list return-continuation --)  
-	static class PopAndJumpOp<V> implements StackyBlockOp<V,Object> {
+	static class PopAndJumpOp<V> implements StackyBlockOp {
 		public static final PopAndJumpOp<Object> instance = new PopAndJumpOp<Object>();
 		private PopAndJumpOp() {}
 		@SuppressWarnings({ "unchecked", "rawtypes" })
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			Object contObj = stack.remove(stack.size()-1);
 			Object opsObj = stack.remove(stack.size()-1);
 			try {
-				Continuation<StackyBlockOp<V,Object>> cont = (Continuation<StackyBlockOp<V,Object>>)contObj;
+				Continuation<StackyBlockOp> cont = (Continuation<StackyBlockOp>)contObj;
 				List<?> ops = (List<?>)opsObj;
 				return new Continuation(ops, 0, cont);
 			} catch( ClassCastException e ) {
@@ -304,35 +301,40 @@ public class P0019 {
 			}
 		}
 	}
-	static class ReturnOp<V> implements StackyBlockOp<V,Object> {
+	static class ReturnOp<V> implements StackyBlockOp {
 		public static final ReturnOp<Object> instance = new ReturnOp<Object>();
 		private ReturnOp() {}
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			return new ReturnWithValue<Object>(Collections.unmodifiableList(stack));
 		}
 	}
-	static class PopAndQuitWithCodeOp<V> implements StackyBlockOp<V,Object> {
-		public static final PopAndQuitWithCodeOp<Object> instance = new PopAndQuitWithCodeOp<Object>();
+	static class PopAndQuitWithCodeOp implements StackyBlockOp {
+		public static final PopAndQuitWithCodeOp instance = new PopAndQuitWithCodeOp();
 		private PopAndQuitWithCodeOp() {}
-		@Override public Object execute(List<V> stack) {
+		@Override public Object execute(List<Object> stack) {
 			Object v = stack.remove(stack.size()-1);
 			return new QuitWithCode(toInt(v));
 		}
 	}
 	// (sequence item -- sequence+item)
-	static class AppendOp implements StackyBlockOp<Object,Object> {
+	static class AppendOp implements StackyBlockOp {
 		public static final AppendOp instance = new AppendOp();
 		@Override
 		public Object execute(List<Object> stack) {
 			Object item = stack.remove(stack.size()-1);
-			List<Object> list = (List<Object>)stack.remove(stack.size()-1);
+			Object hopefullyAList = stack.remove(stack.size()-1);
+			if( !(hopefullyAList instanceof List<?>) ) {
+				return new RuntimeException("Append, for now, requires sequence argument to implement List; got "+DebugFormat.toDebugString(hopefullyAList));
+			}
+			@SuppressWarnings("unchecked")
+			List<Object> list = (List<Object>)hopefullyAList;
 			List<Object> newList = new ArrayList<Object>(list);
 			newList.add(item);
 			stack.add(newList);
 			return null;
 		}
 	}
-	static class ConcatNOp implements StackyBlockOp<Object,Object> {
+	static class ConcatNOp implements StackyBlockOp {
 		public static final ConcatNOp instance = new ConcatNOp();
 		@Override public Object execute(List<Object> stack) {
 			int n = toInt(stack.remove(stack.size()-1));
@@ -347,7 +349,7 @@ public class P0019 {
 			return null;
 		}
 	}
-	static class CountToOp implements StackyBlockOp<Object,Object> {
+	static class CountToOp implements StackyBlockOp {
 		public static final CountToOp countToMark = new CountToOp(MARK);
 		protected final Object mark;
 		public CountToOp(Object mark) {
@@ -364,7 +366,7 @@ public class P0019 {
 		}
 	}
 	
-	static final Map<String,StackyBlockOp<Object,Object>> STANDARD_OPS = new HashMap<String,StackyBlockOp<Object,Object>>();
+	static final Map<String,StackyBlockOp> STANDARD_OPS = new HashMap<String,StackyBlockOp>();
 	static {
 		STANDARD_OPS.put(OP_DROP, DropOp.instance);
 		STANDARD_OPS.put(OP_DUP ,  DupOp.instance);
@@ -414,35 +416,35 @@ public class P0019 {
 		}
 	}
 	
-	static class StackyBlockInterpreterState<A,E> implements InterpreterState<A, E> {
+	static class StackyBlockInterpreterState implements InterpreterState<Object, Object> {
 		public static final Object PushCurrentReturnContinuation = new Object();
 		
 		// Might replace this with a stack of them, i.e. the return stack
-		final E request;
-		final Continuation<StackyBlockOp<A,E>> next;
-		final List<A> dataStack;
+		final Object request;
+		final Continuation<StackyBlockOp> next;
+		final List<Object> dataStack;
 		
 		public StackyBlockInterpreterState(
-			E request,
-			Continuation<StackyBlockOp<A,E>> next,
-			List<A> dataStack
+			Object request,
+			Continuation<StackyBlockOp> next,
+			List<Object> dataStack
 		) {
 			this.request = request;
 			this.next = next;
 			this.dataStack = dataStack;
 		}
-		@Override public E getRequest() { return request; }
+		@Override public Object getRequest() { return request; }
 		@SuppressWarnings("unchecked")
 		@Override
-		public InterpreterState<A,E> advance(A arg, int maxSteps) {
-			List<StackyBlockOp<A,E>> instructions = next.block;
-			List<A> stack = new ArrayList<A>(dataStack);
-			Continuation<StackyBlockOp<A,E>> returnTo = next.returnTo;
+		public InterpreterState<Object,Object> advance(Object arg, int maxSteps) {
+			List<StackyBlockOp> instructions = next.block;
+			List<Object> stack = new ArrayList<Object>(dataStack);
+			Continuation<StackyBlockOp> returnTo = next.returnTo;
 			if( arg != null ) {
 				stack.add(arg);
 			}
 			int ip = next.index;
-			E request = null;
+			Object request = null;
 			while( request == null && ip < instructions.size() && maxSteps-- > 0 ) {
 				if( ip == IP_EXIT_INTERP_LOOP ) {
 					// By convention, the top value on the stack is 'the return value'.
@@ -453,34 +455,34 @@ public class P0019 {
 					// or maybe the return value should just be the entire stack!
 					// ...which might actually make more sense and
 					// give continuation handling better symmetry.)
-					return new ReturnInterpreterState<A,E>((E)new ReturnWithValue<List<A>>(Collections.unmodifiableList(stack)));
+					return new ReturnInterpreterState<Object,Object>(new ReturnWithValue<List<Object>>(Collections.unmodifiableList(stack)));
 				}
 				if( ip < 0 ) {
 					throw new RuntimeException("Bad instruction pointer: "+ip);
 				}
 				request = instructions.get(ip++).execute(stack);
 				if( request == PushCurrentReturnContinuation ) {
-					stack.add((A)returnTo);
+					stack.add(returnTo);
 					request = null;
 				} else if( request instanceof ReturnWithValue<?> ) {
-					ReturnWithValue<List<A>> ret = (ReturnWithValue<List<A>>)request;
+					ReturnWithValue<List<Object>> ret = (ReturnWithValue<List<Object>>)request;
 					if( ret.value == null || !(ret.value instanceof List<?>) ) {
 						throw new RuntimeException("ReturnWithValue value should be a whole stack, a List<Object>; got "+DebugFormat.toDebugString(ret.value));
 					}
 					stack = ret.value;
-					request = (E) returnTo;
+					request = returnTo;
 				}
 				// Continuation = JumpTo(Continuation);
 				// I just was lazy and didn't want to add a new object.
 				if( request instanceof Continuation ) {
-					Continuation<StackyBlockOp<A,E>> continuation = (Continuation<StackyBlockOp<A,E>>)request;
+					Continuation<StackyBlockOp> continuation = (Continuation<StackyBlockOp>)request;
 					instructions = continuation.block;
 					ip = continuation.index;
 					returnTo = continuation.returnTo;
 					request = null;
 				}
 			}
-			Continuation<StackyBlockOp<A,E>> continuation;
+			Continuation<StackyBlockOp> continuation;
 			if( request == null ) {
 				assert ip == instructions.size();
 				continuation = returnTo;
@@ -488,7 +490,7 @@ public class P0019 {
 				// Reached to end of program!
 				// Let's say for now that this is an error.
 				// If you want to return, add a return op.
-				request = (E)new EndOfProgramReached();
+				request = new EndOfProgramReached();
 				// actually for now, let reaching end of program
 				// is an implicit return, to make the read-execute loop
 				// work even though it's not explicitly adding
@@ -496,9 +498,9 @@ public class P0019 {
 				// (since it doesn't know if it's immediately executing
 				// or making a procedure, asjndkajsndkaj)
 			} else {
-				continuation = new Continuation<StackyBlockOp<A, E>>(instructions, ip, returnTo);
+				continuation = new Continuation<StackyBlockOp>(instructions, ip, returnTo);
 			}
-			return new StackyBlockInterpreterState<A,E>(
+			return new StackyBlockInterpreterState(
 				request,
 				continuation,
 				Collections.unmodifiableList(stack)
@@ -507,14 +509,14 @@ public class P0019 {
 	}
 	
 	@SuppressWarnings("unchecked")
-	static List<StackyBlockOp<Object,Object>> readAndJumpOps(
-		Object readOpsRequest,
-		Continuation<StackyBlockOp<Object,Object>> andThen,
-		Continuation<StackyBlockOp<Object,Object>> onEof
+	static List<StackyBlockOp> readAndJumpOps(
+		final Object readOpsRequest,
+		final Continuation<StackyBlockOp> andThen,
+		final Continuation<StackyBlockOp> onEof
 	) {
-		final ArrayList<StackyBlockOp<Object,Object>> rjOps = new ArrayList<StackyBlockOp<Object,Object>>();
-		rjOps.add(new EffectOp<Object,Object>(readOpsRequest));
-		rjOps.add(new StackyBlockOp<Object,Object>() {
+		final ArrayList<StackyBlockOp> rjOps = new ArrayList<StackyBlockOp>();
+		rjOps.add(new EffectOp(readOpsRequest));
+		rjOps.add(new StackyBlockOp() {
 			@Override public Object execute(List<Object> stack) {
 				List<Object> opsRead = (List<Object>)stack.get(stack.size()-1);
 				if( opsRead.size() == 0 ) {
@@ -525,15 +527,13 @@ public class P0019 {
 			}
 		});
 		// newOps
-		rjOps.add(new PushOp<Object>(
-			new EffectOp<Object,Object>(andThen)
-		));
+		rjOps.add(PushOp.of(new EffectOp(andThen)));
 		// newOps jumpToContinuatoin 
 		rjOps.add(AppendOp.instance);
 		// newOps+jumpToContinuation
-		rjOps.add(new EffectOp<Object,Object>(StackyBlockInterpreterState.PushCurrentReturnContinuation));
+		rjOps.add(new EffectOp(StackyBlockInterpreterState.PushCurrentReturnContinuation));
 		// newOps+jumpToContinuation returnTo
-		rjOps.add((StackyBlockOp<Object,Object>)PopAndJumpOp.instance);
+		rjOps.add((StackyBlockOp)PopAndJumpOp.instance);
 		return rjOps;
 	}
 	
@@ -609,18 +609,18 @@ public class P0019 {
 				} else if( OP_PRINT_LINE.equals(tokens[0]) ) {
 					// For now, print is just an emit
 					ops.add(PopAndEmitOp.instance);
-					ops.add(new PushOp<Object>("\n"));
+					ops.add(PushOp.of("\n"));
 					ops.add(PopAndEmitOp.instance);
 				} else if( OPC_PUSH_VALUE.equals(tokens[0]) ) {
 					Object value = decodeTs34(tokens,1);
-					ops.add(new PushOp<Object>(value));
+					ops.add(PushOp.of(value));
 				} else if( OPC_PUSH_SYMBOL.equals(tokens[0]) ) {
 					if( tokens.length != 2 ) {
 						throw new RuntimeException(OPC_PUSH_SYMBOL+" requires exactly one argument");
 					}
-					ops.add(new PushOp<Symbol>(new Symbol(tokens[1])));
+					ops.add(PushOp.of(new Symbol(tokens[1])));
 				} else if( OP_PUSH_MARK.equals(tokens[0]) ) {
-					ops.add(new PushOp<Symbol>(MARK));
+					ops.add(PushOp.of(MARK));
 				} else if( OP_RETURN.equals(tokens[0]) ) {
 					ops.add(ReturnOp.instance);
 				} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
@@ -710,24 +710,24 @@ public class P0019 {
 	static TopLevelReturnHandlingMode tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
 	
 	public static int runProgramFrom(
-		InputStream inputStream,
-		boolean interactive,
-		Consumer<Object> emitter
+		final InputStream inputStream,
+		final boolean interactive,
+		final Consumer<Object> emitter
 	) {
 		BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
 		
-		List<StackyBlockOp<Object,Object>> onReturnProgram = new ArrayList<StackyBlockOp<Object,Object>>();
+		List<StackyBlockOp> onReturnProgram = new ArrayList<StackyBlockOp>();
 		if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
 			onReturnProgram.add(PopAndQuitWithCodeOp.instance);
 		} else {
 			onReturnProgram.add(ReturnOp.instance);
 		}
 		
-		List<StackyBlockOp<Object,Object>> onEofProgram = new ArrayList<StackyBlockOp<Object,Object>>();
+		List<StackyBlockOp> onEofProgram = new ArrayList<StackyBlockOp>();
 		onEofProgram.add(PushOp.of(0));
 		onEofProgram.addAll(onReturnProgram);
 		
-		List<StackyBlockOp<Object,Object>> program = new ArrayList<StackyBlockOp<Object,Object>>();
+		List<StackyBlockOp> program = new ArrayList<StackyBlockOp>();
 		if( interactive ) {
 			program.add(PushOp.of("# Hello, world!\n"));
 			program.add(PopAndEmitOp.instance);
@@ -737,10 +737,10 @@ public class P0019 {
 			program.add(PopAndEmitOp.instance);
 		}
 		
-		Continuation<StackyBlockOp<Object,Object>> onReturn = Continuation.to(onReturnProgram, 0, Continuation.exitInterpLoop());
-		Continuation<StackyBlockOp<Object,Object>> onEof =  Continuation.to(onEofProgram, 0, Continuation.exitInterpLoop());
+		Continuation<StackyBlockOp> onReturn = Continuation.<StackyBlockOp>to(onReturnProgram, 0, Continuation.<StackyBlockOp>exitInterpLoop());
+		Continuation<StackyBlockOp> onEof =  Continuation.<StackyBlockOp>to(onEofProgram, 0, Continuation.<StackyBlockOp>exitInterpLoop());
 		
-		Continuation<StackyBlockOp<Object,Object>> reLoop = Continuation.to(program, program.size(), onReturn);
+		Continuation<StackyBlockOp> reLoop = Continuation.<StackyBlockOp>to(program, program.size(), onReturn);
 		
 		program.addAll(readAndJumpOps(BabbyInterpreterHarness.readOpsRequest, reLoop, onEof));
 		
@@ -749,9 +749,9 @@ public class P0019 {
 		program.add(PopAndReturnOp.instance);
 		*/
 		
-		InterpreterState<Object,Object> interpreterState = new StackyBlockInterpreterState<Object, Object>(
+		InterpreterState<Object,Object> interpreterState = new StackyBlockInterpreterState(
 			null,
-			new Continuation<StackyBlockOp<Object,Object>>(program, 0, reLoop),
+			new Continuation<StackyBlockOp>(program, 0, reLoop),
 			new ArrayList<Object>()
 		);
 		
@@ -768,6 +768,7 @@ public class P0019 {
 	}
 	
 	static final Pattern DIRECTIVE_PATTERN = Pattern.compile("#(\\S+)(?:\\s*(.*))");
+	@SuppressWarnings("resource")
 	static TestScriptParameters loadTestScriptParameters(File ts) throws IOException {
 		TestScriptParameters params = new TestScriptParameters();
 		FileInputStream scriptInputStream = new FileInputStream(ts);

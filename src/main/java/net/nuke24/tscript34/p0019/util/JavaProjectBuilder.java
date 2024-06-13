@@ -6,9 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.PrintStream;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -52,15 +50,15 @@ public class JavaProjectBuilder {
 		final File pwd;
 		final Map<String,String> env;
 		
-		static final HostBuildContext instance = new HostBuildContext(new File("."), Collections.emptyMap());
-		
-		static HostBuildContext fromEnv() {
-			return new HostBuildContext(new File("."), System.getenv());
-		}
-		
 		private HostBuildContext(File pwd, Map<String,String> env) {
 			this.pwd = pwd;
 			this.env = Collections.unmodifiableMap(env);
+		}
+		
+		static final HostBuildContext instance = new HostBuildContext(new File("."), Collections.<String,String>emptyMap());
+		
+		static HostBuildContext fromEnv() {
+			return new HostBuildContext(new File("."), System.getenv());
 		}
 		
 		@Override public Map<String, String> getEnv() { return env; }
@@ -273,23 +271,25 @@ public class JavaProjectBuilder {
 	}
 	
 	// TODO: Take a list of source root - javac options objects, to configure java version, etc
-	static <T,E> T compileJar(List<File> sourceRoots, List<File> resourceRoots,
-			Map<String,OutputStreamable> otherContent,
-			OutputStream errout,
-			BuildContext ctx,
-			Procedure<OutputStreamable,? super BuildContext,? extends IOException,T> dest
-		) throws IOException {
+	static <T,E> T compileJar(
+		final List<File> sourceRoots,
+		final List<File> resourceRoots,
+		final Map<String,OutputStreamable> otherContent,
+		final OutputStream errout,
+		final BuildContext ctx,
+		final Procedure<OutputStreamable,? super BuildContext,? extends IOException,T> dest
+	) throws IOException {
 		final Map<String,OutputStreamable> jarContents = new LinkedHashMap<String,OutputStreamable>();
 		
 		OutputStreamable sourcesList = new OutputStreamable() {
 			@Override
 			public void writeTo(OutputStream os) throws IOException {
-				Writer ps = new OutputStreamWriter(os);
+				final PrintStream ps = StreamUtil.toPrintStream(os);
 				for( File sr : sourceRoots ) {
 					walk(sr, sr.getPath(), new ThrowingBiConsumer<File,String,IOException>() {
 						@Override
 						public void accept(File a, String b) throws IOException {
-							ps.write(b+"\n");
+							ps.println(b);
 						}
 					});
 				}
@@ -345,7 +345,12 @@ public class JavaProjectBuilder {
 	static final Pattern INCLUDE_ITEM_PATTERN = Pattern.compile("--item:([^=]+)=(.*)");
 	static final Pattern RESOURCES_ROOT_ARG_PATTERN = Pattern.compile("--resources=(.*)");
 	
-	public static int main(String[] args, int argi, PrintStream stdout, PrintStream errout, BuildContext ctx) {
+	public static int main(
+		final String[] args, int argi,
+		final PrintStream stdout,
+		final PrintStream errout,
+		BuildContext ctx
+	) {
 		try {
 			ArrayList<File> sourceRoots = new ArrayList<File>();
 			ArrayList<File> resourceRoots = new ArrayList<File>();
@@ -392,13 +397,14 @@ public class JavaProjectBuilder {
 				return 1;
 			}
 			final String _outPath = outPath;
+			final BuildContext _ctx = ctx;
 			
 			compileJar(
 				sourceRoots, resourceRoots, otherContent,
 				errout, ctx,
 				new Procedure<OutputStreamable, BuildContext, IOException, Void>() {
 					public Void apply(OutputStreamable jar, BuildContext context) throws IOException {
-						writeTo(jar, _outPath, stdout, ctx);
+						writeTo(jar, _outPath, stdout, _ctx);
 						return null;
 					}
 				}
