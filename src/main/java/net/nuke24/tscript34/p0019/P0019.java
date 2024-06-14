@@ -469,7 +469,7 @@ public class P0019 {
 					if( ret.value == null || !(ret.value instanceof List<?>) ) {
 						throw new RuntimeException("ReturnWithValue value should be a whole stack, a List<Object>; got "+DebugFormat.toDebugString(ret.value));
 					}
-					stack = ret.value;
+					stack = new ArrayList<Object>(ret.value);
 					request = returnTo;
 				}
 				// Continuation = JumpTo(Continuation);
