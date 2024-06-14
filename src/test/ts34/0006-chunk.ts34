@@ -1,0 +1,9 @@
+#lang tscript34.2
+#CHUNK 13 --id=hithere
+Hello,
+world!
+#ENDCHUNK
+#expect-output Hello,
+#expect-output world!
+http://ns.nuke24.net/TScript34/Op/PushValue hithere
+http://ns.nuke24.net/TScript34/Ops/PrintLine

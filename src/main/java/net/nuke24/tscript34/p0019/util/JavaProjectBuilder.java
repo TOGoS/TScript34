@@ -24,14 +24,10 @@ import net.nuke24.tscript34.p0019.iface.InputStreamSource;
 import net.nuke24.tscript34.p0019.iface.OutputStreamable;
 import net.nuke24.tscript34.p0019.iface.Procedure;
 
+import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
+import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
+
 public class JavaProjectBuilder {
-	static <T> T todo(String message) {
-		throw new RuntimeException("TODO: "+message);
-	}
-	static void debug(String message) {
-		System.err.println("#DEBUG "+message);
-	}
-	
 	interface BuildContext {
 		public File getPwd();
 		public Map<String,String> getEnv();

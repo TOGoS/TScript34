@@ -4,6 +4,10 @@ package net.nuke24.tscript34.p0019.value;
  * Abstract representation of a sequence made by concatenating
  * several a number of sub-sequences.
  * 
+ * T is the element type, so a contatenation of byte arrays
+ * would be Concatenation<byte>, and a concatenation
+ * of strings would be Concatenation<char>.
+ * 
  * Doesn't actually know the type of its elements,
  * or how sub-sequences are represented!
  * 

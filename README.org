@@ -89,3 +89,40 @@ which might otherwise be solved by Maven),
 it kind of makes sense to shove them in together, at least for now.
 Theoretically this will obsolete TJBuilder, and perhaps also TJFetcher,
 since the language should have built-in support for hash URNs, anyway.
+
+*** 2024-06-14
+
+Thinking on borrowing "#CHUNK" from SGTA in order
+to include big chunks of data in the stream
+without having to encode them as ~data~ URIs.
+
+#+begin_src
+#CHUNK <size in bytes> <command or something?>
+<size bytes of data>
+<optional whitespace, newline>
+#ENDCHUNK [--crc32=<crc>]
+#+end_src
+
+For 'command or something', how about ~--id=urn:bitprint:ABC.123~?
+
+This would cause the interpreter to:
+- Verify the hash, if the ID is recognized as a hash URN
+- Ensure that ~urn:bitprint:ABC.123~ is available
+  for the duration of the rest of the script,
+  e.g. for use by ~PushValue~.
+
+By default, this would only store the blob
+in a scope local to the script.
+~--sector=foosector~ could be specified to indicate
+that the data should be stored longer-term
+in the interpreter's repository.
+- On the one hand this is sort of multiple-responsibilifying.
+- On the other hand, I suppose it's simpler for the interpreter
+  to split up a compound operation than it is to
+  optimize two operations that could have been one.
+- Common case really will be to store that data to a repository.
+
+There should be an equivalent regular op for this.
+I haven't decided what it should look like.
+May want to support ~--foo-option=...~ syntax
+for TS34 ops idk.

@@ -2,15 +2,15 @@
 http://ns.nuke24.net/TScript34/Op/PushValue data:,End.
 
 http://ns.nuke24.net/TScript34/Ops/PushMark
-http://ns.nuke24.net/TScript34/Op/PushValue data:,Hi
+http://ns.nuke24.net/TScript34/Op/PushValue data:,Hi,
 http://ns.nuke24.net/TScript34/Op/PushValue data:,%20
 http://ns.nuke24.net/TScript34/Op/PushValue data:,there!
 http://ns.nuke24.net/TScript34/Ops/CountToMark
 http://ns.nuke24.net/TScript34/P0009/Ops/ConcatN
-# Should print "Hi, there!":
+#expect-output Hi, there!
 http://ns.nuke24.net/TScript34/Ops/PrintLine
 http://ns.nuke24.net/TScript34/Ops/Exch
 http://ns.nuke24.net/TScript34/Ops/Drop
 
-# Should print "End."
+#expect-output End.
 http://ns.nuke24.net/TScript34/Ops/PrintLine

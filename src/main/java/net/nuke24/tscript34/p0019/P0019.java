@@ -1,15 +1,15 @@
 package net.nuke24.tscript34.p0019;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -24,12 +24,16 @@ import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
 import net.nuke24.tscript34.p0019.effect.StackUnderflowException;
+import net.nuke24.tscript34.p0019.effect.StoreData;
 import net.nuke24.tscript34.p0019.iface.Consumer;
 import net.nuke24.tscript34.p0019.iface.InterpreterState;
 import net.nuke24.tscript34.p0019.util.Charsets;
 import net.nuke24.tscript34.p0019.util.DebugFormat;
 import net.nuke24.tscript34.p0019.value.Concatenation;
 import net.nuke24.tscript34.p0019.value.Symbol;
+
+import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
+import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
 
 public class P0019 {
 	public static final Symbol MARK = new Symbol("http://ns.nuke24.net/TScript34/P0019/Constants/Mark");
@@ -40,7 +44,8 @@ public class P0019 {
 	public static final int EXIT_CODE_NORMAL = 0;
 	public static final int EXIT_CODE_EXCEPTION = 1;
 	public static final int EXIT_CODE_USAGE_ERROR = 2; // 'Misuse of shell built-in', also used by JCR36
-	public static final int EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1 = 3;
+	public static final int EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1 = 4;
+	public static final int EXIT_CODE_TEST_SCRIPT_OUTPUT_MISMATCH = 8;
 	public static final int EXIT_CODE_PIPING_ERROR = 23; // From JCR36
 	// Borrowing some 'standard Linux exit codes':
 	public static final int EXIT_CODE_COMMAND_NOT_FOUND = 127; // From JCR36
@@ -91,7 +96,8 @@ public class P0019 {
 				throw new RuntimeException("Failed to decode data URI", e);
 			}
 		} else {
-			throw new RuntimeException("Unrecognized URI '"+uri+"'");
+			return new Symbol(uri);
+			//throw new RuntimeException("Unrecognized URI '"+uri+"'");
 		}
 	}
 	
@@ -541,6 +547,102 @@ public class P0019 {
 		R execute();
 	}
 	
+	interface ZReader {
+		public String readLine() throws IOException;
+		public byte[] readChunk(int maxLen) throws IOException;
+	}
+	static class InputStreamZReader implements ZReader {
+		static final byte[] EMPTY_BUF = new byte[0];
+		
+		byte[] buffered = EMPTY_BUF;
+		byte[] readBuf = new byte[65536];
+		final InputStream is;
+		public InputStreamZReader(InputStream is) {
+			this.is = is;
+		}
+		
+		/**
+		 * Read a chunk of at least one byte,
+		 * unless at EOF, in which case an empty byte array will be returned.
+		 */
+		public byte[] readChunk(int maxLen) throws IOException {
+			if( this.buffered.length > 0 ) {
+				if( this.buffered.length > maxLen ) {
+					try {
+						return Arrays.copyOf(this.buffered, maxLen);
+					} finally {
+						this.buffered = Arrays.copyOfRange(this.buffered, maxLen, this.buffered.length);
+					}
+				}
+				try {
+					return this.buffered;
+				} finally {
+					this.buffered = EMPTY_BUF;
+				}
+			}
+			int z = is.read(this.readBuf, 0, Math.min(maxLen, this.readBuf.length));
+			if( z <= 0 ) return EMPTY_BUF;
+			if( z == this.readBuf.length ) {
+				try {
+					return this.readBuf;
+				} finally {
+					this.readBuf = new byte[65536];
+				}
+			} else {
+				return Arrays.copyOf(this.readBuf, z);
+			}
+		}
+		
+		protected byte[] readChunk() throws IOException {
+			return this.readChunk(this.readBuf.length);
+		}
+		
+		protected void unshift(byte[] data) {
+			if( this.buffered.length > 0 ) {
+				// Can change to handle this case if needed
+				throw new RuntimeException("Can't unshift; some data already buffered!");
+			}
+			this.buffered = data;
+		}
+		
+		@Override
+		public String readLine() throws IOException {
+			byte[] lineBuf = readChunk();
+			if( lineBuf.length == 0 ) return null;
+			
+			int lineBufEnd = lineBuf.length;
+			
+			int chunkReadOffset = lineBuf.length;
+			int searchIndex=0;
+			while( true ) {
+				for( ; searchIndex<lineBufEnd; ++searchIndex ) {
+					if( lineBuf[searchIndex] == '\n' ) {
+						try {
+							return new String(lineBuf, 0, searchIndex, Charsets.UTF8);
+						} finally {
+							unshift(Arrays.copyOfRange(lineBuf, searchIndex+1, chunkReadOffset));
+						}
+					}
+				}
+				
+				// Reached end of current lineBuf without finding it.
+				// Need to buffer more!
+				
+				byte[] more = readChunk();
+				if( more.length == 0 ) {
+					// At EOF!  What we have is all there is.
+					return new String(lineBuf, 0, lineBufEnd);
+				}
+				
+				// Expand lineBuf, read more into it, and continue searching.
+				lineBuf = Arrays.copyOf(lineBuf, lineBufEnd * 2 + more.length);
+				for( int j=0; j<more.length; ++j ) {
+					lineBuf[lineBufEnd++] = more[j];
+				}
+			}
+		}
+	}
+	
 	/** Exercse the InterpreterState API in a minimal way
 	 * 
 	 * Passing the emitter as the 'context'
@@ -555,12 +657,12 @@ public class P0019 {
 		// TODO: Pass a separate ops reader
 		private final boolean interactive;
 		// TODO: Replace lineReader with an op reader
-		private final BufferedReader lineReader;
+		private final ZReader lineReader;
 		private InterpreterState<Object, ?> interpState;
 		private final Consumer<Object> emitter;
 		public BabbyInterpreterHarness(
 			boolean interactive,
-			BufferedReader lineReader,
+			ZReader lineReader,
 			InterpreterState<Object,?> interpState,
 			Consumer<Object> emitter
 		) {
@@ -570,8 +672,11 @@ public class P0019 {
 			this.emitter = emitter;
 		}
 		
+		static final Pattern ID_OPTION_PATTERN = Pattern.compile("--id=(.*)");
+		static final Pattern SECTOR_OPTION_PATTERN = Pattern.compile("--sector=(.*)");
+		
 		/** Read at least one operation */
-		List<Object> readOps() {
+		List<Object> readOps() throws IOException {
 			ArrayList<Object> ops = new ArrayList<Object>();
 			while( true ) {
 				String line;
@@ -585,6 +690,52 @@ public class P0019 {
 				}
 				
 				line = line.trim();
+				if( line.startsWith("#CHUNK") ) {
+					String[] tokens = line.split("\\s+");
+					if( tokens.length < 2 ) {
+						throw new RuntimeException("Bad #CHUNK directive lacks size: "+line);
+					}
+					String id = null;
+					String sectorName = StoreData.SECTOR_SCRIPT_LOCAL;
+					for( int i=2; i<tokens.length; ++i ) {
+						Matcher m;
+						if( (m = ID_OPTION_PATTERN.matcher(tokens[i])).matches() ) {
+							id = m.group(1);
+						} else if( (m = SECTOR_OPTION_PATTERN.matcher(tokens[i])).matches() ) {
+							sectorName = m.group(1);
+						} else {
+							throw new RuntimeException("Unrecognized #CHUNK option: '"+tokens[i]+"'");
+						}
+					}
+					int size;
+					try {
+						size = Integer.parseInt(tokens[1]);
+					} catch( NumberFormatException e ) {
+						throw new RuntimeException(e);
+					}
+					List<byte[]> chunks = new ArrayList<byte[]>();
+					int read = 0;
+					while( read < size ) {
+						byte[] chunk = lineReader.readChunk(size - read);
+						chunks.add(chunk);
+						read += chunk.length;
+					}
+					// Could just store the chunk instead of treating it as an op!
+					// Or, if it is represented as an op, maybe it should be an
+					// explicitly compile-time one.
+					// Even if a #CHUNK appears in a loop, only need to store once,
+					// as it has no effect on the stack.
+					ops.add(new EffectOp(
+						new StoreData(id, sectorName, new Concatenation<Byte>(chunks.toArray()))
+					));
+					return ops;
+				}
+				if( line.startsWith("#ENDCHUNK") ) {
+					// Cool, cool.
+					// Presumably this follows a #CHUNK.
+					// TODO: Enforce #CHUNK ... #ENDCHUNK ordering.
+					continue;
+				}
 				// This would be a good place to look at #lang lines
 				if( line.startsWith("#") ) continue;
 				if( line.isEmpty() ) continue;
@@ -632,6 +783,36 @@ public class P0019 {
 			}
 		}
 		
+		// For now just stick stored data in a map!
+		final Map<String,Object> datastore = new HashMap<String,Object>();
+		
+		protected Object decodeForEmission(Object value) {
+			// Necessary because the thing that serializes
+			// output is outside of this harness, so doesn't
+			// know about the symbols.
+			// Make it work.
+			if( value instanceof Concatenation<?> ) {
+				Concatenation<?> cat = (Concatenation<?>)value;
+				List<Object> decoded = new ArrayList<Object>();
+				for( Object element : cat.children ) {
+					Object dec = decodeForEmission(element);
+					decoded.add(dec);
+				}
+				return new Concatenation<Object>(decoded.toArray());
+			}
+			
+			if( value instanceof Symbol ) {
+				Symbol sym = (Symbol)value;
+				Object res = this.datastore.get(sym.name);
+				if( res != null && res != sym ) {
+					// Warning: potential for infinite recursion if a -> b -> a
+					return decodeForEmission(res);
+				}
+			}
+			
+			return value;
+		}
+		
 		/**
 		 * Decode and handle request,
 		 * transforming it into either a ResumeWith
@@ -640,11 +821,17 @@ public class P0019 {
 		protected Object decodeRequest(Object request) {
 			if( request == null ) {
 				// Nothing to do, booyah!
+				return ResumeWith.blank;
 			} else if( request == readOpsRequest ) {
 				if( interactive ) {
 					this.emitter.accept("# TS34.19> ");
 				}
-				List<Object> ops = readOps();
+				List<Object> ops;
+				try {
+					ops = readOps();
+				} catch(IOException e) {
+					return e;
+				}
 				return new ResumeWith<List<Object>>(ops);
 			} else if( request instanceof Absorb<?> ) {
 				// Ignore channel for now
@@ -659,6 +846,23 @@ public class P0019 {
 				} else {
 					return new ResumeWith<String>(line);
 				}
+			} else if( request instanceof Emit<?,?> ) {
+				Object value = ((Emit<?,?>)request).value;
+				value = decodeForEmission(value);
+				emitter.accept(value);
+				return ResumeWith.blank;
+			} else if( request instanceof StoreData ) {
+				StoreData storeData = (StoreData)request;
+				if( storeData.id == null ) {
+					// Could calculate bitprint URN.
+					return new RuntimeException("Storage request currently requires ID");
+				}
+				if( this.datastore.containsKey(storeData.id) ) {
+					// Maybe actually okay if value is identical.
+					return new RuntimeException("Duplicate item ID: "+storeData.id);
+				}
+				this.datastore.put(storeData.id, storeData.data);
+				return ResumeWith.blank;
 			}
 			return request;
 		}
@@ -667,13 +871,11 @@ public class P0019 {
 			while( true ) {
 				Object request = interpState.getRequest();
 				Object decoded = decodeRequest(request);
-				if( request instanceof Emit<?,?> ) {
-					emitter.accept(((Emit<?,?>)request).value);
-					decoded = ResumeWith.blank;
-				}
-				if( decoded == null ) {
+				/*if( decoded == null ) {
+					// Why allow null when ResumeWith.blank exists?
 					interpState = interpState.advance(null, 100);
-				} else if( decoded instanceof ResumeWith<?> ) {
+				} else */
+				if( decoded instanceof ResumeWith<?> ) {
 					interpState = interpState.advance(((ResumeWith<?>)decoded).value, 100);
 				} else if( decoded instanceof ReturnWithValue<?> ) {
 					@SuppressWarnings("unchecked")
@@ -710,12 +912,10 @@ public class P0019 {
 	static TopLevelReturnHandlingMode tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
 	
 	public static int runProgramFrom(
-		final InputStream inputStream,
+		final ZReader zReader,
 		final boolean interactive,
 		final Consumer<Object> emitter
 	) {
-		BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
-		
 		List<StackyBlockOp> onReturnProgram = new ArrayList<StackyBlockOp>();
 		if( tlrhm == TopLevelReturnHandlingMode.QUIT_PROC ) {
 			onReturnProgram.add(PopAndQuitWithCodeOp.instance);
@@ -757,7 +957,7 @@ public class P0019 {
 		
 		SimpleExecutable<Integer> proc = new BabbyInterpreterHarness(
 			interactive,
-			br, interpreterState, emitter
+			zReader, interpreterState, emitter
 		);
 		
 		return proc.execute().intValue();
@@ -765,6 +965,7 @@ public class P0019 {
 	
 	static class TestScriptParameters {
 		public int expectedExitCode = 0;
+		public String expectedOutput = null;
 	}
 	
 	static final Pattern DIRECTIVE_PATTERN = Pattern.compile("#(\\S+)(?:\\s*(.*))");
@@ -773,15 +974,22 @@ public class P0019 {
 		TestScriptParameters params = new TestScriptParameters();
 		FileInputStream scriptInputStream = new FileInputStream(ts);
 		try {
-			BufferedReader br = new BufferedReader(new InputStreamReader(scriptInputStream));
+			ZReader zreader = new InputStreamZReader(scriptInputStream);
 			String line;
-			while( (line = br.readLine()) != null ) {
+			while( (line = zreader.readLine()) != null ) {
 				Matcher m;
 				if( (m = DIRECTIVE_PATTERN.matcher(line)).matches() ) {
 					if( "lang".equals(m.group(1)) ) {
 						// No-op
+					} else if( "expect-output".equals(m.group(1)) ) {
+						if( params.expectedOutput == null ) {
+							params.expectedOutput = "";
+						}
+						params.expectedOutput += m.group(2) + "\n";
 					} else if( "expect-exit-code".equals(m.group(1)) ) {
 						params.expectedExitCode = Integer.parseInt(m.group(2));
+					} else if( "CHUNK".equals(m.group(1)) ) {
+					} else if( "ENDCHUNK".equals(m.group(1)) ) {
 					} else {
 						throw new RuntimeException("Unrecognized directive: "+line);
 					}
@@ -798,21 +1006,42 @@ public class P0019 {
 		try {
 			TestScriptParameters params = loadTestScriptParameters(ts);
 			FileInputStream scriptInputStream = new FileInputStream(ts);
+			final ByteArrayOutputStream output = new ByteArrayOutputStream();
 			try {
-				int exitCode = runProgramFrom(scriptInputStream, false, new Consumer<Object>() {
+				int exitCode = runProgramFrom(new InputStreamZReader(scriptInputStream), false, new Consumer<Object>() {
 					@Override
 					public void accept(Object value) {
-						// TODO Collect output and dump to stderr
+						// HACK: Ignore informational lines
+						// TODO: Have a separate 'log' that's not 'emit'
+						if( value instanceof String && value.toString().startsWith("# ") ) return;
+						
+						// TODO: Handle the various objects that might be emitted,
+						// translating to bytes!
+						try {
+							writeTo(value, output);
+						} catch( IOException e ) {
+							throw new RuntimeException(e);
+						}
+						// TODO dump output (and error/debug output) to stderr
 						// if program returns non-zero
 					}
 				});
-				if( params.expectedExitCode == exitCode ) {
-					// System.out.println("# Got correct exit code, "+params.expectedExitCode+", from script "+ts);
-					return EXIT_CODE_NORMAL;
-				} else {
+				if( params.expectedExitCode != exitCode ) {
 					System.err.println("Expected exit code "+params.expectedExitCode+" but got "+exitCode+" from script "+ts);
 					return EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1;
 				}
+				if( params.expectedOutput != null ) {
+					String actualOutput = output.toString(Charsets.UTF8);
+					if( !params.expectedOutput.equals(actualOutput) ) {
+						System.err.println("Output from "+ts+" did not match expected:");
+						System.err.println("-- Expected --");
+						System.err.println(params.expectedOutput);
+						System.err.println("-- Actual --");
+						System.err.println(actualOutput);
+						return EXIT_CODE_TEST_SCRIPT_OUTPUT_MISMATCH;
+					}
+				}
+				return EXIT_CODE_NORMAL;
 			} finally {
 				scriptInputStream.close();
 			}
@@ -887,8 +1116,7 @@ public class P0019 {
 					}
 				};
 				
-
-				System.exit(runProgramFrom(inputStream, interactive, emitter));
+				System.exit(runProgramFrom(new InputStreamZReader(inputStream), interactive, emitter));
 			}
 		}
 	}
