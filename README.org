@@ -16,9 +16,11 @@
   - A forthlike VM using String[] to store the program
 - [[./P0007/][P0007]] :: Demonstration of dynamically generated/loaded class files
   - Status: Concept proved to work.
-- [[./P0008/][P0008]] :: Formerly 'Java Command Runner', but its purpose overlaps
-  enough with this project, and I already have enough stray Java repos around.
-  - Status: does some basic stuff
+- [[./P0008/][P0008]] :: 'Java Command Runner 36'
+  - Exists both separately and as a subproject of TScript34 because
+    I can't make up my mind which it should be.
+    Currently the standalone project is ahead, and has a cleaner history than
+    the p0008/master branch in this repository, so probably use that.
 - [[./P0009/][P0009]] :: Single-class Java implementation of TScript34.2 interpreter
   - Program encoded as int[] with a table of Object[] constants
   - Stack is Object[], with Object[] { SPECIAL_MARKER, tag, ... } used to denote
