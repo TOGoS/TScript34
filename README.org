@@ -44,6 +44,28 @@ Git commits:
 | subtrees/p0006/split-from-master        | 891e25d0bc32d6558a5026c1e6a6dac969c93f8a |
 | subtrees/p0009/split+rebased-onto-p0006 | 62c68e7c1422a849bb54b09c2fdba76bc042d038 |
 
+** Schema
+
+*** http://ns.nuke24.net/TScript34/P0019/Ops/Javac
+
+(sourcedir:Directory cp:List[Directory|JAR] sourceVersion:JDKVersion targetVersion:JDKVersion -- Directory)
+
+Given a directory (any recognizable representation of one),
+a list of directories and/or JAR files to include on the classpath,
+and source and target version numbers (e.g. "1.6"),
+invokes ~javac~ to produce a directory full of ~.class~ files.
+
+Presumably directory <-> JAR conversion can be done with datatypes,
+so does not need explicit ops.
+
+This may be useful in situations where it would be undesireable
+to allow arbitrary processess to be constructed.
+Otherwise, I think it would be more sensible to define
+lower-level process control ops, and just use those.
+
+Of course, nobody's stopping an implementation from defining
+Javac in terms of a sequence of lower-level process control ops!
+
 ** Log / thoughts
 
 *** 2024-05-30
@@ -126,3 +148,19 @@ There should be an equivalent regular op for this.
 I haven't decided what it should look like.
 May want to support ~--foo-option=...~ syntax
 for TS34 ops idk.
+
+*** 2024-06-15
+
+On use as a build automation tool.
+
+- Process management
+  - Spawn, wait for system processes
+  - Create pipelines, serial processes
+  - Ability to handle exit codes in different ways
+  - Reactive process-like actors
+  - Monadic construction of all the above,
+    independent of execution strategy
+
+- Temporary contexts
+  - Within which, create temporary files, execute some processes, wait...
+  - All resources automatically closed when finished

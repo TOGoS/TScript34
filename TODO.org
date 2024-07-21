@@ -1,0 +1,77 @@
+*** TODO Proof-of-concept of the job runner system
+
+Doesn't have to be Java.
+
+*** TODO Script to wait for Java1.6 compilation jobs, run them, publish the result
+
+Pretend MQTT by ~tail -f~ing a file.
+
+**** Job protocol
+
+#+begin_src
+# Someone requests a job be done:
+/jobs/abc1234/input	active:CompileJava1.6+src@urn:sha1:SRCZIPFILE%23
+
+# Time server will occasionally publush the time
+# so that you can have an idea when jobs were created
+# when reading through the log:
+/clock/current-timestamp	1721466512545
+
+# Runner takes the job:
+/jobs/abc1234/runs/123randomrunid/runner-id	456runnerid
+# Claimed:
+/jobs/abc1234/runs/123randomrunid/status	pending
+# Started work:
+/jobs/abc1234/runs/123randomrunid/status	in-progress
+
+# Runner finishes the job and publishes the result:
+/jobs/abc1234/runs/123randomrunid/status	done
+/jobs/abc1234/runs/123randomrunid/result	urn:sha1:CLASSESZIP%23
+
+# And for those who don't care to track which job is which:
+# /equiv	active:CompileJava1.6+src@urn:sha1:SRCZIPFILE%23	urn:sha1:CLASSESZIP%23
+#+end_src
+
+
+**** Job processing loop
+
+job_infos = {}
+
+to update_job_info( job_id ),
+set the requested parameter
+and also update the job_info's last update time.
+
+Reader thread:
+
+while line = read line from message queue {
+	tokens = line.split("\t")
+
+	path = tokens[0]
+	if path =~ #/jobs/([^/]+)/input# {
+		update_job_info $1 to set input = tokens[1]
+	}
+	if path =~ #/jobs/([^/]+)/runs/([^/]+)/status# {
+		job_infos[$1].runs[$2].status = tokens[1]
+	}
+}
+
+Executor thread
+(could also happen periodically in the main loop,
+after we've caught up with the clock or with some
+'hello from myself' message that you post
+to the message bus)
+
+while true {
+	randomly pick a job from job_infos
+	that is not yet done, is not being worked on,
+	and has not changed in the past (n + randomish number) seconds.
+
+	announce the run by writing to the message queue
+
+	optional: wait until you read your own run
+	back from the message queue and another random amount of time,
+	
+	execute the job!
+
+	write the result to the message bus
+}
