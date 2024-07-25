@@ -28,6 +28,9 @@ import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
 import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
 
 public class JavaProjectBuilder {
+	public static final String VERSION = "0.1.0";
+	public static final String PROGRAM_NAME = "TScript34-P0019-JavaProjectBuilder-v"+VERSION;
+	
 	interface BuildContext {
 		public File getPwd();
 		public Map<String,String> getEnv();
@@ -339,6 +342,16 @@ public class JavaProjectBuilder {
 		return todo("Implement self-test lmao, or maybe delete it and do it with a script.");
 	}
 	
+	static final String HELP_TEXT =
+		"Usage: JavaProjectBuilder <options>\n" +
+		"\n"+
+		"Options:\n"+
+		"  -o <path>            ; path to write JAR file\n" +
+		"  --include-sources    ; include following source files in the JAR\n"+
+		"  --java-sources=<dir> ; compile .java source files from source root <dir>\n" +
+		"  --resources=<dir>    ; include resource files within <dir>\n"+
+		"  --main-class=<classname> ; indicate the specified class as main\n";
+	
 	static final Pattern SOURCES_ROOT_ARG_PATTERN = Pattern.compile("--java-sources=(.*)");
 	static final Pattern MAIN_CLASS_ARG_PATTERN = Pattern.compile("--main-class=(.*)");
 	// Include additional content in the JAR; --include:<filename>=<URI>
@@ -363,6 +376,14 @@ public class JavaProjectBuilder {
 				String arg = args[argi++];
 				if( "--self-test".equals(arg) ) {
 					return test();
+				} else if( "--version".equals(arg) ) {
+					stdout.println(PROGRAM_NAME);
+					return 0;
+				} else if( "--help".equals(arg) ) {
+					stdout.println(PROGRAM_NAME);
+					stdout.println();
+					stdout.print(HELP_TEXT);
+					return 0;
 				} else if( "-o".equals(arg) ) {
 					if( outPath != null ) {
 						errout.println("Error: output path already specified as '"+outPath+"'");

@@ -5,6 +5,6 @@ public class DebugUtil {
 		throw new RuntimeException("TODO: "+message);
 	}
 	public static void debug(String message) {
-		System.err.println("#DEBUG "+message);
+		// System.err.println("#DEBUG "+message);
 	}
 }
