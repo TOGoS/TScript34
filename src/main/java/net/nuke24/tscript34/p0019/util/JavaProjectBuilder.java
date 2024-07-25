@@ -67,6 +67,7 @@ public class JavaProjectBuilder {
 			return new HostBuildContext(pwd, this.env);
 		}
 		
+		@SuppressWarnings("deprecation")
 		static String fum(Date d) {
 			return d.getYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
 		}
@@ -170,6 +171,10 @@ public class JavaProjectBuilder {
 		@Override
 		public void writeTo(OutputStream os) throws IOException {
 			os.write(this.data);
+		}
+		
+		public static ByteBlob of(String str) {
+			return new ByteBlob(str.getBytes(Charsets.UTF8));
 		}
 	}
 	
@@ -372,7 +377,10 @@ public class JavaProjectBuilder {
 				} else if( (m = INCLUDE_ITEM_PATTERN.matcher(arg)).matches() ) {
 					todo("add item to be included");
 				} else if( (m = MAIN_CLASS_ARG_PATTERN.matcher(arg)).matches() ) {
-					todo("generate manifest, add to additional content or whatever");
+					otherContent.put("META-INF/MANIFEST.MF", ByteBlob.of(
+						"Manifest-Version: 1.0\r\n"+
+						"Main-Class: "+m.group(1)+"\r\n"
+					));
 				} else if( (m = RESOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
 					File root = new File(m.group(1));
 					resourceRoots.add(root);
