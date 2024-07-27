@@ -1,5 +1,5 @@
 .PHONY: default
-default: target/TS34P19-dev.jar
+default: target/TS34P19-dev.jar target/JavaProjectBuilder-dev.jar
 
 .PHONY: clean
 clean:
@@ -23,3 +23,9 @@ target/.classes-built: target/java-sources.lst
 .DELETE_ON_ERROR: target/TS34P19-dev.jar
 target/TS34P19-dev.jar: target/.classes-built
 	cd target/classes && zip ../../$@ -r .
+
+.DELETE_ON_ERROR: target/JavaProjectBuilder-dev.jar
+target/JavaProjectBuilder-dev.jar: target/.classes-built
+	java -cp target/classes net.nuke24.tscript34.p0019.util.JavaProjectBuilder \
+		-o "$@" \
+		--java-sources=src/main/java --main-class=net.nuke24.tscript34.p0019.util.JavaProjectBuilder
