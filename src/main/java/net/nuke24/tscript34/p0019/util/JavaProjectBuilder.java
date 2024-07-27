@@ -413,6 +413,7 @@ public class JavaProjectBuilder {
 					}
 				} else {
 					errout.println("Unrecognized argument: "+arg);
+					return 1;
 				}
 			}
 			
