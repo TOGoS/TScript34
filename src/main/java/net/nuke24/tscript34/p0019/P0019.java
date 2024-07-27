@@ -1031,7 +1031,7 @@ public class P0019 {
 					return EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1;
 				}
 				if( params.expectedOutput != null ) {
-					String actualOutput = output.toString(Charsets.UTF8);
+					String actualOutput = new String(output.toByteArray(), Charsets.UTF8);
 					if( !params.expectedOutput.equals(actualOutput) ) {
 						System.err.println("Output from "+ts+" did not match expected:");
 						System.err.println("-- Expected --");
