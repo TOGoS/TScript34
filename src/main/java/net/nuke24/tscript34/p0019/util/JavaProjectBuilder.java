@@ -67,7 +67,7 @@ public class JavaProjectBuilder {
 			return new HostBuildContext(this.pwd, env);
 		}
 		public BuildContext withPwd(File dir) {
-			return new HostBuildContext(pwd, this.env);
+			return new HostBuildContext(dir, this.env);
 		}
 		
 		@SuppressWarnings("deprecation")
@@ -132,6 +132,10 @@ public class JavaProjectBuilder {
 					tempFile.delete();
 				}
 			}
+		}
+		
+		public static File resolveRelative(File pwd, String rel) {
+			return new File(PathUtil.resolveFilePath(pwd, rel, false));
 		}
 	}
 	
@@ -350,20 +354,123 @@ public class JavaProjectBuilder {
 		"Usage: JavaProjectBuilder <options>\n" +
 		"\n"+
 		"Options:\n"+
+		"  --cd=<dir>           ; Use <dir> as 'current directory' for remaining operations\n"+
+		"                       ; (doesn't necessarily apply to interpretation of --options)\n"+
 		"  -o <path>            ; path to write JAR file\n" +
 		"  --include-sources    ; include following source files in the JAR\n"+
 		"  --java-sources=<dir> ; compile .java source files from source root <dir>\n" +
 		"  --resources=<dir>    ; include resource files within <dir>\n"+
 		"  --main-class=<classname> ; indicate the specified class as main\n";
 	
+	static final Pattern CD_PATTERN = Pattern.compile("--cd=(.*)");
 	static final Pattern SOURCES_ROOT_ARG_PATTERN = Pattern.compile("--java-sources=(.*)");
 	static final Pattern MAIN_CLASS_ARG_PATTERN = Pattern.compile("--main-class=(.*)");
 	// Include additional content in the JAR; --include:<filename>=<URI>
 	static final Pattern INCLUDE_ITEM_PATTERN = Pattern.compile("--item:([^=]+)=(.*)");
 	static final Pattern RESOURCES_ROOT_ARG_PATTERN = Pattern.compile("--resources=(.*)");
 	
+	public static int scriptMain(
+		final String[] args,
+		int argi,
+		final InputStream stdin,
+		final PrintStream stdout,
+		final PrintStream errout,
+		BuildContext ctx
+	) {
+		// Each arg can be interpreted as an op.
+		// If op is a reference to a file or non-op URI,
+		// then the 'op' is the script described by that file.
+		// Easy peasy!
+		// Unless we want to suppor the traditional argv to scripts,
+		// which would be semantically at odds when more than one argument.
+		//
+		// Traditional mode;
+		// '--' is implied in this case
+		//   <op> <arg1> <arg2> <arg3>
+		// 
+		// List-several-ops-or-scripts mode:
+		//   -c <op1> -c <op2> -c <op3>
+		// 
+		// Each-arg-is-an-op mode;
+		// '--ops' all
+		// --ops <op1> <op2> <op3> -- <arg1> <arg2> <arg3>
+		// 
+		// Since each argument is an op, an argument may be
+		// an op constructor+argument(s), so long as it is quoted.
+		// 
+		// Maybe P0019 should handle all this.
+		
+		List<String> ops = new ArrayList<String>();
+		List<String> scriptArgs = new ArrayList<String>();
+		
+		// 0 = regular, 1 = --ops, 2 = slurp remaining into args
+		
+		int mode = 0;
+		
+		while( argi < args.length ) {
+			String arg = args[argi++];
+			if( mode == 2 ) {
+				scriptArgs.add(arg);
+			} else if( "-c".equals(arg) ) {
+				if( argi >= args.length ) {
+					errout.println("Error: `-c` requires another argument");
+					return 1;
+				}
+				ops.add(args[argi++]);
+			} else if( "--ops".equals(arg) ) {
+				mode = 1;
+			} else if( "--".equals(arg) ) {
+				mode = 2;
+			} else if( !arg.startsWith("-") || arg.equals("-") ) {
+				ops.add(arg);
+				if( mode == 0 ) {
+					mode = 2;
+				}
+			} else {
+				errout.println("Error: Unrecognized script argument: '"+arg+"'");
+				return 1;
+			}
+		}
+
+		String argsStr = "";
+		String sep = "";
+		for( String arg : scriptArgs ) {
+			argsStr += sep + "\""+arg.replace("\\","\\\\").replace("\"", "\\\"")+"\"";
+			sep = " ";
+		}
+
+		// TODO: Use P0019
+		List<Object> stack = new ArrayList<>();
+		for( String op : ops ) {
+			if( op.startsWith("pushstr:") ) {
+				stack.add(op.substring(8));
+			} else if( "args".equals(op) ) {
+				stack.add(argsStr);
+			} else if( "cd".equals(op) ) {
+				String path = stack.remove(stack.size()-1).toString();
+				File dir = HostBuildContext.resolveRelative(ctx.getPwd(), path);
+				ctx = ctx.withPwd(dir);
+			} else if( "pwd".equals(op) ) {
+				stack.add(ctx.getPwd());
+			} else if( "println".equals(op) ) {
+				stdout.println(stack.remove(stack.size()-1));
+			} else if( "print".equals(op) ) {
+				stdout.print(stack.remove(stack.size()-1));
+			} else if( "exit".equals(op) ) {
+				return 0;
+			} else if( "exit/code".equals(op) ) {
+				return Integer.valueOf(ops.remove(ops.size()-1));
+			} else {
+				todo("Implement op '"+op+"', or just do this right");
+			}
+		}
+		
+		return 0;
+	}
+	
 	public static int main(
 		final String[] args, int argi,
+		final InputStream stdin,
 		final PrintStream stdout,
 		final PrintStream errout,
 		BuildContext ctx
@@ -399,6 +506,8 @@ public class JavaProjectBuilder {
 					outPath = args[argi++];
 				} else if( "--include-sources".equals(arg) ) {
 					includeSources = true;
+				} else if( (m = CD_PATTERN.matcher(arg)).matches() ) {
+					ctx = ctx.withPwd(HostBuildContext.resolveRelative(ctx.getPwd(), m.group(1)));
 				} else if( (m = INCLUDE_ITEM_PATTERN.matcher(arg)).matches() ) {
 					todo("add item to be included");
 				} else if( (m = MAIN_CLASS_ARG_PATTERN.matcher(arg)).matches() ) {
@@ -407,14 +516,16 @@ public class JavaProjectBuilder {
 						"Main-Class: "+m.group(1)+"\r\n"
 					));
 				} else if( (m = RESOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
-					File root = new File(m.group(1));
+					File root = new File(ctx.getPwd(), m.group(1));
 					resourceRoots.add(root);
 				} else if( (m = SOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
-					File root = new File(m.group(1));
+					File root = new File(ctx.getPwd(), m.group(1));
 					sourceRoots.add(root);
 					if( includeSources ) {
 						resourceRoots.add(root);
 					}
+				} else if( !arg.startsWith("-") || arg.equals("-") || "-c".equals(arg) || "--ops".equals(arg) ) {
+					return scriptMain(args, --argi, stdin, stdout, errout, ctx);
 				} else {
 					errout.println("Unrecognized argument: "+arg);
 					return 1;
@@ -447,7 +558,7 @@ public class JavaProjectBuilder {
 	}
 	
 	public static void main(String[] args) {
-		int exitCode = main(args, 0, System.out, System.err, HostBuildContext.fromEnv());
+		int exitCode = main(args, 0, System.in, System.out, System.err, HostBuildContext.fromEnv());
 		debug("Exiting with code "+exitCode);
 		System.exit(exitCode);
 	}

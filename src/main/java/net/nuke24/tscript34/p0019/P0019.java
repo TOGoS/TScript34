@@ -32,9 +32,6 @@ import net.nuke24.tscript34.p0019.util.DebugFormat;
 import net.nuke24.tscript34.p0019.value.Concatenation;
 import net.nuke24.tscript34.p0019.value.Symbol;
 
-import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
-import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
-
 public class P0019 {
 	public static final Symbol MARK = new Symbol("http://ns.nuke24.net/TScript34/P0019/Constants/Mark");
 	
