@@ -28,7 +28,7 @@ import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
 import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
 
 public class JavaProjectBuilder {
-	public static final String VERSION = "0.1.2";
+	public static final String VERSION = "0.1.3-dev";
 	public static final String PROGRAM_NAME = "TScript34-P0019-JavaProjectBuilder-v"+VERSION;
 	
 	interface BuildContext {
