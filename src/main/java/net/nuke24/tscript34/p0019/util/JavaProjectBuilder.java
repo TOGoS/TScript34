@@ -274,6 +274,8 @@ public class JavaProjectBuilder {
 		}
 	}
 	
+	static final Pattern JAVA_SOURCE_FILENAME_PATTERN = Pattern.compile("(.*)\\.java$", Pattern.CASE_INSENSITIVE);
+	
 	// TODO: Take a list of source root - javac options objects, to configure java version, etc
 	static <T,E> T compileJar(
 		final List<File> sourceRoots,
@@ -293,7 +295,9 @@ public class JavaProjectBuilder {
 					walk(sr, sr.getPath(), new ThrowingBiConsumer<File,String,IOException>() {
 						@Override
 						public void accept(File a, String b) throws IOException {
-							ps.println(b);
+							if( JAVA_SOURCE_FILENAME_PATTERN.matcher(a.getName()).matches() ) {
+								ps.println(b);
+							}
 						}
 					});
 				}
