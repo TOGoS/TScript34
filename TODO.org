@@ -1,3 +1,57 @@
+*** TODO Op reader
+
+Reading of ops should be conceptually entirely seperable
+from executing them.  The pipeline would look like:
+
+~read-ops | interpret~
+
+Some examples:
+
+#+begin_src tscript34
+alias foo urn:shatever
+foo
+# Reader can handle the alias internally; interpreter doesn't need to know names of things
+
+some-calculation
+define-as some-constant
+# Op reader can't do dynamic defines internally;
+# interpreter has to be involved for this case.
+# Op reader is free to munge the names, however.
+
+
+urn:foo
+# op is a sequence of ops, as loaded from urn:foo
+
+# When loading an op from a file, it is mostly equivalent
+# to including that file inline.
+# - Definitions apply.
+# - File/line numbers for debugging will reflect the actual files, though.
+# - If there are '#lang' directives, they only apply to the file.
+# 
+# So basically, '#'-directives and source metadata reflect the file structure,
+# but the resulting semantics of the ops do not.
+# 
+# Op reader can emit ops from included files as if it were included inline,
+# *or* it can emit a single op that encapsulates those ops,
+# so long as the semantics are the same.
+
+{
+blah
+blah
+} #  op is a 'push procedure' op, where the list is all the stuff between the braces
+
+{
+some-single-op
+}
+# could push some-single-op itself instead of wrapping in a procedure and opifying that
+
+[
+foo
+bar
+]
+# op reader could maybe read a [ ... ] sequence as a single op, if it is self-contained?
+#+end_src
+
 *** TODO Proof-of-concept of the job runner system
 
 Doesn't have to be Java.

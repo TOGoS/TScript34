@@ -12,8 +12,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,11 +60,13 @@ public class P0019 {
 	public static String OPC_PUSH_SYMBOL = "http://ns.nuke24.net/TScript34/Op/PushSymbol";
 	
 	// <name>:<op constructor arg count>:<pop count>:<push count>
+	public static String OP_ABSORB = "http://ns.nuke24.net/TScript34/Ops/Absorb";
 	public static String OP_ARRAY_FROM_STACK = "http://ns.nuke24.net/TScript34/Ops/ArrayFromStack";
 	public static String OP_CONCAT_N = "http://ns.nuke24.net/TScript34/P0009/Ops/ConcatN"; // item0 item1 ... itemN n -- concatenated
 	public static String OP_COUNT_TO_MARK = "http://ns.nuke24.net/TScript34/Ops/CountToMark";
 	public static String OP_DROP = "http://ns.nuke24.net/TScript34/Ops/Drop";
 	public static String OP_DUP = "http://ns.nuke24.net/TScript34/Ops/Dup";
+	public static String OP_EMIT = "http://ns.nuke24.net/TScript34/Ops/Emit";
 	public static String OP_EXCH = "http://ns.nuke24.net/TScript34/Ops/Exch";
 	public static String OP_EXECUTE = "http://ns.nuke24.net/TScript34/Ops/Exec";
 	public static String OP_GET_PROPERTY_VALUES = "http://ns.nuke24.net/TScript34/Ops/GetPropertyValues"; 
@@ -371,6 +375,7 @@ public class P0019 {
 	
 	static final Map<String,StackyBlockOp> STANDARD_OPS = new HashMap<String,StackyBlockOp>();
 	static {
+		STANDARD_OPS.put(OP_ABSORB, new EffectOp(new Absorb<Integer>(0)));
 		STANDARD_OPS.put(OP_DROP, DropOp.instance);
 		STANDARD_OPS.put(OP_DUP ,  DupOp.instance);
 		STANDARD_OPS.put(OP_EXCH, ExchOp.instance);
@@ -548,7 +553,7 @@ public class P0019 {
 		public String readLine() throws IOException;
 		public byte[] readChunk(int maxLen) throws IOException;
 	}
-	static class InputStreamZReader implements ZReader {
+	static class InputStreamZReader implements ZReader, ItemReader<String> {
 		static final byte[] EMPTY_BUF = new byte[0];
 		
 		byte[] buffered = EMPTY_BUF;
@@ -638,42 +643,46 @@ public class P0019 {
 				}
 			}
 		}
+		
+		@Override
+		public String read() throws IOException {
+			return readLine();
+		}
 	}
 	
-	/** Exercse the InterpreterState API in a minimal way
-	 * 
-	 * Passing the emitter as the 'context'
-	 * for now.  Maybe it should just be built-in like
-	 * the other thingies, or maybe they should 
-	 * */
-	static class BabbyInterpreterHarness implements SimpleExecutable<Integer> {
-		public static final Object readOpsRequest = new Object();
+	interface ItemReader<T> {
+		T read() throws IOException; 
+	}
+	interface BulkItemReader<T> {
+		List<T> read() throws IOException; 
+	}
+	static class IteratorItemReader<T> implements ItemReader<T> {
+		protected final Iterator<? extends T> it;
+		public IteratorItemReader(Iterator<? extends T> it) {
+			this.it = it;
+		}
+		@Override
+		public T read() throws IOException {
+			try {
+				return it.next();
+			} catch( NoSuchElementException e ) {
+				throw new IOException("End of input", e);
+			}
+		}
+	}
+	
+	static class BabbyOpReader implements BulkItemReader<Object> {
+		protected final ZReader lineReader;
 		
-		// For now there's just one input channel,
-		// and it's from where the script is read
-		// TODO: Pass a separate ops reader
-		private final boolean interactive;
-		// TODO: Replace lineReader with an op reader
-		private final ZReader lineReader;
-		private InterpreterState<Object, ?> interpState;
-		private final Consumer<Object> emitter;
-		public BabbyInterpreterHarness(
-			boolean interactive,
-			ZReader lineReader,
-			InterpreterState<Object,?> interpState,
-			Consumer<Object> emitter
-		) {
-			this.interactive = interactive;
-			this.lineReader  = lineReader;
-			this.interpState = interpState;
-			this.emitter = emitter;
+		public BabbyOpReader(ZReader lineReader) {
+			this.lineReader = lineReader;
 		}
 		
 		static final Pattern ID_OPTION_PATTERN = Pattern.compile("--id=(.*)");
 		static final Pattern SECTOR_OPTION_PATTERN = Pattern.compile("--sector=(.*)");
 		
 		/** Read at least one operation */
-		List<Object> readOps() throws IOException {
+		public List<Object> read() throws IOException {
 			ArrayList<Object> ops = new ArrayList<Object>();
 			while( true ) {
 				String line;
@@ -779,6 +788,39 @@ public class P0019 {
 				return ops;
 			}
 		}
+	}
+	
+	/** Exercse the InterpreterState API in a minimal way
+	 * 
+	 * Passing the emitter as the 'context'
+	 * for now.  Maybe it should just be built-in like
+	 * the other thingies, or maybe they should uhm....
+	 * */
+	static class BabbyInterpreterHarness implements SimpleExecutable<Integer> {
+		public static final Object readOpsRequest = new Object();
+		
+		// For now there's just one input channel,
+		// and it's from where the script is read
+		// TODO: Pass a separate ops reader
+		private final boolean interactive;
+		// TODO: Replace lineReader with an op reader
+		private final BulkItemReader<?> opReader;
+		private final ItemReader<?> inputReader;
+		private InterpreterState<Object, ?> interpState;
+		private final Consumer<Object> emitter;
+		public BabbyInterpreterHarness(
+			boolean interactive,
+			BulkItemReader<?> opReader,
+			ItemReader<?> inputReader,
+			InterpreterState<Object,?> interpState,
+			Consumer<Object> emitter
+		) {
+			this.interactive = interactive;
+			this.opReader = opReader;
+			this.inputReader = inputReader;
+			this.interpState = interpState;
+			this.emitter = emitter;
+		}
 		
 		// For now just stick stored data in a map!
 		final Map<String,Object> datastore = new HashMap<String,Object>();
@@ -823,25 +865,25 @@ public class P0019 {
 				if( interactive ) {
 					this.emitter.accept("# TS34.19> ");
 				}
-				List<Object> ops;
+				List<?> ops;
 				try {
-					ops = readOps();
+					ops = opReader.read();
 				} catch(IOException e) {
 					return e;
 				}
-				return new ResumeWith<List<Object>>(ops);
+				return new ResumeWith<List<?>>(ops);
 			} else if( request instanceof Absorb<?> ) {
 				// Ignore channel for now
-				String line;
+				Object item;
 				try {
-					line = this.lineReader.readLine();
+					item = this.inputReader.read();
 				} catch (IOException e) {
 					return new IOException("Failed to absorb from input due to IOException", e);
 				}
-				if( line == null ) {
+				if( item == null ) {
 					return new IOException("End of input");
 				} else {
-					return new ResumeWith<String>(line);
+					return new ResumeWith<Object>(item);
 				}
 			} else if( request instanceof Emit<?,?> ) {
 				Object value = ((Emit<?,?>)request).value;
@@ -909,7 +951,8 @@ public class P0019 {
 	static TopLevelReturnHandlingMode tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
 	
 	public static int runProgramFrom(
-		final ZReader zReader,
+		final BulkItemReader<Object> opReader,
+		final ItemReader<? extends Object> itemReader,
 		final boolean interactive,
 		final Consumer<Object> emitter
 	) {
@@ -954,18 +997,22 @@ public class P0019 {
 		
 		SimpleExecutable<Integer> proc = new BabbyInterpreterHarness(
 			interactive,
-			zReader, interpreterState, emitter
+			opReader,
+			itemReader,
+			interpreterState,
+			emitter
 		);
 		
 		return proc.execute().intValue();
 	}
 	
 	static class TestScriptParameters {
+		public List<String> inputs = new ArrayList<String>();
 		public int expectedExitCode = 0;
 		public String expectedOutput = null;
 	}
 	
-	static final Pattern DIRECTIVE_PATTERN = Pattern.compile("#(\\S+)(?:\\s*(.*))");
+	static final Pattern DIRECTIVE_PATTERN = Pattern.compile("#(\\S+)(?:\\s*(.*))?");
 	@SuppressWarnings("resource")
 	static TestScriptParameters loadTestScriptParameters(File ts) throws IOException {
 		TestScriptParameters params = new TestScriptParameters();
@@ -978,6 +1025,8 @@ public class P0019 {
 				if( (m = DIRECTIVE_PATTERN.matcher(line)).matches() ) {
 					if( "lang".equals(m.group(1)) ) {
 						// No-op
+					} else if( "input-line".equals(m.group(1)) ) {
+						params.inputs.add(m.group(2));
 					} else if( "expect-output".equals(m.group(1)) ) {
 						if( params.expectedOutput == null ) {
 							params.expectedOutput = "";
@@ -1005,7 +1054,9 @@ public class P0019 {
 			FileInputStream scriptInputStream = new FileInputStream(ts);
 			final ByteArrayOutputStream output = new ByteArrayOutputStream();
 			try {
-				int exitCode = runProgramFrom(new InputStreamZReader(scriptInputStream), false, new Consumer<Object>() {
+				BulkItemReader<Object> opReader = new BabbyOpReader(new InputStreamZReader(scriptInputStream));
+				ItemReader<Object> itemReader = new IteratorItemReader<Object>(params.inputs.iterator());
+				int exitCode = runProgramFrom(opReader, itemReader, false, new Consumer<Object>() {
 					@Override
 					public void accept(Object value) {
 						// HACK: Ignore informational lines
@@ -1113,7 +1164,10 @@ public class P0019 {
 					}
 				};
 				
-				System.exit(runProgramFrom(new InputStreamZReader(inputStream), interactive, emitter));
+				ZReader opZReader = new InputStreamZReader(inputStream);
+				BulkItemReader<Object> opReader = new BabbyOpReader(opZReader);
+				InputStreamZReader inputReader = new InputStreamZReader(System.in);
+				System.exit(runProgramFrom(opReader, inputReader, interactive, emitter));
 			}
 		}
 	}
