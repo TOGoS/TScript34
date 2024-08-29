@@ -38,7 +38,7 @@ import net.nuke24.tscript34.p0019.value.Symbol;
 
 public class P0019
 {
-	public static final String VERSION = "0.2.1-dev";
+	public static final String VERSION = "0.2.2";
 	public static final String PROGRAM_NAME = "TScript34-P0019-"+VERSION;
 
 	public static final Symbol MARK = new Symbol("http://ns.nuke24.net/TScript34/P0019/Constants/Mark");
