@@ -213,3 +213,33 @@ What are some applications and the operations they need?
 
 Of those two projects, commit/directory merging
 appears much more straightforward - concrete ops are already defined.
+
+
+** [2024-08-20] Job runner system
+
+I want to run Javac remotely.
+Partly because I want to delegate to the JDK 1.6 ~javac~,
+partly because it seems conceptually simple enough that
+it shouldn't be too difficult.
+
+*** Concept
+
+~resolve(active URI) -> result~
+
+Resolve might run locally or delegate to some web service or something.
+
+(TDAR already does this locally)
+
+*** Floundering
+
+But it's been weeks or months that I've been saying
+'building a job runner system shouldn't be too difficult'
+and I haven't done it.
+
+Need to either:
+- Bypass all that, do this in a simpler way
+  (just write a shell script to SSH to the right server,
+  run the commands to do a build there, taking the source
+  zip as stdin and writing the result to stdout)
+- Break the job runner system down into smaller steps,
+  start working on those.
