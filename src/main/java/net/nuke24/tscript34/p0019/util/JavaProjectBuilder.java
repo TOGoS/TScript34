@@ -28,7 +28,7 @@ import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
 import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
 
 public class JavaProjectBuilder {
-	public static final String VERSION = "0.1.3-dev";
+	public static final String VERSION = "0.2.0";
 	public static final String PROGRAM_NAME = "TScript34-P0019-JavaProjectBuilder-v"+VERSION;
 	
 	interface BuildContext {
@@ -350,17 +350,48 @@ public class JavaProjectBuilder {
 		return todo("Implement self-test lmao, or maybe delete it and do it with a script.");
 	}
 	
-	static final String HELP_TEXT =
-		"Usage: JavaProjectBuilder <options>\n" +
-		"\n"+
-		"Options:\n"+
-		"  --cd=<dir>           ; Use <dir> as 'current directory' for remaining operations\n"+
-		"                       ; (doesn't necessarily apply to interpretation of --options)\n"+
+	static final String indentSection(String indent, String text) {
+		return text.replaceAll("\n", "\n"+indent);
+	}
+	
+	static final String PRINT_HELP_CMD_NAME = "ts34p19:print-help";
+	static final String PRINT_HELP_HELP_TEXT = PRINT_HELP_CMD_NAME+" ; print help\n";
+	
+	static final String PRINT_VERSION_CMD_NAME = "ts34p19:print-version";
+	static final String PRINT_VERSION_HELP_TEXT = PRINT_VERSION_CMD_NAME+" ; print version\n";
+	
+	static final String PB_SELF_TEST_CMD_NAME = "ts34p19:project-builder-test";
+	static final String PB_SELF_TEST_HELP_TEXT = PB_SELF_TEST_CMD_NAME+" ; run project builder self-test\n";
+	
+	static final String COMPILE_JAR_CMD_NAME = "ts34p19:compile-jar";
+	static final String COMPILE_JAR_HELP_TEXT =
+		COMPILE_JAR_CMD_NAME+" <options>\n"+
+		"\n" +
+		"Options:\n" +
 		"  -o <path>            ; path to write JAR file\n" +
-		"  --include-sources    ; include following source files in the JAR\n"+
+		"  --include-sources    ; include following source files in the JAR\n" +
 		"  --java-sources=<dir> ; compile .java source files from source root <dir>\n" +
-		"  --resources=<dir>    ; include resource files within <dir>\n"+
-		"  --main-class=<classname> ; indicate the specified class as main\n";
+		"  --resources=<dir>    ; include resource files within <dir>\n" +
+		"  --main-class=<classname> ; indicate the specified class as main\n" +
+		"";
+	
+	static final String HELP_TEXT =
+		"Usage: JavaProjectBuilder <options> <sub-command>\n"  +
+		"\n" +
+		"General options:\n" +
+		"  --cd=<dir>           ; Use <dir> as 'current directory' for remaining operations\n" +
+		"                       ; (doesn't necessarily apply to interpretation of --options)\n" +
+		"\n" +
+		"Subcommands:\n" +
+		"\n" +
+		indentSection("  ", COMPILE_JAR_HELP_TEXT)+
+		"\n" +
+		indentSection("  ", PRINT_HELP_HELP_TEXT)+
+		"\n" +
+		indentSection("  ", PRINT_VERSION_HELP_TEXT)+
+		"\n" +
+		indentSection("  ", PB_SELF_TEST_HELP_TEXT)+
+		"";
 	
 	static final Pattern CD_PATTERN = Pattern.compile("--cd=(.*)");
 	static final Pattern SOURCES_ROOT_ARG_PATTERN = Pattern.compile("--java-sources=(.*)");
@@ -369,9 +400,14 @@ public class JavaProjectBuilder {
 	static final Pattern INCLUDE_ITEM_PATTERN = Pattern.compile("--item:([^=]+)=(.*)");
 	static final Pattern RESOURCES_ROOT_ARG_PATTERN = Pattern.compile("--resources=(.*)");
 	
+	static final int ARGMODE_NORMAL = 0;
+	static final int ARGMODE_OPS    = 1;
+	static final int ARGMODE_ARGS   = 2;
+	
 	public static int scriptMain(
 		final String[] args,
 		int argi,
+		int argMode, // 0 = regular, 1 = --ops, 2 = slurp remaining into args
 		final InputStream stdin,
 		final PrintStream stdout,
 		final PrintStream errout,
@@ -403,13 +439,9 @@ public class JavaProjectBuilder {
 		List<String> ops = new ArrayList<String>();
 		List<String> scriptArgs = new ArrayList<String>();
 		
-		// 0 = regular, 1 = --ops, 2 = slurp remaining into args
-		
-		int mode = 0;
-		
 		while( argi < args.length ) {
 			String arg = args[argi++];
-			if( mode == 2 ) {
+			if( argMode == ARGMODE_ARGS ) {
 				scriptArgs.add(arg);
 			} else if( "-c".equals(arg) ) {
 				if( argi >= args.length ) {
@@ -418,13 +450,13 @@ public class JavaProjectBuilder {
 				}
 				ops.add(args[argi++]);
 			} else if( "--ops".equals(arg) ) {
-				mode = 1;
+				argMode = ARGMODE_OPS;
 			} else if( "--".equals(arg) ) {
-				mode = 2;
+				argMode = ARGMODE_ARGS;
 			} else if( !arg.startsWith("-") || arg.equals("-") ) {
 				ops.add(arg);
-				if( mode == 0 ) {
-					mode = 2;
+				if( argMode == ARGMODE_NORMAL ) {
+					argMode = ARGMODE_ARGS;
 				}
 			} else {
 				errout.println("Error: Unrecognized script argument: '"+arg+"'");
@@ -459,11 +491,89 @@ public class JavaProjectBuilder {
 			} else if( "exit".equals(op) ) {
 				return 0;
 			} else if( "exit/code".equals(op) ) {
-				return Integer.valueOf(ops.remove(ops.size()-1));
+				return Integer.valueOf(""+stack.remove(stack.size()-1));
 			} else {
 				todo("Implement op '"+op+"', or just do this right");
 			}
 		}
+		
+		return 0;
+	}
+	
+	public static int compileJarMain(
+		final String[] args, int argi,
+		final InputStream stdin,
+		final PrintStream stdout,
+		final PrintStream errout,
+		BuildContext ctx
+	) throws Exception {
+		ArrayList<File> sourceRoots = new ArrayList<File>();
+		ArrayList<File> resourceRoots = new ArrayList<File>();
+		Map<String,OutputStreamable> otherContent = new HashMap<String,OutputStreamable>();
+		boolean includeSources = false;
+		String outPath = null;
+		Matcher m;
+		
+		while( argi < args.length ) {
+			String arg = args[argi++];
+			if( "--version".equals(arg) ) {
+				stdout.println(PROGRAM_NAME);
+				return 0;
+			} else if( "--help".equals(arg) ) {
+				stdout.println(PROGRAM_NAME);
+				stdout.println();
+				stdout.print(HELP_TEXT);
+				return 0;
+			} else if( "-o".equals(arg) ) {
+				if( outPath != null ) {
+					errout.println("Error: output path already specified as '"+outPath+"'");
+					return 1;
+				}
+				if( args.length <= argi ) {
+					errout.println("Error: '-o' must be followed by a path or '-'");
+				}
+				outPath = args[argi++];
+			} else if( "--include-sources".equals(arg) ) {
+				includeSources = true;
+			} else if( (m = INCLUDE_ITEM_PATTERN.matcher(arg)).matches() ) {
+				todo("add item to be included");
+			} else if( (m = MAIN_CLASS_ARG_PATTERN.matcher(arg)).matches() ) {
+				otherContent.put("META-INF/MANIFEST.MF", ByteBlob.of(
+					"Manifest-Version: 1.0\r\n"+
+					"Main-Class: "+m.group(1)+"\r\n"
+				));
+			} else if( (m = RESOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
+				File root = new File(ctx.getPwd(), m.group(1));
+				resourceRoots.add(root);
+			} else if( (m = SOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
+				File root = new File(ctx.getPwd(), m.group(1));
+				sourceRoots.add(root);
+				if( includeSources ) {
+					resourceRoots.add(root);
+				}
+			} else {
+				errout.println("Unrecognized argument: "+arg);
+				return 1;
+			}
+		}
+		
+		if( outPath == null ) {
+			errout.println("Error: Output path not specified; `-o -` to output to stdout");
+			return 1;
+		}
+		final String _outPath = outPath;
+		final BuildContext _ctx = ctx;
+		
+		compileJar(
+			sourceRoots, resourceRoots, otherContent,
+			errout, ctx,
+			new Procedure<OutputStreamable, BuildContext, IOException, Void>() {
+				public Void apply(OutputStreamable jar, BuildContext context) throws IOException {
+					writeTo(jar, _outPath, stdout, _ctx);
+					return null;
+				}
+			}
+		);
 		
 		return 0;
 	}
@@ -476,79 +586,41 @@ public class JavaProjectBuilder {
 		BuildContext ctx
 	) {
 		try {
-			ArrayList<File> sourceRoots = new ArrayList<File>();
-			ArrayList<File> resourceRoots = new ArrayList<File>();
-			Map<String,OutputStreamable> otherContent = new HashMap<String,OutputStreamable>();
-			boolean includeSources = false;
-			String outPath = null;
 			Matcher m;
 			
 			while( argi < args.length ) {
 				String arg = args[argi++];
-				if( "--self-test".equals(arg) ) {
-					return test();
+				
+				// Translate some option-looking arguments to commands
+				if( "--help".equals(arg) || "-?".equals(arg) ) {
+					arg = PRINT_HELP_CMD_NAME;
 				} else if( "--version".equals(arg) ) {
-					stdout.println(PROGRAM_NAME);
-					return 0;
-				} else if( "--help".equals(arg) ) {
+					arg = PRINT_VERSION_CMD_NAME;
+				}
+				
+				if( COMPILE_JAR_CMD_NAME.equals(arg) ) {
+					return compileJarMain(args, argi, stdin, stdout, errout, ctx);
+				} else if( PB_SELF_TEST_CMD_NAME.equals(arg) ) {
+					return test();
+				} else if( PRINT_HELP_CMD_NAME.equals(arg) ) {
 					stdout.println(PROGRAM_NAME);
 					stdout.println();
 					stdout.print(HELP_TEXT);
 					return 0;
-				} else if( "-o".equals(arg) ) {
-					if( outPath != null ) {
-						errout.println("Error: output path already specified as '"+outPath+"'");
-						return 1;
-					}
-					if( args.length <= argi ) {
-						errout.println("Error: '-o' must be followed by a path or '-'");
-					}
-					outPath = args[argi++];
-				} else if( "--include-sources".equals(arg) ) {
-					includeSources = true;
+				} else if( PRINT_VERSION_CMD_NAME.equals(arg) ) {
+					stdout.println(PROGRAM_NAME);
+					return 0;
 				} else if( (m = CD_PATTERN.matcher(arg)).matches() ) {
 					ctx = ctx.withPwd(HostBuildContext.resolveRelative(ctx.getPwd(), m.group(1)));
-				} else if( (m = INCLUDE_ITEM_PATTERN.matcher(arg)).matches() ) {
-					todo("add item to be included");
-				} else if( (m = MAIN_CLASS_ARG_PATTERN.matcher(arg)).matches() ) {
-					otherContent.put("META-INF/MANIFEST.MF", ByteBlob.of(
-						"Manifest-Version: 1.0\r\n"+
-						"Main-Class: "+m.group(1)+"\r\n"
-					));
-				} else if( (m = RESOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
-					File root = new File(ctx.getPwd(), m.group(1));
-					resourceRoots.add(root);
-				} else if( (m = SOURCES_ROOT_ARG_PATTERN.matcher(arg)).matches() ) {
-					File root = new File(ctx.getPwd(), m.group(1));
-					sourceRoots.add(root);
-					if( includeSources ) {
-						resourceRoots.add(root);
-					}
 				} else if( !arg.startsWith("-") || arg.equals("-") || "-c".equals(arg) || "--ops".equals(arg) ) {
-					return scriptMain(args, --argi, stdin, stdout, errout, ctx);
+					return scriptMain(args, --argi, ARGMODE_NORMAL, stdin, stdout, errout, ctx);
 				} else {
 					errout.println("Unrecognized argument: "+arg);
 					return 1;
 				}
 			}
 			
-			if( outPath == null ) {
-				errout.println("Error: Output path not specified; `-o -` to output to stdout");
-				return 1;
-			}
-			final String _outPath = outPath;
-			final BuildContext _ctx = ctx;
-			
-			compileJar(
-				sourceRoots, resourceRoots, otherContent,
-				errout, ctx,
-				new Procedure<OutputStreamable, BuildContext, IOException, Void>() {
-					public Void apply(OutputStreamable jar, BuildContext context) throws IOException {
-						writeTo(jar, _outPath, stdout, _ctx);
-						return null;
-					}
-				}
-			);
+			errout.println("Warning: No command given");
 			
 			return 0;
 		} catch( Exception e ) {
