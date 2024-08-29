@@ -382,6 +382,8 @@ public class P0019
 		STANDARD_OPS.put(OP_DROP, DropOp.instance);
 		STANDARD_OPS.put(OP_DUP ,  DupOp.instance);
 		STANDARD_OPS.put(OP_EXCH, ExchOp.instance);
+		
+		STANDARD_OPS.put(OP_QUIT, new EffectOp(new QuitWithCode(0)));
 	}
 	
 	static final int IP_EXIT_INTERP_LOOP = -10;

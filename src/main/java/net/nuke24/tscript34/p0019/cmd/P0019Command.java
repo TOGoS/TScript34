@@ -18,9 +18,20 @@ public class P0019Command
 		return text.replaceAll("\n", "\n"+indent);
 	}
 	
+	static final String MAIN_CMD_NAME = "P0019";
+	
 	static final String PRINT_HELP_CMD_NAME = "ts34p19:print-help";
 	static final String PRINT_HELP_HELP_TEXT = PRINT_HELP_CMD_NAME+" ; print help\n";
 	
+	static final String RUN_SCRIPT_CMD_NAME = "ts34p19:run-script";
+	static final String RUN_SCRIPT_HELP_TEXT = RUN_SCRIPT_CMD_NAME+" [-i] <script file> <script args...>\n"+
+		"\n" +
+		"Run a TS34 script using the P0019 interpreter\n"+
+		"\n" +
+		"Options:" +
+		"  -i   ; interactive mode; prints prompts and catches parse errors\n" +
+		"";
+
 	static final String PRINT_VERSION_CMD_NAME = "ts34p19:print-version";
 	static final String PRINT_VERSION_HELP_TEXT = PRINT_VERSION_CMD_NAME+" ; print version\n";
 	
@@ -40,7 +51,7 @@ public class P0019Command
 		"";
 	
 	static final String HELP_TEXT =
-		"Usage: JavaProjectBuilder <options> <sub-command>\n"  +
+		"Usage: "+MAIN_CMD_NAME+" <options> <sub-command>\n"  +
 		"\n" +
 		"General options:\n" +
 		"  --cd=<dir>           ; Use <dir> as 'current directory' for remaining operations\n" +
@@ -55,6 +66,8 @@ public class P0019Command
 		indentSection("  ", PRINT_VERSION_HELP_TEXT)+
 		"\n" +
 		indentSection("  ", PB_SELF_TEST_HELP_TEXT)+
+		"\n"+
+		indentSection("  ", RUN_SCRIPT_HELP_TEXT)+
 		"";
 	
 	static final Pattern CD_PATTERN = Pattern.compile("--cd=(.*)");
@@ -89,19 +102,23 @@ public class P0019Command
 				} else if( PRINT_VERSION_CMD_NAME.equals(arg) ) {
 					stdout.println(P0019.PROGRAM_NAME);
 					return 0;
+				} else if( RUN_SCRIPT_CMD_NAME.equals(arg) ) {
+					return P0019.scriptMain(args, argi, stdin, stdout, errout);
 				} else if( (m = CD_PATTERN.matcher(arg)).matches() ) {
 					ctx = ctx.withPwd(HostSystemContext.resolveRelative(ctx.getPwd(), m.group(1)));
 				} else {
-					return P0019.scriptMain(args, --argi, stdin, stdout, errout);
+					errout.println("Unrecognized command: "+arg);
+					errout.println("(Running of system commands not yet implemented)");
+					return P0019.EXIT_CODE_COMMAND_NOT_FOUND;
 				}
 			}
 			
 			errout.println("Warning: No command given");
 			
-			return 0;
+			return P0019.EXIT_CODE_NORMAL;
 		} catch( Exception e ) {
 			e.printStackTrace(errout);
-			return 1;
+			return P0019.EXIT_CODE_EXCEPTION;
 		}
 	}
 	
