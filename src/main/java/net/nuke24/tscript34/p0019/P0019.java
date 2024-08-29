@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
@@ -34,12 +35,13 @@ import net.nuke24.tscript34.p0019.util.DebugFormat;
 import net.nuke24.tscript34.p0019.value.Concatenation;
 import net.nuke24.tscript34.p0019.value.Symbol;
 
-public class P0019 {
+public class P0019
+{
+	public static final String VERSION = "0.2.1-dev";
+	public static final String PROGRAM_NAME = "TScript34-P0019-"+VERSION;
+
 	public static final Symbol MARK = new Symbol("http://ns.nuke24.net/TScript34/P0019/Constants/Mark");
-	
-	public static String NAME = "TS34.19";
-	public static String VERSION = "0.0.3";
-	
+		
 	public static final int EXIT_CODE_NORMAL = 0;
 	public static final int EXIT_CODE_EXCEPTION = 1;
 	public static final int EXIT_CODE_USAGE_ERROR = 2; // 'Misuse of shell built-in', also used by JCR36
@@ -803,7 +805,6 @@ public class P0019 {
 		// and it's from where the script is read
 		// TODO: Pass a separate ops reader
 		private final boolean interactive;
-		// TODO: Replace lineReader with an op reader
 		private final BulkItemReader<?> opReader;
 		private final ItemReader<?> inputReader;
 		private InterpreterState<Object, ?> interpState;
@@ -1048,7 +1049,6 @@ public class P0019 {
 	}
 	
 	public static int runTestScript(File ts) {
-		// System.out.println("# Running test script "+ts);
 		try {
 			TestScriptParameters params = loadTestScriptParameters(ts);
 			FileInputStream scriptInputStream = new FileInputStream(ts);
@@ -1100,7 +1100,7 @@ public class P0019 {
 		}
 	}
 	
-	public static int runTestScripts(File dir) {
+	public static int runTestScripts(File dir, PrintStream stdout, PrintStream errout) {
 		File[] files = dir.listFiles();
 		int count = 0;
 		int errorCount = 0;
@@ -1111,49 +1111,49 @@ public class P0019 {
 			}
 		}
 		if( count == 0 ) {
-			System.err.println("No test scripts found in "+dir);
+			errout.println("No test scripts found in "+dir);
 			return EXIT_CODE_TEST_SCRIPT_UNEXPECTED_EXIT_CODE1;
 		}
-		System.out.println("# Ran "+count+" test scripts, got "+errorCount+" failures");
+		stdout.println("# Ran "+count+" test scripts, got "+errorCount+" failures");
 		if( errorCount > 0 ) {
-			System.err.println("Some tests failed");
+			errout.println("Some tests failed");
 		}
 		return errorCount == 0 ? 0 : 1;
 	}
 	
-	public static void main(String[] args) throws Exception {
-		for( int i=0; i<args.length; ++i ) {
-			if( "--version".equals(args[i]) ) {
-				System.out.println(NAME+"-v"+VERSION);
-			} else if( "--return-handling=return-effect".equals(args[i]) ) {
+	public static int scriptMain(String[] args, int argi, InputStream stdin, PrintStream stdout, PrintStream errout) throws Exception {
+		for( ; argi<args.length; ++argi ) {
+			if( "--version".equals(args[argi]) ) {
+				stdout.println(PROGRAM_NAME);
+			} else if( "--return-handling=return-effect".equals(args[argi]) ) {
 				tlrhm = TopLevelReturnHandlingMode.RETURN_EFFECT;
-			} else if( "--return-handling=quit-procedure".equals(args[i]) ) {
+			} else if( "--return-handling=quit-procedure".equals(args[argi]) ) {
 				tlrhm = TopLevelReturnHandlingMode.QUIT_PROC;
-			} else if( args[i].startsWith("-") && !"-".equals(args[i]) && !"-i".equals(args[i])) {
-				System.err.println("Bad arg: "+args[i]);
-				System.exit(1);
+			} else if( args[argi].startsWith("-") && !"-".equals(args[argi]) && !"-i".equals(args[argi])) {
+				errout.println("Bad arg: "+args[argi]);
+				return 1;
 			} else {
-				String scriptFilePath = args[i++];
+				String scriptFilePath = args[argi++];
 				List<String> argv = new ArrayList<String>();
-				while( i < args.length ) {
-					argv.add(args[i++]);
+				while( argi < args.length ) {
+					argv.add(args[argi++]);
 				}
 				boolean interactive = false;
 				InputStream inputStream;
 				if( "-i".equals(scriptFilePath) ) {
 					interactive = true;
-					inputStream = System.in;
+					inputStream = stdin;
 				} else if( "-".equals(scriptFilePath) ) {
-					inputStream = System.in;
+					inputStream = stdin;
 				} else {
 					File f = new File(scriptFilePath);
 					if( f.isDirectory() ) {
-						System.exit(runTestScripts(f));
+						return runTestScripts(f, stdout, errout);
 					}
 					inputStream = getInputStream(scriptFilePath);
 				}
 				
-				final OutputStream os = System.out;
+				final OutputStream os = stdout;
 				Consumer<Object> emitter = new Consumer<Object>() {
 					public void accept(Object obj) {
 						try {
@@ -1166,9 +1166,11 @@ public class P0019 {
 				
 				ZReader opZReader = new InputStreamZReader(inputStream);
 				BulkItemReader<Object> opReader = new BabbyOpReader(opZReader);
-				InputStreamZReader inputReader = new InputStreamZReader(System.in);
-				System.exit(runProgramFrom(opReader, inputReader, interactive, emitter));
+				InputStreamZReader inputReader = new InputStreamZReader(stdin);
+				return runProgramFrom(opReader, inputReader, interactive, emitter);
 			}
 		}
+		
+		return 0;
 	}
 }
