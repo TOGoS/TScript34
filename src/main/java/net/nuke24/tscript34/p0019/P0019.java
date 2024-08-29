@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import net.nuke24.tscript34.p0019.effect.Absorb;
 import net.nuke24.tscript34.p0019.effect.Emit;
 import net.nuke24.tscript34.p0019.effect.EndOfProgramReached;
+import net.nuke24.tscript34.p0019.effect.ParseException;
 import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
 import net.nuke24.tscript34.p0019.effect.ReturnWithValue;
@@ -675,6 +676,7 @@ public class P0019
 	
 	static class BabbyOpReader implements BulkItemReader<Object> {
 		protected final ZReader lineReader;
+		int lineNumber = 0;
 		
 		public BabbyOpReader(ZReader lineReader) {
 			this.lineReader = lineReader;
@@ -689,6 +691,7 @@ public class P0019
 			while( true ) {
 				String line;
 				try {
+					++lineNumber;
 					line = lineReader.readLine();
 				} catch (IOException e) {
 					throw new RuntimeException("Failed to read ops from input");
@@ -785,7 +788,7 @@ public class P0019
 				} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
 					ops.add(PopAndQuitWithCodeOp.instance);
 				} else {
-					throw new RuntimeException("Unrecognized op: "+line);
+					throw new ParseException("Unrecognized op: "+line, "?", lineNumber);
 				}
 				return ops;
 			}
@@ -863,16 +866,23 @@ public class P0019
 				// Nothing to do, booyah!
 				return ResumeWith.blank;
 			} else if( request == readOpsRequest ) {
-				if( interactive ) {
-					this.emitter.accept("# TS34.19> ");
+				while( true ) {
+					if( interactive ) {
+						this.emitter.accept("# TS34.19> ");
+					}
+					try {
+						return new ResumeWith<List<?>>(opReader.read());
+					} catch( ParseException e ) {
+						if( interactive ) {
+							this.emitter.accept("# "+e+"\n");
+							continue;
+						} else {
+							throw new RuntimeException(e);
+						}
+					} catch(IOException e) {
+						return e;
+					}
 				}
-				List<?> ops;
-				try {
-					ops = opReader.read();
-				} catch(IOException e) {
-					return e;
-				}
-				return new ResumeWith<List<?>>(ops);
 			} else if( request instanceof Absorb<?> ) {
 				// Ignore channel for now
 				Object item;
