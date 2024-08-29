@@ -1,0 +1,5 @@
+#lang tscript34.2
+#input-line Foo
+http://ns.nuke24.net/TScript34/Ops/Absorb
+#expect-output Foo
+http://ns.nuke24.net/TScript34/Ops/PrintLine

@@ -1,9 +1,27 @@
 #lang tscript34.2
-#CHUNK 13 --id=hithere
+
+# First test: Multiline chunk followed
+# immediately by '#ENDCHUNK'
+
+#CHUNK 14 --id=hithere
 Hello,
 world!
 #ENDCHUNK
 #expect-output Hello,
 #expect-output world!
 http://ns.nuke24.net/TScript34/Op/PushValue hithere
+http://ns.nuke24.net/TScript34/Ops/Print
+
+
+# Second test: chunk with 'extra' trailing newlines
+
+#CHUNK 6 --id=hello
+Hello!
+
+# Chunks can contain trailing newlines and
+# comment lines, which should be ignored, before #ENDCHUNK
+#ENDCHUNK
+
+#expect-output Hello!
+http://ns.nuke24.net/TScript34/Op/PushValue hello
 http://ns.nuke24.net/TScript34/Ops/PrintLine
