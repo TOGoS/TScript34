@@ -123,8 +123,14 @@ public class P0019Command
 	}
 	
 	public static void main(String[] args) throws Exception {
-		int exitCode = main(args, 0, System.in, System.out, System.err, HostSystemContext.fromEnv());
-		debug("Exiting with code "+exitCode);
-		System.exit(exitCode);
+		HostSystemContext ctx = HostSystemContext.fromEnv();
+		int exitCode = P0019.EXIT_CODE_EXCEPTION;
+		try {
+			exitCode = main(args, 0, System.in, System.out, System.err, ctx);
+			ctx.close();
+			debug("Exiting with code "+exitCode);
+		} finally {
+			System.exit(exitCode);
+		}
 	}
 }

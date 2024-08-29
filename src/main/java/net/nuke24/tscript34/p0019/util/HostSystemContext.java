@@ -3,40 +3,50 @@ package net.nuke24.tscript34.p0019.util;
 import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
 import static net.nuke24.tscript34.p0019.util.DebugUtil.todo;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 import net.nuke24.tscript34.p0019.iface.OutputStreamable;
 import net.nuke24.tscript34.p0019.iface.SystemContext;
 
-public class HostSystemContext implements SystemContext {
+public class HostSystemContext implements SystemContext, Closeable {
 	final File pwd;
 	final Map<String,String> env;
+	final List<File> tempFiles;
 	
-	private HostSystemContext(File pwd, Map<String,String> env) {
+	// As a bit of a hack, the root context
+	// tracks all the temp files of all its children.
+	// Really, the temp files should be deleted as soon
+	// as each child goes out of scope.
+	
+	private HostSystemContext(File pwd, Map<String,String> env, List<File> tempFiles) {
 		this.pwd = pwd;
 		this.env = Collections.unmodifiableMap(env);
+		this.tempFiles = tempFiles;
 	}
 	
-	static final HostSystemContext instance = new HostSystemContext(new File("."), Collections.<String,String>emptyMap());
+	static final HostSystemContext instance = new HostSystemContext(new File("."), Collections.<String,String>emptyMap(), new ArrayList<File>());
 	
 	public static HostSystemContext fromEnv() {
-		return new HostSystemContext(new File("."), System.getenv());
+		return new HostSystemContext(new File("."), System.getenv(), new ArrayList<File>());
 	}
 	
 	@Override public Map<String, String> getEnv() { return env; }
 	@Override public File getPwd() { return pwd; }
 	
 	public SystemContext withEnv(Map<String,String> env) {
-		return new HostSystemContext(this.pwd, env);
+		return new HostSystemContext(this.pwd, env, tempFiles);
 	}
 	public SystemContext withPwd(File dir) {
-		return new HostSystemContext(dir, this.env);
+		return new HostSystemContext(dir, this.env, tempFiles);
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -47,8 +57,10 @@ public class HostSystemContext implements SystemContext {
 	final Random r = new Random();
 	final String prefix = fum(new Date());
 	
-	@Override public File tempFile() throws IOException {
-		return new File(".temp/"+prefix+"/"+r.nextLong()+r.nextLong());
+	@Override public File tempFile(String ext) throws IOException {
+		File tempFile = new File(".temp/"+prefix+"/"+r.nextLong(0,Long.MAX_VALUE)+r.nextLong(0,Long.MAX_VALUE)+ext);
+		tempFiles.add(tempFile);
+		return tempFile;
 	}
 	
 	@Override public void mkdir(File dir) throws IOException {
@@ -105,5 +117,21 @@ public class HostSystemContext implements SystemContext {
 	
 	public static File resolveRelative(File pwd, String rel) {
 		return new File(PathUtil.resolveFilePath(pwd, rel, false));
+	}
+	
+	protected static void rmRf(File f) {
+		if( f.isDirectory() ) {
+			File[] children = f.listFiles();
+			if( children != null ) for( File child : children ) rmRf(child);
+		}
+		if( !f.delete() ) {
+			System.err.println("Warning: Failed to delete temporary file "+f);
+		}
+	}
+	
+	@Override public void close() {
+		for( File temp : tempFiles ) {
+			rmRf(temp);
+		}
 	}
 }

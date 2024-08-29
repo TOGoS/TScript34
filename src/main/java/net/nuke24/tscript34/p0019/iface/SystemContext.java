@@ -10,7 +10,7 @@ public interface SystemContext {
 	public Map<String,String> getEnv();
 	public SystemContext withEnv(Map<String,String> env);
 	public SystemContext withPwd(File dir);
-	public File tempFile() throws IOException;
+	public File tempFile(String ext) throws IOException;
 	/** Create directory and any parents if they do not exist */
 	public void mkdir(File dir) throws IOException;
 	public int runCmd(String[] args, Object[] io) throws IOException;

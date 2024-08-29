@@ -131,12 +131,12 @@ public class JavaProjectBuilder {
 			}
 		};
 		
-		File sourcesListFile = ctx.tempFile();
+		File sourcesListFile = ctx.tempFile(".lst");
 		ctx.putFile(sourcesListFile, sourcesList);
 		if( sourcesListFile.length() == 0 ) {
 			debug("No sources found, skipping javac");
 		} else {
-			File destPath = ctx.tempFile();
+			File destPath = ctx.tempFile("-classes");
 			ctx.mkdir(destPath);
 			// TODO
 			javac(new String[] { "@"+sourcesListFile.getPath() }, destPath.getPath(), errout, ctx);
