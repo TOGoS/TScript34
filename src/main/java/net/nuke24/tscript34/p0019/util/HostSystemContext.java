@@ -80,7 +80,7 @@ public class HostSystemContext implements SystemContext, Closeable {
 	}
 	
 	@Override public OutputStreamable getStreamable(String name) throws IOException {
-		return todo("getStreamable(\""+name+"\"");
+		return todo("getStreamable(\""+name+"\") ; this should support files and simple URIs");
 	}
 	
 	/**

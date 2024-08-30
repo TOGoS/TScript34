@@ -55,12 +55,18 @@ public class P0019Command
 	static final String COMPILE_JAR_HELP_TEXT =
 		COMPILE_JAR_CMD_NAME+" <options>\n"+
 		"\n" +
+		"Compile Java sources and generate a jar file.\n" +
+		"Can also be used to make plain old zips.\n" +
+		"\n" +
 		"Options:\n" +
 		"  -o <path>            ; path to write JAR file\n" +
 		"  --include-sources    ; include following source files in the JAR\n" +
 		"  --java-sources=<dir> ; compile .java source files from source root <dir>\n" +
 		"  --resources=<dir>    ; include resource files within <dir>\n" +
 		"  --main-class=<classname> ; indicate the specified class as main\n" +
+		"\n" +
+		"TODO: Allow arbitrary resources to be added at arbitrary paths\n" +
+		"using --item:<name>=<uri>\n" +
 		"";
 	
 	static final String HELP_TEXT =

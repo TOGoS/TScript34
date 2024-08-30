@@ -207,7 +207,9 @@ public class JavaProjectBuilder {
 			} else if( "--include-sources".equals(arg) ) {
 				includeSources = true;
 			} else if( (m = INCLUDE_ITEM_PATTERN.matcher(arg)).matches() ) {
-				todo("add item to be included");
+				String destName = m.group(1);
+				String sourceName = m.group(2);
+				otherContent.put(outPath, ctx.getStreamable(sourceName));
 			} else if( (m = MAIN_CLASS_ARG_PATTERN.matcher(arg)).matches() ) {
 				otherContent.put("META-INF/MANIFEST.MF", ByteBlob.of(
 					"Manifest-Version: 1.0\r\n"+
