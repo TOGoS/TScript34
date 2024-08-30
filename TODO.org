@@ -1,3 +1,5 @@
+*** TODO Unit tests for project builder commands
+
 *** TODO Op reader
 
 Reading of ops should be conceptually entirely seperable

@@ -1,6 +1,47 @@
 #+TITLE: TScript34 P0019
 
-** Goal
+** Status
+
+As of v0.2.6 (2024-08-29) the more fleshed-out
+part of this project is some commands for building Java projects,
+with syntax and architecture similar to JCR36.
+
+The script interpreter is not yet very useful.
+
+** Use for remote Javacing
+
+One thing you can do with this tool is use it to build
+Java projects on a remote server, using the
+~ts34p19:unzip-to-temp-and-run~ and
+~ts34p19:compile-jar~ sub-commands:
+
+#+BEGIN_SRC
+java -jar TS34P19-v0.2.6.jar ts34p19:compile-jar --resources=src\main\java -o - \
+	| plink me@my-build-server java -jar ~/bin/TS34P19-v0.2.6.jar \
+		ts34p19:unzip-to-temp-and-run - \
+			ts34p19:compile-jar \
+				--java-sources=. \
+				--main-class=net.nuke24.tscript34.p0019.cmd.P0019Command \
+				-o - \
+>remotely-built.jar
+#+END_SRC
+
+You need to already have TS34P19-v0.2.6.jar on the local
+and remote servers for that to work.
+
+A simpler example, running locally but entirely via stdin/stdout:
+
+#+BEGIN_SRC
+java -jar TScript34-P0019/TS34P19-v0.2.6.jar \
+	ts34p19:unzip-to-temp-and-run - \
+		ts34p19:compile-jar \
+			--java-sources=. \
+			--main-class=net.nuke24.tscript34.p0019.cmd.P0019Command \
+			-o - \
+<sources.zip >compiled.zip
+#+END_SRC
+
+** Original Goal
 
 An embeddable, general-purpose TS34 interpreter,
 possibly with support for alternate, PostScript-like syntax.
