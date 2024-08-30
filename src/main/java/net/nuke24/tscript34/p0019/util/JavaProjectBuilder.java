@@ -154,11 +154,11 @@ public class JavaProjectBuilder {
 		return dest.apply(jar, ctx);
 	}
 	
-	static void writeTo(OutputStreamable blob, String hey, OutputStream stdout, SystemContext ctx) throws IOException {
-		if( "-".equals(hey) ) {
+	static void writeTo(OutputStreamable blob, String destName, OutputStream stdout, SystemContext ctx) throws IOException {
+		if( "-".equals(destName) ) {
 			blob.writeTo(stdout);
 		} else {
-			ctx.putFile(new File(hey), blob);
+			ctx.putFile(new File(destName), blob);
 		}
 	}
 	
