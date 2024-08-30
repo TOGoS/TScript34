@@ -20,6 +20,7 @@ import net.nuke24.tscript34.p0019.iface.SystemContext;
 import net.nuke24.tscript34.p0019.util.HostSystemContext;
 import net.nuke24.tscript34.p0019.util.JavaProjectBuilder;
 import net.nuke24.tscript34.p0019.util.Piper;
+import net.nuke24.tscript34.p0019.util.ZipUtil;
 
 public class P0019Command
 {
@@ -101,26 +102,11 @@ public class P0019Command
 		}
 	}
 	
-	static void unzipTo(File zipFile, File dest) throws IOException {
-		ZipFile zip = new ZipFile(zipFile);
-		try {
-			Enumeration<? extends ZipEntry> zipEntryEnumerator = zip.entries();
-			while( zipEntryEnumerator.hasMoreElements() ) {
-				ZipEntry entry = zipEntryEnumerator.nextElement();
-				File entryFile = new File(dest, entry.getName());
-				entryFile.getParentFile().mkdirs();
-				Piper.pipe(zip.getInputStream(entry), true, new FileOutputStream(entryFile), true);
-			}
-		} finally {
-			zip.close();
-		}
-	}
-	
 	static <E extends Throwable, O> O unzipToTempAndRun(String zipName, InputStream stdin, SystemContext ctx, Procedure<File,SystemContext,E,O> proc) throws IOException, E {
 		File zipFile = toFile(zipName, stdin, ".zip", ctx);
 		File tempDir = ctx.tempFile("-extracted");
 		tempDir.mkdirs();
-		unzipTo(zipFile, tempDir);
+		ZipUtil.unzipTo(zipFile, tempDir);
 		return proc.apply(tempDir, ctx);
 	}
 	

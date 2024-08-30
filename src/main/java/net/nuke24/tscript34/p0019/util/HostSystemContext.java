@@ -58,7 +58,7 @@ public class HostSystemContext implements SystemContext, Closeable {
 	final String prefix = fum(new Date());
 	
 	@Override public File tempFile(String ext) throws IOException {
-		File tempFile = new File(".temp/"+prefix+"/"+(r.nextLong()&Long.MAX_VALUE)+(r.nextLong()&Long.MAX_VALUE)+ext);
+		File tempFile = new File(".temp/"+prefix+"/"+(r.nextLong()&Long.MAX_VALUE)+ext);
 		tempFiles.add(tempFile);
 		return tempFile;
 	}
