@@ -38,6 +38,19 @@ extends Thread
 			}
 		}
 	}
+	
+	public static void pipe(InputStream in, boolean ownIn, OutputStream out, boolean ownOut) throws IOException {
+		Piper piper = new Piper(in, ownIn, out, ownOut);
+		piper.run();
+		for( Throwable error : piper.errors ) {
+			if( error instanceof IOException ) {
+				throw (IOException)error;
+			} else {
+				throw new IOException(error);
+			}
+		}
+	}
+	
 	public static Piper start(InputStream in, boolean ownIn, OutputStream out, boolean ownOut) {
 		Piper p = new Piper(in, ownIn, out, ownOut);
 		p.start();

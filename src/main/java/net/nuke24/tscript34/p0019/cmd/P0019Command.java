@@ -2,15 +2,24 @@ package net.nuke24.tscript34.p0019.cmd;
 
 import static net.nuke24.tscript34.p0019.util.DebugUtil.debug;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import net.nuke24.tscript34.p0019.P0019;
+import net.nuke24.tscript34.p0019.iface.Procedure;
 import net.nuke24.tscript34.p0019.iface.SystemContext;
 import net.nuke24.tscript34.p0019.util.HostSystemContext;
 import net.nuke24.tscript34.p0019.util.JavaProjectBuilder;
+import net.nuke24.tscript34.p0019.util.Piper;
 
 public class P0019Command
 {
@@ -37,6 +46,12 @@ public class P0019Command
 	
 	static final String PB_SELF_TEST_CMD_NAME = "ts34p19:project-builder-test";
 	static final String PB_SELF_TEST_HELP_TEXT = PB_SELF_TEST_CMD_NAME+" ; run project builder self-test\n";
+	
+	static final String UNZIP_TO_TEMP_AND_RUN_CMD = "ts34p19:unzip-to-temp-and-run";
+	static final String UNZIP_TO_TEMP_AND_RUN_HELP_TEXT = UNZIP_TO_TEMP_AND_RUN_CMD+" <zip> <command ...>\n"+
+		"\n" +
+		"Unzip the specified zip file (which may be '-')\n" +
+		"to a temporary directory and run the specified command.\n";
 	
 	static final String COMPILE_JAR_CMD_NAME = "ts34p19:compile-jar";
 	static final String COMPILE_JAR_HELP_TEXT =
@@ -68,10 +83,47 @@ public class P0019Command
 		indentSection("  ", PB_SELF_TEST_HELP_TEXT)+
 		"\n"+
 		indentSection("  ", RUN_SCRIPT_HELP_TEXT)+
+		"\n"+
+		indentSection("  ", UNZIP_TO_TEMP_AND_RUN_HELP_TEXT)+
 		"";
 	
 	static final Pattern CD_PATTERN = Pattern.compile("--cd=(.*)");
-
+	
+	static File toFile(String name, InputStream stdin, String ext, SystemContext ctx) throws IOException {
+		if( "-".equals(name) ) {
+			File tempFile = ctx.tempFile(ext);
+			FileOutputStream tempOs = new FileOutputStream(tempFile);
+			Piper.pipe(stdin, false, tempOs, true);
+			return tempFile;
+		} else {
+			// Might want to allow URIs here idk
+			return new File(name);
+		}
+	}
+	
+	static void unzipTo(File zipFile, File dest) throws IOException {
+		ZipFile zip = new ZipFile(zipFile);
+		try {
+			Enumeration<? extends ZipEntry> zipEntryEnumerator = zip.entries();
+			while( zipEntryEnumerator.hasMoreElements() ) {
+				ZipEntry entry = zipEntryEnumerator.nextElement();
+				File entryFile = new File(dest, entry.getName());
+				entryFile.getParentFile().mkdirs();
+				Piper.pipe(zip.getInputStream(entry), true, new FileOutputStream(entryFile), true);
+			}
+		} finally {
+			zip.close();
+		}
+	}
+	
+	static <E extends Throwable, O> O unzipToTempAndRun(String zipName, InputStream stdin, SystemContext ctx, Procedure<File,SystemContext,E,O> proc) throws IOException, E {
+		File zipFile = toFile(zipName, stdin, ".zip", ctx);
+		File tempDir = ctx.tempFile("-extracted");
+		tempDir.mkdirs();
+		unzipTo(zipFile, tempDir);
+		return proc.apply(tempDir, ctx);
+	}
+	
 	public static int main(
 		final String[] args, int argi,
 		final InputStream stdin,
@@ -104,12 +156,22 @@ public class P0019Command
 					return 0;
 				} else if( RUN_SCRIPT_CMD_NAME.equals(arg) ) {
 					return P0019.scriptMain(args, argi, stdin, stdout, errout);
+				} else if( UNZIP_TO_TEMP_AND_RUN_CMD.equals(arg) ) {
+					if( args.length < argi+1 ) {
+						errout.println("Error: "+UNZIP_TO_TEMP_AND_RUN_CMD+" requires at least one argument");
+						return P0019.EXIT_CODE_USAGE_ERROR;
+					}
+					final int commandArgi = argi+1;
+					return unzipToTempAndRun(args[argi], stdin, ctx, new Procedure<File,SystemContext,Exception,Integer>() {
+						@Override
+						public Integer apply(File tempDir, SystemContext context) throws Exception {
+							return main(args, commandArgi, stdin, stdout, errout, context.withPwd(tempDir));
+						}
+					});
 				} else if( (m = CD_PATTERN.matcher(arg)).matches() ) {
 					ctx = ctx.withPwd(HostSystemContext.resolveRelative(ctx.getPwd(), m.group(1)));
 				} else {
-					errout.println("Unrecognized command: "+arg);
-					errout.println("(Running of system commands not yet implemented)");
-					return P0019.EXIT_CODE_COMMAND_NOT_FOUND;
+					return ctx.runCmd(Arrays.copyOfRange(args, argi-1, args.length), new Object[] { stdin, stdout, errout } );
 				}
 			}
 			
