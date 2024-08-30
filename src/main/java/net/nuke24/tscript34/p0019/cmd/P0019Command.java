@@ -8,11 +8,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 import net.nuke24.tscript34.p0019.P0019;
 import net.nuke24.tscript34.p0019.iface.Procedure;
@@ -106,7 +103,7 @@ public class P0019Command
 		File zipFile = toFile(zipName, stdin, ".zip", ctx);
 		File tempDir = ctx.tempFile("-extracted");
 		tempDir.mkdirs();
-		ZipUtil.unzipTo(zipFile, tempDir);
+		ZipUtil.unzipTo(zipFile, tempDir, ctx);
 		return proc.apply(tempDir, ctx);
 	}
 	
