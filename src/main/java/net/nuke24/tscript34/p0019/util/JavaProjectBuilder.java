@@ -76,8 +76,13 @@ public class JavaProjectBuilder {
 		return result;
 	}
 	
-	static void javac(String[] sourceNames, String destPath, OutputStream errout, SystemContext ctx) throws IOException {
-		File destDir = new File(destPath);
+	/**
+	 * TIP: Make sure sourceNames are absolute paths!
+	 * Otherwise they will be interpreted relative to
+	 * whatever the ctx has as the pwd, which might
+	 * not be the same as the system pwd when this is called!
+	 */
+	static void javac(String[] sourceNames, File destDir, OutputStream errout, SystemContext ctx) throws IOException {
 		ctx.mkdir(destDir);
 		
 		String sourceVer = ctx.getEnv().get("JAVAC_SOURCE_VERSION");
@@ -86,7 +91,7 @@ public class JavaProjectBuilder {
 		if( targetVer == null || targetVer.isEmpty() ) targetVer = "1.6";
 		
 		String[] javacCmd = new String[] { "javac", "-source", sourceVer, "-target", targetVer };
-		String[] javacOpts = new String[] { "-d", destPath };
+		String[] javacOpts = new String[] { "-d", destDir.getAbsolutePath() };
 		String[] argv = concat(javacCmd, javacOpts, sourceNames);
 		int exitCode = ctx.runCmd(argv, new Object[] {null,null,errout} );
 		if( exitCode != 0 ) {
@@ -112,7 +117,9 @@ public class JavaProjectBuilder {
 			public void writeTo(OutputStream os) throws IOException {
 				final PrintStream ps = StreamUtil.toPrintStream(os);
 				for( File sr : sourceRoots ) {
-					walk(sr, sr.getPath(), new ThrowingBiConsumer<File,String,IOException>() {
+					walk(sr, sr.getAbsolutePath(), new ThrowingBiConsumer<File,String,IOException>() {
+						// The BiConsumer thing might be overly fancy, here.
+						// Could have just called getAbsolutePath on every File.
 						@Override
 						public void accept(File a, String b) throws IOException {
 							if( JAVA_SOURCE_FILENAME_PATTERN.matcher(a.getName()).matches() ) {
@@ -136,12 +143,12 @@ public class JavaProjectBuilder {
 		if( sourcesListFile.length() == 0 ) {
 			debug("No sources found, skipping javac");
 		} else {
-			File destPath = ctx.tempFile("-classes");
-			ctx.mkdir(destPath);
-			// TODO
-			javac(new String[] { "@"+sourcesListFile.getPath() }, destPath.getPath(), errout, ctx);
+			File destDir = ctx.tempFile("-classes");
+			ctx.mkdir(destDir);
 			
-			walk(destPath, "", add2Jar);
+			javac(new String[] { "@"+sourcesListFile.getAbsolutePath() }, destDir, errout, ctx);
+			
+			walk(destDir, "", add2Jar);
 		}
 		
 		for( File resourceRoot : resourceRoots ) {
