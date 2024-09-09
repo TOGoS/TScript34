@@ -1,0 +1,34 @@
+---------------------------------------------------------------------------------------------------
+Version 0.2.8
+JAR: ???
+Date: ???
+---------------------------------------------------------------------------------------------------
+Version 0.2.6
+JAR: urn:bitprint:WGPH7F4RZBS76Y36NCVUQL5RXTN7SD3H.D65BTF2Y2JLR4OH5E2CPDXDMTAMWEEV5I4CHNLQ
+Date: 2024-08-29
+Notes:
+  - This version is usable for building Java projects locally or over SSH
+Fixes:
+  - Pass absolute paths to `javac` so to avoid confusion (and failure to read files)
+    when multiple directories are involved
+Features:
+  - `--cd=<dir>` option, to run subcommand in a specific directory
+  - Include options in help text
+---------------------------------------------------------------------------------------------------
+Version 0.2.4
+Fixes:
+  - Fiz unzipping
+---------------------------------------------------------------------------------------------------
+Version 0.2.2
+JAR: urn:bitprint:D6HCYRCICX3VRIKUI364IQ75SNWLVG2O.GRU4GHUMERT5SGGHDGPFYGBBA67JZC5ZVA36PKY
+Date: 2024-08-29
+Notes:
+  - This is a major change in that it merges the JavaProjectBuilder
+    and P0019 commands into a single command with namespaced sub-commands
+Features:
+  - Add `ts34p19:unzip-to-temp-and-run` command
+Fixes:
+  - HostSystemContext removes temp files on close()
+Features:
+  - `--cd=<dir>` option, to run subcommand in a specific directory
+  - Include options in help text
