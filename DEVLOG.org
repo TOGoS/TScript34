@@ -243,3 +243,20 @@ Need to either:
   zip as stdin and writing the result to stdout)
 - Break the job runner system down into smaller steps,
   start working on those.
+
+** [2024-09-22] Differentiating between compile-time and runtime ops
+
+Alias, OpenProcedure, CloseProcedure all need to happen at compile-time.
+
+They have an effect even when inside a block.
+
+I am thinking they should be moved outside the ~Op~ / ~Ops~ namespace.
+Maybe ~Directive~.
+
+There should be directives to explicitly push and pop static contexts,
+ops to push new lexical contexts (~return~ implicitly reverts
+to the old lexical context), and
+ops to run procedures within a new dynamic context.
+Dynamic contexts could consist of variables (
+
+It might make sense to protoype this all in Scheme.
