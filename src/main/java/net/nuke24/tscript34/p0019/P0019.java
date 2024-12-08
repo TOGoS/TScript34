@@ -687,10 +687,79 @@ public class P0019
 		static final Pattern ID_OPTION_PATTERN = Pattern.compile("--id=(.*)");
 		static final Pattern SECTOR_OPTION_PATTERN = Pattern.compile("--sector=(.*)");
 		
+		List<String[]> logicalLines = new ArrayList<>();
+		
+		List<Object> readProcedureOps() {
+			throw new RuntimeException("TODO: Read all ops until a close procedure pseudo-op");
+		}
+		
+		static String debug(String[] tokens) {
+			StringBuilder sb = new StringBuilder();
+			String sep = "";
+			for( String tok : tokens ) {
+				sb.append(sep);
+				sb.append("{");
+				sb.append(tok);
+				sb.append("}");
+				sep = " ";
+			}
+			return sb.toString();
+		}
+		
 		/** Read at least one operation */
 		public List<Object> read() throws IOException {
-			ArrayList<Object> ops = new ArrayList<Object>();
+			ArrayList<Object> dest = new ArrayList<Object>();
 			while( true ) {
+				while( logicalLines.size() > 0 ) {
+					String[] tokens = logicalLines.remove(0);
+					Object op = STANDARD_OPS.get(tokens[0]);
+					if( op != null ) {
+						if( tokens.length > 1 ) {
+							throw new RuntimeException("Too many arguments to non-constructor op '"+tokens[0]+"'");
+						}
+						dest.add(op);
+					} else if( OP_CLOSE_PROC.equals(tokens[0]) ) {
+						// Put it back and return;
+						// Procedure-reading op will verify that it's the next thing
+						// after reading the contents of the procedure.
+						logicalLines.add(0, tokens);
+					} else if( OP_CONCAT_N.equals(tokens[0]) ) {
+						// TODO: Move these to STANDARD_OPS
+						dest.add(ConcatNOp.instance);
+					} else if( OP_COUNT_TO_MARK.equals(tokens[0]) ) {
+						dest.add(new CountToOp(MARK));
+					} else if( OP_OPEN_PROC.equals(tokens[0]) ) {
+						List<Object> innerOps = readProcedureOps();
+						throw new RuntimeException("Push an p[ ;ost p[ pr wjatever");
+					} else if( OP_PRINT.equals(tokens[0]) ) {
+						// For now, print is just an emit
+						dest.add(PopAndEmitOp.instance);
+					} else if( OP_PRINT_LINE.equals(tokens[0]) ) {
+						// For now, print is just an emit
+						dest.add(PopAndEmitOp.instance);
+						dest.add(PushOp.of("\n"));
+						dest.add(PopAndEmitOp.instance);
+					} else if( OPC_PUSH_VALUE.equals(tokens[0]) ) {
+						Object value = decodeTs34(tokens,1);
+						dest.add(PushOp.of(value));
+					} else if( OPC_PUSH_SYMBOL.equals(tokens[0]) ) {
+						if( tokens.length != 2 ) {
+							throw new RuntimeException(OPC_PUSH_SYMBOL+" requires exactly one argument");
+						}
+						dest.add(PushOp.of(new Symbol(tokens[1])));
+					} else if( OP_PUSH_MARK.equals(tokens[0]) ) {
+						dest.add(PushOp.of(MARK));
+					} else if( OP_RETURN.equals(tokens[0]) ) {
+						dest.add(ReturnOp.instance);
+					} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
+						dest.add(PopAndQuitWithCodeOp.instance);
+					} else {
+						throw new ParseException("Unrecognized op: "+tokens[0], "?", lineNumber);
+					}
+					if( !dest.isEmpty() ) return dest;
+				}
+				
+				
 				String line;
 				try {
 					++lineNumber;
@@ -699,7 +768,7 @@ public class P0019
 					throw new RuntimeException("Failed to read ops from input");
 				}
 				if( line == null ) {
-					return ops;
+					return dest;
 				}
 				
 				line = line.trim();
@@ -738,10 +807,10 @@ public class P0019
 					// explicitly compile-time one.
 					// Even if a #CHUNK appears in a loop, only need to store once,
 					// as it has no effect on the stack.
-					ops.add(new EffectOp(
+					dest.add(new EffectOp(
 						new StoreData(id, sectorName, new Concatenation<Byte>(chunks.toArray()))
 					));
-					return ops;
+					return dest;
 				}
 				if( line.startsWith("#ENDCHUNK") ) {
 					// Cool, cool.
@@ -754,45 +823,24 @@ public class P0019
 				if( line.isEmpty() ) continue;
 				
 				String[] tokens = line.split("\\s+");
-				if( tokens.length == 0 ) continue; // Probably shouldn't happen
-
-				Object op = STANDARD_OPS.get(tokens[0]);
-				if( op != null ) {
-					if( tokens.length > 1 ) {
-						throw new RuntimeException("Too many arguments to non-constructor op '"+tokens[0]+"'");
+				//System.err.println("Tokens: "+debug(tokens));
+				int t, e;
+				for( t=0; t<tokens.length; ++t ) {
+					findEnd: for( e=t; e<tokens.length; ++e ) {
+						if( ";".equals(tokens[e]) ) {
+							break findEnd;
+						}
 					}
-					ops.add(op);
-				} else if( OP_CONCAT_N.equals(tokens[0]) ) {
-					// TODO: Move these to STANDARD_OPS
-					ops.add(ConcatNOp.instance);
-				} else if( OP_COUNT_TO_MARK.equals(tokens[0]) ) {
-					ops.add(new CountToOp(MARK));
-				} else if( OP_PRINT.equals(tokens[0]) ) {
-					// For now, print is just an emit
-					ops.add(PopAndEmitOp.instance);
-				} else if( OP_PRINT_LINE.equals(tokens[0]) ) {
-					// For now, print is just an emit
-					ops.add(PopAndEmitOp.instance);
-					ops.add(PushOp.of("\n"));
-					ops.add(PopAndEmitOp.instance);
-				} else if( OPC_PUSH_VALUE.equals(tokens[0]) ) {
-					Object value = decodeTs34(tokens,1);
-					ops.add(PushOp.of(value));
-				} else if( OPC_PUSH_SYMBOL.equals(tokens[0]) ) {
-					if( tokens.length != 2 ) {
-						throw new RuntimeException(OPC_PUSH_SYMBOL+" requires exactly one argument");
+					if( e > t ) {
+						String[] logicalLine = new String[e-t];
+						for( int i=0, j=t; j<e; ++i, ++j ) {
+							logicalLine[i] = tokens[j];
+						}
+						//System.err.println("Logical line: "+debug(logicalLine));
+						logicalLines.add(logicalLine);
 					}
-					ops.add(PushOp.of(new Symbol(tokens[1])));
-				} else if( OP_PUSH_MARK.equals(tokens[0]) ) {
-					ops.add(PushOp.of(MARK));
-				} else if( OP_RETURN.equals(tokens[0]) ) {
-					ops.add(ReturnOp.instance);
-				} else if( OP_QUIT_WITH_CODE.equals(tokens[0]) ) {
-					ops.add(PopAndQuitWithCodeOp.instance);
-				} else {
-					throw new ParseException("Unrecognized op: "+line, "?", lineNumber);
+					t = e;
 				}
-				return ops;
 			}
 		}
 	}
