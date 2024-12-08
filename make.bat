@@ -3,6 +3,8 @@ rem so we don't have to make multiple JAR files
 
 setlocal
 
+set "self_name=%~nx0"
+
 set "bootstrap_jar=JavaProjectBuilder-v0.1.2.jar"
 if not exist "%bootstrap_jar%" goto need_bootstrap_jar
 
@@ -12,13 +14,25 @@ set JAVAC_SOURCE_VERSION=1.7
 set JAVAC_TARGET_VERSION=1.7
 
 java -jar "%bootstrap_jar%" -o target/TS34P19-dev.jar --include-sources --java-sources=src/main/java --main-class=net.nuke24.tscript34.p0019.cmd.P0019Command
+if errorlevel 1 goot fail
+
+if "%1" == "test" goto run_tests
 
 goto eof
 
+:run_tests
+java -jar target\TS34P19-dev.jar ts34p19:run-script src\test\ts34
+if errorlevel 1 goto fail
+goto eof
 
 :need_bootstrap
 echo %bootstrap_jar% does not exist.  Download it from wherever.
+goto fail
+
+:fail
+echo %self_name%: exiting due to errors
 exit /B 1
+
 
 
 :eof
