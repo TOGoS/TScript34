@@ -1,0 +1,15 @@
+#lang tscript34.2
+
+# Define a procedure that prints the item at the top of the stack twice
+http://ns.nuke24.net/TScript34/Ops/OpenProcedure
+http://ns.nuke24.net/TScript34/Ops/Dup
+http://ns.nuke24.net/TScript34/Ops/PrintLine
+http://ns.nuke24.net/TScript34/Ops/PrintLine
+http://ns.nuke24.net/TScript34/Ops/CloseProcedure
+
+http://ns.nuke24.net/TScript34/Op/PushValue data:,Hi,%20there!
+http://ns.nuke24.net/TScript34/Ops/Exch
+
+#expect-output Hi, there!
+#expect-output Hi, there!
+http://ns.nuke24.net/TScript34/Ops/Exec

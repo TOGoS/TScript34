@@ -22,7 +22,6 @@ import java.util.regex.Pattern;
 
 import net.nuke24.tscript34.p0019.effect.Absorb;
 import net.nuke24.tscript34.p0019.effect.Emit;
-import net.nuke24.tscript34.p0019.effect.EndOfProgramReached;
 import net.nuke24.tscript34.p0019.effect.ParseException;
 import net.nuke24.tscript34.p0019.effect.QuitWithCode;
 import net.nuke24.tscript34.p0019.effect.ResumeWith;
@@ -208,13 +207,6 @@ public class P0019
 		 */
 		public Object execute(List<Object> stack);
 	}
-	static class BeginBlockOp implements StackyBlockOp {
-		public final EndBlockOp instance = new EndBlockOp();
-		private BeginBlockOp() { }
-		@Override public Object execute(List<Object> stack) {
-			return new RuntimeException("Begin block op should not be executed");
-		}
-	}
 	static class DropOp implements StackyBlockOp {
 		public static final DropOp instance = new DropOp();
 		private DropOp() { }
@@ -246,15 +238,8 @@ public class P0019
 			}
 			Object a = stack.get(stack.size()-1);
 			stack.set(stack.size()-1, stack.get(stack.size()-2));
-			stack.set(stack.size()-1, a);
+			stack.set(stack.size()-2, a);
 			return null;
-		}
-	}
-	static class EndBlockOp implements StackyBlockOp {
-		public final EndBlockOp instance = new EndBlockOp();
-		private EndBlockOp() { }
-		public Object execute(List<Object> stack) {
-			return new RuntimeException("End block op should not be executed");
 		}
 	}
 	/** -- value */
@@ -309,6 +294,20 @@ public class P0019
 				// TODO: Maybe wrap in a ScriptException or something
 				return e;
 			}
+		}
+	}
+	// PostScript's 'exec'.
+	// Pops an op (which may be a procedure or other 'compound' op) and calls it
+	// (op-inputs... op -- op-outputs...)
+	static class CallOp<V> implements StackyBlockOp {
+		public static final CallOp<Object> instance = new CallOp<Object>();
+		private CallOp() {}
+		@Override public Object execute(List<Object> stack) {
+			Object op = stack.remove(stack.size()-1);
+			if( !(op instanceof StackyBlockOp) ) {
+				throw new UnsupportedOperationException("Don't know how to execute "+op+"; it does not implement StackyBlockOp");
+			}
+			return ((StackyBlockOp)op).execute(stack);
 		}
 	}
 	static class ReturnOp<V> implements StackyBlockOp {
@@ -382,14 +381,46 @@ public class P0019
 		STANDARD_OPS.put(OP_DROP, DropOp.instance);
 		STANDARD_OPS.put(OP_DUP ,  DupOp.instance);
 		STANDARD_OPS.put(OP_EXCH, ExchOp.instance);
+		STANDARD_OPS.put(OP_EXECUTE, CallOp.instance);
 		
 		STANDARD_OPS.put(OP_QUIT, new EffectOp(new QuitWithCode(0)));
+		STANDARD_OPS.put(OP_PRINT_STACK_THUNKS, new StackyBlockOp() {			
+			@Override
+			public Object execute(List<Object> stack) {
+				// TODO: Print using the appropriate channels
+				// instead of going straight to stderr
+				System.err.println("Stack (bottom to top):");
+				for( Object item : stack ) {
+					System.err.println("  " + item);
+				}
+				return null;
+			}
+		});
 	}
 	
 	static final int IP_EXIT_INTERP_LOOP = -10;
+	static final int IP_NEXT_OP = -11;
+	static final int IP_DONT_CHANGE = -12;
+	
+	static final class Proc<T> implements StackyBlockOp {
+		final List<T> block;
+		final int index;
+		public Proc(List<T> block, int index) {
+			this.block = block;
+			this.index = index;
+		}
+		@Override
+		public Object execute(List<Object> stack) {
+			return Continuation.call(this.block, this.index);
+		}
+	}
 	
 	static final class Continuation<I> {
 		private static final Continuation<Object> EXIT_INTERP_LOOP = new Continuation<Object>(Collections.emptyList(), IP_EXIT_INTERP_LOOP);
+		// Act like a call -- interpreter will fill in
+		private static final Continuation<Object> RESUME_AT_NEXT_OP = new Continuation<Object>(Collections.emptyList(), IP_NEXT_OP);
+		// Act like a jump -- leave the return continuation as it is
+		private static final Continuation<Object> RETURN = new Continuation<Object>(Collections.emptyList(), IP_DONT_CHANGE);
 		
 		public final List<I> block;
 		public final int index;
@@ -422,6 +453,12 @@ public class P0019
 		public static <I> Continuation<I> to(List<I> block, int index, Continuation<I> returnTo) {
 			assert returnTo != null;
 			return new Continuation<I>(block, index, returnTo);
+		}
+		/** Create a pseudo-continuation that will return to the interpreter's current instruction */
+		public static <I> Continuation<I> call(List<I> block, int index) {
+			@SuppressWarnings("unchecked")
+			Continuation<I> ret = (Continuation<I>)(Object)RESUME_AT_NEXT_OP;
+			return new Continuation<I>(block, index, ret);
 		}
 		
 		@Override public String toString() {
@@ -485,31 +522,33 @@ public class P0019
 					stack = new ArrayList<Object>(ret.value);
 					request = returnTo;
 				}
-				// Continuation = JumpTo(Continuation);
+				// Continuation as an effect means to jump to that continuation
 				// I just was lazy and didn't want to add a new object.
 				if( request instanceof Continuation ) {
 					Continuation<StackyBlockOp> continuation = (Continuation<StackyBlockOp>)request;
+					switch (continuation.returnTo.index) {
+					case IP_DONT_CHANGE:
+						break;
+					case IP_NEXT_OP:
+						// Opportunity for tail call optimization right here!
+						returnTo = Continuation.to(instructions, ip, returnTo);
+						break;
+					default:
+						returnTo = continuation.returnTo;
+						break;
+					}
 					instructions = continuation.block;
 					ip = continuation.index;
-					returnTo = continuation.returnTo;
 					request = null;
 				}
 			}
 			Continuation<StackyBlockOp> continuation;
 			if( request == null ) {
 				assert ip == instructions.size();
+				// To make 'list of ops is equivalent to one big op' work more easily,
+				// running off the end of a block is equivalent to a return.
+				// (previously, blocks had to have an explicit 'return' op at the end)
 				continuation = returnTo;
-				System.err.println("Reached end of program at ip = "+ip);
-				// Reached to end of program!
-				// Let's say for now that this is an error.
-				// If you want to return, add a return op.
-				request = new EndOfProgramReached();
-				// actually for now, let reaching end of program
-				// is an implicit return, to make the read-execute loop
-				// work even though it's not explicitly adding
-				// return ops to the end of op lists
-				// (since it doesn't know if it's immediately executing
-				// or making a procedure, asjndkajsndkaj)
 			} else {
 				continuation = new Continuation<StackyBlockOp>(instructions, ip, returnTo);
 			}
@@ -689,8 +728,13 @@ public class P0019
 		
 		List<String[]> logicalLines = new ArrayList<>();
 		
-		List<Object> readProcedureOps() {
-			throw new RuntimeException("TODO: Read all ops until a close procedure pseudo-op");
+		protected List<Object> readProcedureOps() throws IOException {
+			List<Object> ops = new ArrayList<Object>();
+			List<Object> z;
+			while( (z = read()).size() > 0 ) {
+				ops.addAll(z);
+			}
+			return ops;
 		}
 		
 		static String debug(String[] tokens) {
@@ -710,6 +754,8 @@ public class P0019
 		public List<Object> read() throws IOException {
 			ArrayList<Object> dest = new ArrayList<Object>();
 			while( true ) {
+				// Process any buffered logical lines before
+				// reading the next physical one:
 				while( logicalLines.size() > 0 ) {
 					String[] tokens = logicalLines.remove(0);
 					Object op = STANDARD_OPS.get(tokens[0]);
@@ -723,6 +769,10 @@ public class P0019
 						// Procedure-reading op will verify that it's the next thing
 						// after reading the contents of the procedure.
 						logicalLines.add(0, tokens);
+						// Not adding a 'return' because in the context of
+						// a procedure being just a list of ops, having to explicitly
+						// return seems silly.  May need to revisit interpreter architecture...
+						return dest;
 					} else if( OP_CONCAT_N.equals(tokens[0]) ) {
 						// TODO: Move these to STANDARD_OPS
 						dest.add(ConcatNOp.instance);
@@ -730,7 +780,12 @@ public class P0019
 						dest.add(new CountToOp(MARK));
 					} else if( OP_OPEN_PROC.equals(tokens[0]) ) {
 						List<Object> innerOps = readProcedureOps();
-						throw new RuntimeException("Push an p[ ;ost p[ pr wjatever");
+						assert logicalLines.size() > 0;
+						assert OP_CLOSE_PROC.equals(logicalLines.get(0)[0]);
+						logicalLines.remove(0);
+						// Could do here: be clever and optimize
+						// the len(ops) == 0 and len(ops) == 1 cases
+						dest.add(new PushOp(new Proc<Object>(innerOps, 0)));
 					} else if( OP_PRINT.equals(tokens[0]) ) {
 						// For now, print is just an emit
 						dest.add(PopAndEmitOp.instance);

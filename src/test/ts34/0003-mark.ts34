@@ -9,7 +9,7 @@ http://ns.nuke24.net/TScript34/Ops/CountToMark
 http://ns.nuke24.net/TScript34/P0009/Ops/ConcatN
 #expect-output Hi, there!
 http://ns.nuke24.net/TScript34/Ops/PrintLine
-http://ns.nuke24.net/TScript34/Ops/Exch
+# Drop the mark
 http://ns.nuke24.net/TScript34/Ops/Drop
 
 #expect-output End.
