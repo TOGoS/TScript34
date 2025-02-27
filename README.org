@@ -43,6 +43,7 @@
 - P0018 :: Java library to help publish Maven packages
 - P0019 :: A TScript34.2 interpreter based on P0009
 - P0020 :: Process[Like] management experiment in Java
+- P0021 :: JSON-defined state-machine based tokenizer, in Deno
 
 ** OIDs
 
@@ -65,6 +66,9 @@ That said, some PostScript programs might not be valid TScript34 programs,
 and vice-versa.
 
 *** Common Syntax
+:PROPERTIES:
+:CUSTOM_ID: common-syntax
+:END:
 
 Languages aside from the 'syntaxless' TS34.2 (which is line-based)
 and PostScript clones (though they may extend the syntax to support line comments)
