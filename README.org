@@ -44,6 +44,7 @@
 - P0019 :: A TScript34.2 interpreter based on P0009
 - P0020 :: Process[Like] management experiment in Java
 - P0021 :: JSON-defined state-machine based tokenizer, in Deno
+- P0022 :: Lisp-like language in TypeScript for generating geometry
 
 ** OIDs
 
