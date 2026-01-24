@@ -7,12 +7,11 @@
 (define (is-comment-or-blank? line)
   (irregex-match "^\\s*(?:#.*)?$" line))
 
-(define (string-split str delimiter)
-  (irregex-split (irregex delimiter) str))
+(define tab-re (irregex "\t"))
 
 (define (parse-test-case-tsv-line line callback)
   (if (not (is-comment-or-blank? line))
-      (let* ((parts (string-split line "\t")))
+      (let* ((parts (irregex-split tab-re line)))
         (if (not (= (length parts) 2))
             (error (string-append "Malformed test case line: " line))
             (callback `(test-case ,(list-ref parts 0) ,(list-ref parts 1)))))))
