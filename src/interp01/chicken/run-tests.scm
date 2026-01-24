@@ -2,11 +2,29 @@
 (import (chicken irregex)
         (chicken io))
 
+;; TestCase = ('test-case input-uri expected-result-uri)
+
+(define (is-comment-or-blank? line)
+  (irregex-match "^\\s*(?:#.*)?$" line))
+
+(define (string-split str delimiter)
+  (irregex-split (irregex delimiter) str))
+
+(define (parse-test-case-tsv-line line callback)
+  (if (not (is-comment-or-blank? line))
+      (let* ((parts (string-split line "\t")))
+        (if (not (= (length parts) 2))
+            (error (string-append "Malformed test case line: " line))
+            (callback `(test-case ,(list-ref parts 0) ,(list-ref parts 1)))))))
+
+(define (run-test-case test-case)
+  (display (string-append "test case: input URI = " (cadr test-case) ", expected result = " (caddr test-case) "\n")))
+
 (define (run-test-cases-from-port port)
   (let ((line (read-line port)))
     (if (not (eof-object? line))
         (begin
-          (display (string-append "read: " line "\n"))
+          (parse-test-case-tsv-line line run-test-case)
           (run-test-cases-from-port port)
           ))))
 
