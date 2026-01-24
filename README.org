@@ -45,6 +45,7 @@
 - P0020 :: Process[Like] management experiment in Java
 - P0021 :: JSON-defined state-machine based tokenizer, in Deno
 - P0022 :: Lisp-like language in TypeScript for generating geometry
+- P0023 :: TOGScheme?  See 2026-timelog.txt#2026-01-24-toglang.
 
 ** OIDs
 
