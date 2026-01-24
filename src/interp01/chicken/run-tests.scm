@@ -10,12 +10,20 @@
           (run-from-port port)
           ))))
 
+(define (parse-args args)
+  (list (cons 'input-files args)))
+
+(define (get-input-files config)
+  (cdr (assoc 'input-files config)))
+
 (define (main args)
-  (if (null? args)
-      (display "WARNING: no test case files were indicated\n")
-      (for-each
-        (lambda (file)
-          (if (string=? file "-")
-              (run-from-port (current-input-port))
-              (call-with-input-file file run-from-port)))
-        args)))
+  (let* ((config (parse-args args))
+         (files (get-input-files config)))
+    (if (null? files)
+        (display "WARNING: no test case files were indicated\n")
+        (for-each
+          (lambda (file)
+            (if (string=? file "-")
+                (run-from-port (current-input-port))
+                (call-with-input-file file run-from-port)))
+          files))))
