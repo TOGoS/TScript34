@@ -20,7 +20,7 @@
 (define (hex-decode hex)
   (string (integer->char (string->number hex 16))))
 (define (uri-decode encoded)
-  (irregex-replace "%([0-9a-f][0-9a-f])" encoded
+  (irregex-replace/all "%([0-9A-Fa-f][0-9A-Fa-f])" encoded
     (lambda (match-data) (hex-decode (irregex-match-substring match-data 1)))))
 
 ;; TODO: Tests for uri-decode
@@ -55,12 +55,12 @@
 (define (run-test-case test-case)
   (let* ((expression-source-uri (cadr test-case))
          (expected-result-uri (caddr test-case))
-         (expected-result (load-blob expected-result-uri)))
+         (expected-result (load-blob expected-result-uri))
+         (expression-source (load-blob expression-source-uri)))
   ; (display (string-append "test case: input URI = " expression-source-uri ", expected result = " expected-result-uri  "\n"))
-  (let ((expression-source (load-blob expression-source-uri)))
     (let ((result (eval-ts34p23-expression expression-source)))
       (if (not (equal? result expected-result))
-        (error (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}")))))))
+        (error (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}"))))))
 
 (define (run-test-cases-from-port port running-test-count)
   (let ((line (read-line port)))

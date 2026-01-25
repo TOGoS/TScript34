@@ -19,6 +19,8 @@
 
 # Data URIs in this language evaluate to a byte array
 data:,|data:,|	data:,
+# Same thing, but properly percent-encoded (this is just testing that this file is parser properly)
+data:,%7Cdata%3A%2C%7C	data:,
 # Make sure the test case runner knows that these two are the same
 data:,|data:,|	urn:bitprint:3I42H3S6NNFQ2MSVX7XZKYAYSCX5QBYJ.LWPNACQDBZRYXW3VHJVCJ64QBZNGHOHHHZWCLNQ
 data:,urn:bitprint:3I42H3S6NNFQ2MSVX7XZKYAYSCX5QBYJ.LWPNACQDBZRYXW3VHJVCJ64QBZNGHOHHHZWCLNQ	data:,
