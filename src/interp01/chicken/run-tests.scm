@@ -62,12 +62,12 @@
 ; (display (string-append "Load..." (load-blob "data:,foo%20bar") "\n"))
 
 (define-record-type test-result
-  (make-test-result test-case passed actual-value error-messages)
+  (make-test-result test-case passed actual-value messages)
   test-result?
   (test-case test-result-test-case)
   (passed test-result-passed)
   (actual-value test-result-actual-value)
-  (error-messages test-result-error-messages))
+  (messages test-result-messages))
 
 (define (run-test-case test-case)
   (let* ((expression-source-uri (test-case-source-uri test-case))
@@ -76,7 +76,7 @@
          (expression-source (load-blob expression-source-uri))
          (result (eval-ts34p23-expression-source expression-source))
          (result-matches-expected (equal? result expected-result))
-         (messages (if result-matches-expected '() (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}"))))
+         (messages (if result-matches-expected '() (list (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}")))))
     (make-test-result test-case result-matches-expected result messages)))
 
 (define (run-test-cases-from-port port)
@@ -106,11 +106,20 @@
   (let* ((config (parse-args args))
          (files (get-input-files config)))
     (let* ((test-results (foldl (lambda (results file) (append results (run-test-cases-from-file file))) '() files))
-           (_ (write test-results))
            (totals (foldl (lambda (totals test-result)
                             (let* ((failed-delta (if (test-result-passed test-result) 0 1))
                                    (passed-delta (- 1 failed-delta)))
                               (list (+ (car totals) failed-delta) (+ (cadr totals) passed-delta))))
                           (list 0 0)
                           test-results)))
-     (display (string-append (number->string (car totals)) " failed, " (number->string (cadr totals)) " passed" "\n")))))
+      (display (string-append (number->string (car totals)) " failed, " (number->string (cadr totals)) " passed" "\n"))
+      (if (> (car totals) 0)
+        (begin
+          (display "Failures:\n")
+          (for-each
+            (lambda (test-result)
+              (if (not (test-result-passed test-result))
+                (for-each
+                  (lambda (message) (display (string-append "  " message "\n")))
+                  (test-result-messages test-result))))
+            test-results))))))
