@@ -35,6 +35,7 @@
   (let ((match-data (irregex-match data-uri-re uri)))
     (cond
       (match-data (uri-decode (irregex-match-substring match-data 1)))
+      ((string=? "http://ns.nuke24.net/TOGVM/Functions/Concatenate" uri) string-append) ; Basically, for now
       ((string=? "urn:bitprint:3I42H3S6NNFQ2MSVX7XZKYAYSCX5QBYJ.LWPNACQDBZRYXW3VHJVCJ64QBZNGHOHHHZWCLNQ" uri) "")
       ((string=? "urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ" uri) "Hello, world!")
       ((string=? "urn:bitprint:ABJE2DLXTZHB436YIDSU7TUZDUC7H4MG.SIY4YBEH5BVCK54P5C3LKODI5V4L36EFH3XVONQ" uri) "|data:,|")
@@ -44,17 +45,20 @@
 
 ;; TODO: Tests for load-blob
 
-(define quoted-symbol-re (irregex "\\|(.*)\\|"))
+(define (eval-ts34p23-expression expr)
+  (cond
+    ((symbol? expr) (load-blob (symbol->string expr)))
+    ((list? expr)
+      (cond
+        ((null? expr) (error "Can't eval empty list"))
+        (else (let ((evaled-components (map eval-ts34p23-expression expr)))
+          (eval evaled-components)))))
+    (else (error "Can't even non-list, non-symbol"))))
 
-(define (eval-ts34p23-expression expression-string)
-    ;; TODO: Let Chicken's reader do the parsing.
-    (let* (
-      (quoted-symbol-match-data (irregex-match quoted-symbol-re expression-string))
-      (the-symbol (if quoted-symbol-match-data
-          (irregex-match-substring quoted-symbol-match-data 1) ;; TODO: Unescape '\'+whatevers
-          expression-string))
-    ) (load-blob the-symbol)))
-  
+(define (eval-ts34p23-expression-source expression-string)
+  (let ((expr (read (open-input-string expression-string))))
+    (eval-ts34p23-expression expr)))
+
 ; (display (string-append "Load..." (load-blob "data:,foo%20bar") "\n"))
 
 (define-record-type test-result
@@ -70,7 +74,7 @@
          (expected-result-uri (test-case-expected-result-uri test-case))
          (expected-result (load-blob expected-result-uri))
          (expression-source (load-blob expression-source-uri))
-         (result (eval-ts34p23-expression expression-source))
+         (result (eval-ts34p23-expression-source expression-source))
          (result-matches-expected (equal? result expected-result))
          (messages (if result-matches-expected '() (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}"))))
     (make-test-result test-case result-matches-expected result messages)))

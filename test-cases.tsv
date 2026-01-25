@@ -32,4 +32,11 @@ data:,|data:,Hello,%20world!|	urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276T
 data:,urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ	data:,Hello, world!
 data:,urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ	urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ
 
-# TODO: Define a concatenation function, test that it works
+# Concatenate stuff
+data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| |data:,|)	data:,
+data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| |data:,a|)	data:,a
+data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| |data:,a| |data:,b|)	data:,ab
+data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| |data:,a| |data:,b| |data:,c|)	data:,abc
+data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ)	data:,Hello,%20world!Hello,%20world!
+
+# TODO: Same, but using an active: URI
