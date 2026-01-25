@@ -2,19 +2,24 @@
 (import (chicken irregex)
         (chicken io))
 
-;; TestCase = ('test-case input-uri expected-result-uri)
-
 (define (is-comment-or-blank? line)
   (irregex-match "^\\s*(?:#.*)?$" line))
 
 (define tab-re (irregex "\t"))
 
-(define (parse-test-case-tsv-line line callback)
-  (if (not (is-comment-or-blank? line))
+(define-record-type test-case
+  (make-test-case source-uri expected-result-uri)
+  test-case?
+  (source-uri test-case-source-uri)
+  (expected-result-uri test-case-expected-result-uri))
+
+(define (parse-test-case-tsv-line line)
+  (if (is-comment-or-blank? line)
+      '()
       (let* ((parts (irregex-split tab-re line)))
         (if (not (= (length parts) 2))
             (error (string-append "Malformed test case line: " line))
-            (callback `(test-case ,(list-ref parts 0) ,(list-ref parts 1)))))))
+            (list (make-test-case (list-ref parts 0) (list-ref parts 1)))))))
 
 (define data-uri-re (irregex "data:,(.*)"))
 (define (hex-decode hex)
@@ -24,7 +29,7 @@
     (lambda (match-data) (hex-decode (irregex-match-substring match-data 1)))))
 
 ;; TODO: Tests for uri-decode
-    
+
 (define (load-blob uri)
   ; (display (string-append "Loading " uri "...\n"))  
   (let ((match-data (irregex-match data-uri-re uri)))
@@ -52,23 +57,32 @@
   
 ; (display (string-append "Load..." (load-blob "data:,foo%20bar") "\n"))
 
-(define (run-test-case test-case)
-  (let* ((expression-source-uri (cadr test-case))
-         (expected-result-uri (caddr test-case))
-         (expected-result (load-blob expected-result-uri))
-         (expression-source (load-blob expression-source-uri)))
-  ; (display (string-append "test case: input URI = " expression-source-uri ", expected result = " expected-result-uri  "\n"))
-    (let ((result (eval-ts34p23-expression expression-source)))
-      (if (not (equal? result expected-result))
-        (error (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}"))))))
+(define-record-type test-result
+  (make-test-result test-case passed actual-value error-messages)
+  test-result?
+  (test-case test-result-test-case)
+  (passed test-result-passed)
+  (actual-value test-result-actual-value)
+  (error-messages test-result-error-messages))
 
-(define (run-test-cases-from-port port running-test-count)
+(define (run-test-case test-case)
+  (let* ((expression-source-uri (test-case-source-uri test-case))
+         (expected-result-uri (test-case-expected-result-uri test-case))
+         (expected-result (load-blob expected-result-uri))
+         (expression-source (load-blob expression-source-uri))
+         (result (eval-ts34p23-expression expression-source))
+         (result-matches-expected (equal? result expected-result))
+         (messages (if result-matches-expected '() (string-append "Expected {" expected-result "}, got {" result "} from {" expression-source "}"))))
+    (make-test-result test-case result-matches-expected result messages)))
+
+(define (run-test-cases-from-port port)
   (let ((line (read-line port)))
     (if (eof-object? line)
-      running-test-count
-      (begin
-        (parse-test-case-tsv-line line run-test-case)
-        (run-test-cases-from-port port (+ 1 running-test-count))))))
+      '()
+      (append
+        (let ((test-cases (parse-test-case-tsv-line line)))
+          (map run-test-case test-cases))
+        (run-test-cases-from-port port)))))
 
 (define (parse-args args)
   (list (cons 'input-files args)))
@@ -81,12 +95,18 @@
     (port-action (current-input-port))
     (call-with-input-file filename port-action)))
 
-(define (run-test-cases-from-file file) (call-with-input-pseudo-file file (lambda (port) (run-test-cases-from-port port 0))))
+(define (run-test-cases-from-file file)
+  (call-with-input-pseudo-file file run-test-cases-from-port))
 
 (define (main args)
   (let* ((config (parse-args args))
          (files (get-input-files config)))
-    (if (null? files)
-        (display "WARNING: no test case files were indicated\n")
-        (let ((test-result (foldl (lambda (c f) (+ c (run-test-cases-from-file f))) 0 files)))
-          (display (string-append (number->string test-result) " tests passed!\n"))))))
+    (let* ((test-results (foldl (lambda (results file) (append results (run-test-cases-from-file file))) '() files))
+           (_ (write test-results))
+           (totals (foldl (lambda (totals test-result)
+                            (let* ((failed-delta (if (test-result-passed test-result) 0 1))
+                                   (passed-delta (- 1 failed-delta)))
+                              (list (+ (car totals) failed-delta) (+ (cadr totals) passed-delta))))
+                          (list 0 0)
+                          test-results)))
+     (display (string-append (number->string (car totals)) " failed, " (number->string (cadr totals)) " passed" "\n")))))
