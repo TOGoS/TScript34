@@ -32,6 +32,7 @@
       (match-data (uri-decode (irregex-match-substring match-data 1)))
       ((string=? "urn:bitprint:3I42H3S6NNFQ2MSVX7XZKYAYSCX5QBYJ.LWPNACQDBZRYXW3VHJVCJ64QBZNGHOHHHZWCLNQ" uri) "")
       ((string=? "urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ" uri) "Hello, world!")
+      ((string=? "urn:bitprint:ABJE2DLXTZHB436YIDSU7TUZDUC7H4MG.SIY4YBEH5BVCK54P5C3LKODI5V4L36EFH3XVONQ" uri) "|data:,|")
       (else (error (string-append "Idk how to fetch '" uri "'"))))))
 ;(define (load-blob uri)
 ;  (error (string-append "I don't know how to load " uri)))
