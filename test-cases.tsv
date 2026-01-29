@@ -39,4 +39,5 @@ data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| |data:,a| |data:,b|)	d
 data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| |data:,a| |data:,b| |data:,c|)	data:,abc
 data:,(|http://ns.nuke24.net/TOGVM/Functions/Concatenate| urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ urn:bitprint:SQ5HALIG6NCZTLXB7DNI56PXFFQDDVUZ.276TET7NAXG7FVCDQWOENOX4VABJSZ4GBV7QATQ)	data:,Hello,%20world!Hello,%20world!
 
-# TODO: Same, but using an active: URI
+# Concatenation specified as an active URI
+# data:,|active:http://ns.nuke24.net/TOGVM/Functions/Concatenate+operand@data:,a+operand@data:,b|	data:,ab
