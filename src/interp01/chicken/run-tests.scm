@@ -53,7 +53,7 @@
         ((null? expr) (error "Can't eval empty list"))
         (else (let ((evaled-components (map eval-ts34p23-expression expr)))
           (eval evaled-components)))))
-    (else (error "Can't even non-list, non-symbol"))))
+    (else (error "Can't eval non-list, non-symbol"))))
 
 (define (eval-ts34p23-expression-source expression-string)
   (let ((expr (read (open-input-string expression-string))))
