@@ -260,3 +260,151 @@ ops to run procedures within a new dynamic context.
 Dynamic contexts could consist of variables (
 
 It might make sense to protoype this all in Scheme.
+
+
+** [2026-04-24] Decisions when inventing a language
+
+I realized that one reason I tend to be unable to flesh out a programming language
+is that there are fundamental decisions to make up front that will guide the design of
+the language and the implementation, but that I am not making.
+
+*** Design parameters
+
+- Value semantics
+- Polymorphism
+- Function calling convention
+- Effect system
+- Laziness
+
+**** Value semantics
+
+What *is* a value?
+
+Can different types of values be differentiated at runtime?
+
+Is the meaning of a value defined by its representation in bits (like in C),
+by its representation in some 'primitive' fundamental data structure
+(like in JavaScript / Lisp / OpenSCAD),
+or is it more abstract (like ADTs, or functions in Lambda Calculus)?
+
+Where is the 'meaning' of a value defined?
+
+Current opinion: minimize runtime semantics.
+ADTs and typeclasses do this nicely.
+If you want a dynamic language with runtime reflection,
+you can build that on top!
+
+**** Polymorphism
+
+If a variable is specified to be of a given type,
+can there be multiple implementations of that type,
+defined separately from the type's definition?
+
+Must those implementations be known at compile-time,
+or can new implementations be fabricated at runtime?
+
+Are implementations themselves represented as types?
+
+Can the implementation be reflected upon at runtime?
+
+Or is the implementation purely abstract as far as users are concerned?
+
+Some cases to think about:
+- Do we allow different representations of 'string', e.g.
+  to efficiently encode repetition?
+- Do we allow different representations of abstract concepts,
+  like 'your cousin Bob', that have different properties
+  (e.g. NamedPerson or SSNIdentifiedPerson), but 
+  the same conceptual meaning?
+
+I am drawn to Haskell/Idris/etc's typeclasses.
+They allow for multiple implementations of an interface,
+but in a way that can be reasoned about at compile time,
+so that the runtime doesn't necessarily need to be complected
+with dispatch semantics.  Purely abstract values like Bob are fine,
+so long as you don't need to query them for specific information!
+Or, if you do, they need to be paired with functions to retrieve it.
+
+**** Function calling convention
+
+Aside from 'what do the arguments mean', which is covered by 'value semantics',
+there are multiple decisions to be made about what a 'regular' function call in the language means:
+
+Do functions take multiple arguments (C, Lisp, etc), or just one,
+where multiple arguments are implemented by currying (Haskell, etc).
+
+Can functions return multiple values?  Can return values also be named?
+
+Note that multi-argument function calls can be transformed into single-argument
+function calls by wrapping all the arguments in a single 'arguments' data structure.
+
+My current thinking is that defining functions as taking a single argument
+and returning a single value and then implementing multi-argument functions
+by wrapping in a struct (and/or currying) is conceptually simpler than going
+the other way, because multiple arguments are inherently more complex.
+
+**** Effect system
+
+Can expressions execute effects as a side-effect of evaluation?
+
+If no, how are effects represented?  IO monads?
+
+If yes, are the effects a given expression can execute known at compile-time?
+
+It is 'safe' to evaluate a program that is known not to do side-effects?
+
+How are effect handlers registered?
+
+Do effect-ful functions need to 'return' at all, or is returning just another effect?
+In which case, are functions allowed to return multiple times,
+and what does that mean?
+
+Current thinking: Unison-style managed effects are the most general case;
+effect monads can be defined in terms of those effects,
+effect-ful expressions can be wrapped in expressions that handle the effects
+to turn them into pure functions, and purely functional code simply
+prohibit calling into effect-ful code.
+
+Returning can in theory be implemented as an effect, but:
+- normally you want the constraint that once a function returns, it is done,
+  and can't go on to return again
+- evaluating an expression is probably a more fundamental operation
+  than executing effects, so it should be defined separately in order
+  to avoid a chicken-and-egg problem.
+
+**** Laziness
+
+There are different aspects of laziness.
+
+Does ~foo(bar())~ calculate the result of ~bar~ before providing it to ~foo~?
+
+Does ~repeat("foo", 10000)~ have to allocate 30000 bytes of memory
+before it can return?  Or before you can inspect the value?
+
+I have long felt that allowing expressions to be evaluated lazily or not for
+performance reasons should be left to the compiler, but that if something
+must be lazy for program-to-work-at-all purposes, like mapping an infinite list to another infinite list,
+that laziness should be explicit, either in a way that is transparent to the structure
+of the program (like by annotating an expression or variable as to be lazily initialized,
+and letting the language handle it), or by declaring that there are no 'lazy expressions',
+just functions that can be called if/when you want the next value.
+
+*** Examples
+
+**** TOGVM
+
+TOGVM is designed to be abstract enough to support any value / call / effect model.
+But that may require defining new expression types.
+
+The expressions currently defined (as of 2026-04-25), especially given how
+~http://ns.nuke24.net/TOGVM/Expression/FunctionApplication~ is defined,
+seem to imply purely functional (no side effects) expression evaluation,
+where functions have multiple (possibly named) arguments and return a single value.
+
+**** Active URIs
+
+- Values may be abstract concepts, but are at least named by URI
+- Polymorphism therefore out of scope
+- Functions take multiple, always-named-and-also-ordered arguments (allowing re-use)
+- Single return value
+- Laziness allowed, and may be helpful in some situations, but not required
