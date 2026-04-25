@@ -408,3 +408,21 @@ where functions have multiple (possibly named) arguments and return a single val
 - Functions take multiple, always-named-and-also-ordered arguments (allowing re-use)
 - Single return value
 - Laziness allowed, and may be helpful in some situations, but not required
+
+*** Other thoughts
+
+It may be best to aim for the far ends.
+- Low-level languages that are 'strict', little-to-no decisions to make at runtime,
+  and have very obvious runtime semantics
+- High-level languages that are abstract, where the definition of values might
+  not be known until runtime, and where laziness is implied
+
+High-level languages can be implemented in low-level languages.
+
+It is hard to implement languages in terms of medium-level languages,
+because they provide some, but not all, of the machinery needed,
+making it hard to decide 'where the foundation should be'.
+e.g. Java provides polymorphism, futures, and stream types
+that feel high-level (and heavy), but don't *quite* map to things I tend to want
+in higher-level languages, so that I end up having to wrap them in ways that
+feel expensive and non-idiomatic.
